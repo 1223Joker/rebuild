@@ -12,15 +12,15 @@ Related: [ADR 0003 determinism](decisions/0003-mapgen-determinism.md) · [ADR 00
 |---|---|---|---|
 | `Seed` | `ulong` | random | |
 | `Size` | S 192², M 256², L 384², XL 512² tiles | M | XL = brief's largest, [USER-ANSWERS](handoff/USER-ANSWERS.md) Q8 |
-| `PlayerCount` | 2–8 (non-monster slots that need a start) | 2 | |
-| `TeamLayout` | team id per start (e.g. `[0,0,1,1]`) | FFA | teammates get adjacent starts |
+| `PlayerCount` | 2–8 (non-monster slots that need a start); **S: max 6** | 2 | 8 start zones (r = 28) do not fit on the start ring of a 192² map (decided in M1) |
+| `TeamLayout` | team id per start (e.g. `[0,0,1,1]`), packed 4 bits per start | FFA | teammates get adjacent starts |
 | `TerrainMix` | % water / mountains / forest / plains, sum 100 | 15/15/25/45 | exact via quantiles (§3 step 4) |
 | `ResourceDensity` | Low / Normal / High | Normal | scales deposit count & size outside start zones |
 | `Symmetry` | None / Mirror (2 starts or 2 teams) / Rotational (4 starts) / Equalized (any count) | Equalized | §4 |
 | `MonsterDensity` | None / Low / Medium / High | None (PvP), Medium (PvPvE) | number of lairs, see [04-game-modes](04-game-modes.md) |
 | `GeneratorVersion` | `ushort` | current | bump on any algorithm change |
 
-**Share code:** `MapSpec` is packed to bytes and encoded as Crockford base32 with a checksum, e.g. `RB1-7Q3K-…`. Copy/paste of this one string reproduces seed + all parameters + version ([ORIGINAL-BRIEF §3](handoff/ORIGINAL-BRIEF.md) "seed copyable and shareable").
+**Share code:** `MapSpec` is packed to bytes (canonical, format v2: 23 bytes) plus a 16-bit checksum and encoded as [Crockford base32](https://www.crockford.com/base32.html) in groups of 5, e.g. `RB-080G0-00000-…` (40 characters). Decoding ignores case, `-` and spaces and reads I/L as 1, O as 0; a typo fails the checksum. Copy/paste of this one string reproduces seed + all parameters + version ([ORIGINAL-BRIEF §3](handoff/ORIGINAL-BRIEF.md) "seed copyable and shareable").
 
 ## 3. Pipeline
 ```mermaid
@@ -44,13 +44,14 @@ flowchart TB
 |---|---|---|
 | 1 | RNG streams | `s = SplitMix64(Seed ^ attempt·φ)`; independent `Pcg32` streams per step (starts, elevation, moisture, resources, lairs) so tuning one step does not reshuffle others ([ADR 0006](decisions/0006-sim-core-conventions.md)). |
 | 2 | Starts | Positions on an ellipse at radius ≈ 0.35·size with angular jitter; teams occupy contiguous angle sectors; min distance `Dmin = size·0.6/√players` (ASSUMPTION, tuned in spike S4). Symmetric modes place one start in the fundamental domain and map it. |
+| 2b | Land corridors (added in M1) | Elevation is pulled to the plateau level along the segments between ring-adjacent starts (full within 3 tiles, fading out at 9), faded in only outside `Rf` → neighbours are connected (F7) by near-straight paths (F8). Without corridors the first-attempt pass rate was 30–80 %. |
 | 3 | Elevation | Integer value noise: lattice values from a 32-bit integer hash of `(x, y, seed)` ([Eiserloh, GDC 2017](https://www.gdcvault.com/play/1024365/Math-for-Game-Programmers-Noise)); integer smoothstep interpolation; 5 octaves fBm summed in `int`. Approach per [Red Blob Games — terrain from noise](https://www.redblobgames.com/maps/terrain-from-noise/). Radial plateau (flat, buildable land) blended in around each start (radius `Rstart` = 20 tiles). |
 | 4 | Quantile classification | Integer histogram of elevations; thresholds chosen so the water and mountain shares match `TerrainMix` exactly (±0.5 %). |
 | 5 | Moisture | Second noise field; among non-water/non-mountain tiles, the most moist `forest%` become forest (trees), rest plains. |
-| 6 | Symmetry | *Mirror/Rotational*: generate fundamental domain, copy mirrored/rotated (exact). *Equalized*: one start-zone template (radius `Rzone` = 28) generated once and stamped (rotated in 90° steps) at every start, blended into the surrounding random terrain. *None*: no stamping (fairness still validated). |
+| 6 | Symmetry | *Mirror/Rotational*: continuous fields (elevation, moisture) are averaged over each symmetry orbit (exact symmetry without seams); after resources the discrete layers are copied from the fundamental domain (exact). The start-zone template below is used too, so teammates (not only images) get equal zones. *Equalized*: one start-zone template (radius `Rzone` = 28) generated once and stamped (rotated in 90° steps, local +x toward the centre) at every start: plateau → template over 20–28, → random terrain over 24–28, so everything within `Rf` = 24 depends only on the template. Template elevation is clamped to the land band, natural forest is suppressed on the plateau. *None*: no template (plateau and step 7 still apply; fairness still validated — first-attempt pass ≈ 55 %, all maps pass within retries). |
 | 7 | Guaranteed start resources | In each start zone deterministic placement of: forest patch, stone outcrop, small mountain with coal + iron (+ gold on L/XL), fish pond or coast, game animals, fertile plains. Positions relative to the start, rotated per start. |
 | 8 | Global resources | Deposits via Bridson Poisson-disc sampling on an integer grid ([Bridson 2007](https://www.cs.ubc.ca/~rbridson/docs/bridson-siggraph07-poissondisk.pdf), [Red Blob — point sets](https://www.redblobgames.com/x/1830-jittered-grid/)); ore only in mountains, stone on hills/mountain edges, fish in water near land; count × `ResourceDensity`. |
-| 9 | Neutral zones & lairs | Multi-source BFS distance field from all starts (integer). Neutral zone = land tiles with distance ≥ `Lmin` (default 40 tiles). Lairs placed by Poisson-disc in neutral zones, count from `MonsterDensity` × map area; preference for maxima of the distance field that are **equidistant** to starts. |
+| 9 | Neutral zones & lairs | As built: per-start octile path fields; first one lair per start at path distance ≈ `Lmin` + 10 that is nearer to that start than to any other (F9 balance; on symmetric maps its images serve the image starts), then the rest by equidistance score among Poisson-disc points at ≥ `Lmin` + 20, ≥ 32 tiles apart. Count = max(starts, 1/2/3 per 128² for Low/Medium/High) (ASSUMPTION). Original plan: multi-source BFS distance field from all starts (integer). Neutral zone = land tiles with distance ≥ `Lmin` (default 40 tiles). Lairs placed by Poisson-disc in neutral zones, count from `MonsterDensity` × map area; preference for maxima of the distance field that are **equidistant** to starts. |
 | 10 | Derived layers | Walkable (land, slope ≤ 2 height units to neighbours), buildable (walkable + slope ≤ 1 + free of objects), region id per land component. |
 | 11 | Validate | See §5. |
 | 12 | Output | `MapData` layers + `MapHash = XxHash64(canonical serialization)`. |
@@ -66,10 +67,10 @@ Applied to every start `i`, radius `Rf = 24` tiles (ASSUMPTION, tune in spike S4
 | F2 Buildable land | buildable tiles within `Rf` | ≥ 600 and max/min ratio across starts ≤ 1.10 |
 | F3 Wood | tree count within `Rf` | ≥ 80 and ratio ≤ 1.10 |
 | F4 Stone | stone units within `Rf` | ≥ 60 and ratio ≤ 1.10 |
-| F5 Ore | coal + iron deposit units within `Rf + 8` (mountains may sit at edge) | each ≥ threshold, ratio ≤ 1.15 |
-| F6 Food | fish units + game + fertile tiles within `Rf` | ≥ threshold, ratio ≤ 1.15 |
+| F5 Ore | coal + iron deposit units within `Rf + 8` (mountains may sit at edge) | each ≥ 100 (ASSUMPTION), ratio ≤ 1.15 |
+| F6 Food | fish units + 10 per game animal + fertile tiles within `Rf` | ≥ 100 (ASSUMPTION), ratio ≤ 1.15 |
 | F7 Connectivity | all starts in the same land region (flood fill) | required |
-| F8 Opponent path fairness | land path length (A*, [06-economy](06-economy.md)) from each start to its nearest enemy start | max/min ≤ 1.20 |
+| F8 Opponent path fairness | octile land path length (Dial's bucket queue, 10/14 costs) from each **team** to its nearest enemy start (= per start in FFA; in team games inner starts of a team sector are farther by design) | max/min ≤ 1.20 |
 | F9 Lair distance | min distance start → lair | ≥ `Lmin`; max/min across starts of nearest-lair distance ≤ 1.25 |
 | F10 Lair reachability | every lair reachable by land from some start | required |
 | F11 Terrain mix | realised % vs requested | within ±2 % |
@@ -99,6 +100,18 @@ Symmetric (mirror/rotational) maps pass F2–F6, F8, F9 by construction; checks 
 Measured by `Rebuild.Tools mapgen --bench` in nightly CI ([08-testing](08-testing.md)).
 
 ## 8. Tests
-- **Golden hashes**: `tests/golden/mapgen.json` with ~24 `(MapSpec → MapHash)` cases covering all sizes, player counts 2–8, every symmetry, monster densities. Must pass identically on Windows x64, macOS ARM64, Linux x64 ([08-testing](08-testing.md)). Any intentional change → bump `GeneratorVersion` and regenerate goldens in the same commit.
+- **Golden hashes**: `tests/golden/mapgen.json` lists 24 `MapSpec` cases; their `map <name> <attempts> <MapHash>` lines are in `tests/golden/hashes.txt` (output of `rebuild-tools hashes`, compared across runners by CI) together with `generator <MapGenerator.Version>`; covering all sizes, player counts 2–8, every symmetry, monster densities. Must pass identically on Windows x64, macOS ARM64, Linux x64 ([08-testing](08-testing.md)). Any intentional change → bump `GeneratorVersion` and regenerate goldens in the same commit.
 - **Property tests** (nightly, 1 000 seeds/size): validation passes after retries; metrics within bounds; runtime within targets.
 - **Noise unit tests**: integer hash and fBm output against checked-in reference values.
+
+## 9. Implementation status (M1, 2026-10-02)
+Code: `src/Rebuild.Sim/MapGen/` (`MapGenerator`, `MapValidator`, `IntNoise`/`IntTrig`, `PoissonDisc`, `MapData`, `ShareCode`); spec: `src/Rebuild.Sim/Match/MapSpec.cs`; CLI: `rebuild-tools mapgen` (PNG preview, `--stats`); tests: `tests/Rebuild.Sim.Tests/MapGenTests.cs`.
+
+| Target (§7) | Measured (Linux x64 cloud container, Release, single thread; reference-machine numbers still to be taken) |
+|---|---|
+| First-attempt pass ≥ 90 % (1 000 seeds) | 99.5–100 % for S-4 (monsters), M-8, M-2 Mirror, M-4 Rotational 2v2, L-6 3v3, XL-8; 100 % within 16 attempts |
+| XL 8 players one attempt ≤ 1.5 s | mean 234 ms, p99 301 ms |
+| M one attempt ≤ 0.4 s | mean 27–38 ms |
+| Peak memory XL ≤ 64 MB | not measured; ≈ 20 MB of arrays by construction (estimate) |
+
+Integer heights: water 4, land 10–22, mountains 23–46 (gentle enough that ~80 % of mountain tiles are walkable); fertile share 6 % of tiles (ASSUMPTION). Not done yet: `.rbmap` save/load files (§6, with the lobby in M5), lobby preview/hash check (M5), measurement on the reference Mac.

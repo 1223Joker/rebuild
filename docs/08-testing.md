@@ -13,7 +13,7 @@ Related: [01-architecture](01-architecture.md) · [02-networking §4 desync](02-
 | Static guards | banned float/thread/unordered APIs in Sim, Ai | [BannedApiAnalyzers](https://github.com/dotnet/roslyn-analyzers/blob/main/src/Microsoft.CodeAnalysis.BannedApiAnalyzers/BannedApiAnalyzers.Help.md) + `Rebuild.Analyzers` (warnings = errors) | every build |
 | Unit | `Fix`, `Pcg32`, integer noise, A*/HPA*, logistics matching, combat | xUnit | every push |
 | Property | `Fix` vs `BigInteger` oracle; serialization round-trip; HPA* path length ≤ 1.01 × A*; mapgen validation after retries | [FsCheck](https://github.com/fscheck/FsCheck) (xUnit integration) | every push (100 cases), nightly (10 000) |
-| **Golden map hashes** | `MapSpec → MapHash`, ~24 cases | `tests/golden/mapgen.json` | every push, all OS |
+| **Golden map hashes** | `MapSpec → MapHash`, 24 cases | cases `tests/golden/mapgen.json`, expected `map` lines in `tests/golden/hashes.txt` | every push, all OS |
 | **Determinism (in-process)** | run a command log twice from scratch → identical per-turn hash sequence | `Rebuild.Tools replay` | every push |
 | **Save/load equivalence** | run N turns → save → load → run M turns; hash must equal an uninterrupted N+M run | xUnit | every push |
 | **Golden replays** | checked-in command logs + expected per-100-turn hashes | `tests/golden/replays/*.rblog` | every push, all OS |
@@ -40,7 +40,7 @@ flowchart LR
 ```
 - On mismatch the test writes text dumps at the first differing turn and runs `desync-diff`, which prints the first differing entity/field ([02-networking §4](02-networking.md); approach used by Widelands syncstreams and *Realms of Ruin* ([GDC 2024 Pollard](https://media.gdcvault.com/gdc2024/Slides/GDC+slide+presentations/Pollard_Bradley_CrossPlatformDeterminism+2024-03-26+09.34.19.pdf))).
 - **Build-config matrix**: Debug and Release must produce the same hashes (catches optimizer-dependent behaviour; [Gaffer — Floating Point Determinism](https://gafferongames.com/post/floating_point_determinism/) documents debug/release divergence for floats).
-- **Golden updates** are allowed only together with a `GameVersion`/`GeneratorVersion` bump in the same commit; CI rejects golden changes without a version bump.
+- **Golden updates** are allowed only together with a `GameVersion`/`GeneratorVersion` bump in the same commit; CI rejects golden changes without a version bump (job `golden-version`, [tools/ci/check-golden-version.sh](../tools/ci/check-golden-version.sh); new entries need no bump).
 
 ## 4. Cross-platform CI (GitHub Actions)
 | Runner | Arch | Purpose |
@@ -51,7 +51,7 @@ flowchart LR
 | `macos-15-intel` | x64 | golden hashes + replays (Intel macOS). GitHub supports Intel macOS runners only until ~Aug 2027 ([GitHub changelog](https://github.blog/changelog/2025-09-19-github-actions-macos-13-runner-image-is-closing-down/)); afterwards run x64 tests under Rosetta 2 on arm64 runners. |
 
 - Godot + .NET setup via [chickensoft-games/setup-godot](https://github.com/chickensoft-games/setup-godot).
-- Cross-OS hash equality: every job uploads `hashes.json` (golden map hashes + replay hash sequences); a final job downloads all and asserts byte equality across the four runners.
+- Cross-OS hash equality: every job uploads the output of `rebuild-tools hashes` (probe, final replay hashes, golden map hashes); a final job downloads all and asserts byte equality across the four runners.
 - Nightly: property tests (10 000 cases), mapgen 1 000-seed sweep per size, AI soak (e.g. 40 matches), performance benchmarks, exports for all three OS.
 
 ## 5. Replay tests

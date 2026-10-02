@@ -1,0 +1,38 @@
+name: Nightly
+
+# Map generator property run (docs/03-mapgen.md §7–8): 1 000 seeds per size, every map must pass validation within
+# 16 attempts and >= 90 % on the first attempt. Timings are printed for trend tracking only (runner speed varies;
+# the targets are measured on the reference machine).
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+env:
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+
+jobs:
+  mapgen:
+    name: mapgen (${{ matrix.spec.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        spec:
+          - { name: S-4, args: "--size S --players 4 --monsters Medium" }
+          - { name: M-8, args: "--size M --players 8" }
+          - { name: M-2-mirror, args: "--size M --players 2 --symmetry Mirror --monsters Low" }
+          - { name: M-4-rotational, args: "--size M --players 4 --symmetry Rotational --teams 0,0,1,1" }
+          - { name: L-6, args: "--size L --players 6 --teams 0,0,0,1,1,1 --monsters High" }
+          - { name: XL-8, args: "--size XL --players 8 --monsters Medium" }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.x
+          global-json-file: global.json
+      - name: Build
+        run: dotnet build src/Rebuild.Tools -c Release
+      - name: 1 000 seeds
+        run: dotnet run --project src/Rebuild.Tools -c Release --no-build -- mapgen ${{ matrix.spec.args }} --seed 1000000 --stats 1000 --min-first-pass 90

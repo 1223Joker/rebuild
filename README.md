@@ -13,13 +13,16 @@ dotnet test
 
 ```bash
 dotnet run --project src/Rebuild.Tools -- probe
+dotnet run --project src/Rebuild.Tools -c Release -- mapgen --seed 7 --size L --players 4 --teams 0,0,1,1 --symmetry Mirror --png map.png
+dotnet run --project src/Rebuild.Tools -c Release -- mapgen --code RB-… --stats 200
 ```
 
 | Path | Contents |
 |---|---|
 | `src/Rebuild.Sim` | deterministic simulation (no Godot, no floats, no threads) |
 | `src/Rebuild.Analyzers` | determinism analyzers (RB0001–RB0004) + culture data source generator |
-| `src/Rebuild.Tools` | headless CLI: `probe`, `replay`, `sample-log`, `hashes` |
+| `src/Rebuild.Sim/MapGen` | seed-based map generator + fairness validation ([docs/03-mapgen.md](docs/03-mapgen.md)) |
+| `src/Rebuild.Tools` | headless CLI: `probe`, `replay`, `sample-log`, `hashes`, `mapgen` |
 | `data/cultures/<id>/culture.json` | culture data, compiled into C# at build time |
-| `tests/` | xUnit/FsCheck tests and golden hashes/replays |
+| `tests/` | xUnit/FsCheck tests and golden hashes/replays/map cases (`tests/golden/`) |
 | `tools/ci/` | CI helper scripts |
