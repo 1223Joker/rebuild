@@ -15,3 +15,4 @@ Every answer, instruction or preference the user gives, recorded as close to the
 | 2026-10-02 | Q8 Scale | Scale targets? | "Up to 8 players, ~512×512 tiles" — thousands of settlers per match. |
 | 2026-10-02 | Q9 Monsters | How should neutral monsters behave? | "Escalating waves" — pressure increases over time, PvE survival flavor. |
 | 2026-10-02 | Q10 MP extras | Which multiplayer comfort features are required beyond pause/disconnect/reconnect? | "Save/load multiplayer games", "AI takes over disconnected player", "Game speed control". (Not selected: spectators / replay viewer.) |
+| 2026-10-02 | Execution plan | Agent proposed: commit setup, record answers, write ADRs then docs 00–09, open-questions, glossary, handoff test, summary, stop. | Approved the plan (no changes requested). |

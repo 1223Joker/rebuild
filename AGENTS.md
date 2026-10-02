@@ -31,13 +31,14 @@ docs/
   00-vision.md … 09-roadmap.md   planning deliverables
   open-questions.md        decisions the user still has to make
   decisions/               ADRs
-  handoff/                 ORIGINAL-BRIEF, STATUS, USER-ANSWERS, DECISIONS-LOG, GLOSSARY
+  handoff/                 ORIGINAL-BRIEF, STATUS, USER-ANSWERS, DECISIONS-LOG, GLOSSARY, RESEARCH-NOTES
 ```
-(Code layout is defined in `docs/01-architecture.md` once written.)
+Planned code layout (`src/`, `client/`, `data/`, `tests/`): [docs/01-architecture.md §9](docs/01-architecture.md).
 
 ## Start here (reading order)
 1. [docs/handoff/STATUS.md](docs/handoff/STATUS.md) — where the project is and what to do next.
 2. [docs/handoff/USER-ANSWERS.md](docs/handoff/USER-ANSWERS.md) — user decisions that override defaults.
 3. [docs/handoff/ORIGINAL-BRIEF.md](docs/handoff/ORIGINAL-BRIEF.md) — the full brief and process.
 4. [docs/handoff/DECISIONS-LOG.md](docs/handoff/DECISIONS-LOG.md) and `docs/decisions/` — what is decided/proposed.
-5. The planning documents linked from STATUS.md; [docs/handoff/GLOSSARY.md](docs/handoff/GLOSSARY.md) for terms.
+5. [docs/open-questions.md](docs/open-questions.md) — everything still waiting for the user.
+6. The planning documents `docs/00-vision.md` … `docs/09-roadmap.md` (linked from STATUS.md); [docs/handoff/GLOSSARY.md](docs/handoff/GLOSSARY.md) for terms; [docs/handoff/RESEARCH-NOTES.md](docs/handoff/RESEARCH-NOTES.md) for sources.
