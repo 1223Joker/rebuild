@@ -38,3 +38,5 @@ Chronological one-liners. Format: `date | decision | status | link`. Status: `pr
 | 2026-10-02 | Linux: CI determinism tests from day one, Linux release with Steam release or later | approved by user | [USER-ANSWERS](USER-ANSWERS.md) |
 | 2026-10-02 | Data-driven culture system (shared core + per-culture data + fixed hook catalogue) | proposed | [ADR 0007](../decisions/0007-culture-system.md) |
 | 2026-10-02 | Combat: attack-type × armour-class table, delayed-hit projectiles, tile occupancy, gate-filtered HPA*, 400 soldiers/player cap | proposed | [ADR 0008](../decisions/0008-combat-model.md) |
+| 2026-10-02 | Unit roster: 5 base + 7 culture units; damage table; palisade/stone wall/gate/wall tower rules; first LAN build = Swordsman, Spearman, Archer | proposed | [11-military](../11-military.md) |
+| 2026-10-02 | 4 cultures proposed: Rivermen (baseline, first LAN build), Highlanders, Woodfolk, Riders | proposed | [10-cultures](../10-cultures.md) |
