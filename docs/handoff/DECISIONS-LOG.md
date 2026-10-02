@@ -33,3 +33,8 @@ Chronological one-liners. Format: `date | decision | status | link`. Status: `pr
 | 2026-10-02 | Allies share vision; visual fog of war in MVP via deterministic `VisibilitySystem` (added to M4, +1.5 w) | approved by user (fog); implementation proposed | [04-game-modes](../04-game-modes.md) §1 |
 | 2026-10-02 | Reference machine = developer's Apple Silicon Mac (only owned test machine); Windows/Linux via CI + extra hardware later | approved by user (machines); approach proposed | [01-architecture](../01-architecture.md) §3 |
 | 2026-10-02 | Remaining recommendations accepted (C4–C8, D3–D5, E2–E4, F1, F3, G1–G2) | approved by user | [open-questions](../open-questions.md) |
+| 2026-10-02 | First LAN build: 1 culture, 2–3 warrior types, no walls; then expand | approved by user | [USER-ANSWERS](USER-ANSWERS.md) |
+| 2026-10-02 | 4 cultures, S4-style depth; direct unit control; walls + gates, wall towers, siege, palisades | approved by user | [USER-ANSWERS](USER-ANSWERS.md) |
+| 2026-10-02 | Linux: CI determinism tests from day one, Linux release with Steam release or later | approved by user | [USER-ANSWERS](USER-ANSWERS.md) |
+| 2026-10-02 | Data-driven culture system (shared core + per-culture data + fixed hook catalogue) | proposed | [ADR 0007](../decisions/0007-culture-system.md) |
+| 2026-10-02 | Combat: attack-type × armour-class table, delayed-hit projectiles, tile occupancy, gate-filtered HPA*, 400 soldiers/player cap | proposed | [ADR 0008](../decisions/0008-combat-model.md) |

@@ -12,3 +12,5 @@ File name: `NNNN-kebab-title.md`. Never rewrite an approved ADR; supersede it wi
 | [0004](0004-internet-transport.md) | Internet transport: Steam vs custom relay vs port forwarding | approved |
 | [0005](0005-rendering-2d-vs-3d.md) | Rendering: isometric 2D vs low-poly 3D | approved |
 | [0006](0006-sim-core-conventions.md) | Simulation core conventions: tick rate, grid, RNG, state hash | approved |
+| [0007](0007-culture-system.md) | Culture system: data-driven cultures on a shared core | proposed |
+| [0008](0008-combat-model.md) | Combat model: direct control, typed units, walls and siege | proposed |
