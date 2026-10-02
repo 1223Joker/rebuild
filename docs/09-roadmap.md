@@ -4,7 +4,7 @@
 
 **Gates**
 - ADRs 0001–0008 approved 2026-10-02.
-- Spikes are **not permitted yet** (user: "No spikes yet" and again "Not yet", 2026-10-02) — ask again before S1.
+- Implementation permitted 2026-10-02. Order chosen by the user: **M0 directly, S1 folded in** — S1's sim half is part of M0; S1's Godot export check runs at the start of M3. S2–S5 run as needed before the milestones they de-risk (S4 → M1, S5 → M2/M4, S2 → M3, S3 → M5).
 
 **Priority (user, 2026-10-02):** "first of all its important to have a working version with lan support, after that comes steam and so on". The first LAN build has **1 culture, 2–3 warrior types, no walls**. After the LAN Alpha come **cultures & war first, then Steam** (user, 2026-10-02: "Cultures & walls first"). Linux: CI from day one, shipped in phase E. Scope accepted; cuts to be reconsidered after the LAN Alpha.
 

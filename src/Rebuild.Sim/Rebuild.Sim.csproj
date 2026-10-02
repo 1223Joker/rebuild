@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Deterministic simulation: no Godot, no floats, no threads (ADR 0001, 0002, 0006). -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Rebuild.Sim</RootNamespace>
+    <RebuildDeterministic>true</RebuildDeterministic>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.IO.Hashing" Version="8.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <AdditionalFiles Include="../../data/cultures/*/culture.json" />
+    <InternalsVisibleTo Include="Rebuild.Sim.Tests" />
+  </ItemGroup>
+</Project>

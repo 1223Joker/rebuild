@@ -1,0 +1,24 @@
+T:System.Random;Use Rebuild.Sim.Core.Pcg32 (seeded, deterministic) instead
+T:System.DateTime;Wall-clock time is non-deterministic; use ticks from the sim state
+T:System.DateTimeOffset;Wall-clock time is non-deterministic; use ticks from the sim state
+T:System.Diagnostics.Stopwatch;Timing is non-deterministic; budgets are work units (docs/05-ai.md §3)
+P:System.Environment.TickCount;Timing is non-deterministic
+P:System.Environment.TickCount64;Timing is non-deterministic
+M:System.Guid.NewGuid;Use incrementing entity ids (ADR 0006)
+T:System.MathF;Floating point is banned in the simulation (ADR 0002)
+T:System.Threading.Thread;No threads inside the simulation (ADR 0006)
+T:System.Threading.ThreadPool;No threads inside the simulation (ADR 0006)
+T:System.Threading.Timer;No threads inside the simulation (ADR 0006)
+T:System.Threading.Tasks.Task;No tasks inside the simulation (ADR 0006)
+T:System.Threading.Tasks.Task`1;No tasks inside the simulation (ADR 0006)
+T:System.Threading.Tasks.ValueTask;No tasks inside the simulation (ADR 0006)
+T:System.Threading.Tasks.ValueTask`1;No tasks inside the simulation (ADR 0006)
+T:System.Threading.Tasks.Parallel;No parallelism inside the simulation (ADR 0006)
+T:System.Collections.Hashtable;Unordered container; use arrays, List<T> or SortedDictionary
+P:System.Collections.Generic.Dictionary`2.Keys;Dictionary order is unspecified; lookup only (ADR 0006)
+P:System.Collections.Generic.Dictionary`2.Values;Dictionary order is unspecified; lookup only (ADR 0006)
+M:System.Collections.Generic.Dictionary`2.GetEnumerator;Dictionary order is unspecified; lookup only (ADR 0006)
+M:System.Collections.Generic.HashSet`1.GetEnumerator;HashSet order is unspecified; lookup only (ADR 0006)
+M:System.String.GetHashCode;String hash codes are randomized per process; never use them as data
+M:System.String.GetHashCode(System.StringComparison);String hash codes are randomized per process
+T:System.HashCode;HashCode is randomized per process; never use it as data

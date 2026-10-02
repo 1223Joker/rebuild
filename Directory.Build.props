@@ -1,0 +1,25 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>12.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Deterministic>true</Deterministic>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Overflow wraps (two's complement) and is documented where it matters; see ADR 0001/0002. -->
+    <CheckForOverflowUnderflow>false</CheckForOverflowUnderflow>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <AnalysisLevel>latest</AnalysisLevel>
+  </PropertyGroup>
+
+  <!--
+    Projects that set <RebuildDeterministic>true</RebuildDeterministic> (Sim, later Ai) get the
+    determinism guards: BannedApiAnalyzers + Rebuild.Analyzers. See docs/01-architecture.md §2.
+  -->
+  <ItemGroup Condition="'$(RebuildDeterministic)' == 'true'">
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="3.3.4" PrivateAssets="all" />
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)src/BannedSymbols.txt" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Rebuild.Analyzers/Rebuild.Analyzers.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+</Project>

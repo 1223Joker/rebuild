@@ -1,0 +1,4 @@
+# LF everywhere: data files feed the data hash in GameVersion, which must match across OS.
+* text=auto eol=lf
+*.png binary
+*.rblog binary

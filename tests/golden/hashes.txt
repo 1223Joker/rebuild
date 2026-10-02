@@ -1,0 +1,5 @@
+# Expected output of `rebuild-tools hashes tests/golden`; identical on every OS/CPU/configuration.
+# Change only together with a GameVersion bump (docs/08-testing.md §3).
+version 0.1.0+fce73cb42908f005
+probe 33c88e85bfc149f8
+replay m0-meta.rblog 3000 e61562a5d61188b5

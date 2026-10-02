@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-10-02 — All open questions answered: ADR 0007/0008 approved, soldier cap 800, cultures & war before Steam, spikes still not permitted.
+**Last updated:** 2026-10-02 — Implementation started (user permission); M0 Foundations core in place: sim library, analyzers, culture data generator, tools CLI, 71 tests, CI workflow.
 
 ## Current phase / step
-Planning phase; ADRs 0001–0008 **all approved** (2026-10-02). First implementation goal: **LAN Alpha** (phase A, [09-roadmap](../09-roadmap.md)). **Still no code:** the user said "No spikes yet", so implementation and spikes wait for explicit permission. Process steps: [ORIGINAL-BRIEF.md §6](ORIGINAL-BRIEF.md).
+**Implementation, milestone M0 Foundations** ([09-roadmap](../09-roadmap.md)). The user permitted coding on 2026-10-02 and chose "M0 directly, S1 folded in": S1's sim half is covered by M0; S1's Godot .NET export check moves to the start of M3. Process steps: [ORIGINAL-BRIEF.md §6](ORIGINAL-BRIEF.md).
 
 ## Done
 - Step 0: git repo, [AGENTS.md](../../AGENTS.md), [CLAUDE.md](../../CLAUDE.md) (pointer), [ORIGINAL-BRIEF.md](ORIGINAL-BRIEF.md), this file.
@@ -39,18 +39,31 @@ Planning phase; ADRs 0001–0008 **all approved** (2026-10-02). First implementa
 
 - Final question round (2026-10-02): H1–H6, B1, F2 answered → ADR 0007/0008 approved; soldier cap 800 (combat budget 10 ms for 6 400 soldiers); roadmap order now A LAN Alpha → B Cultures & war → C Steam → D AI & monsters → E Release (milestones renumbered); spikes still "Not yet".
 
+- M0 Foundations, first pass (2026-10-02) — see [README.md](../../README.md) for layout and commands:
+
+| M0 item ([09-roadmap §3](../09-roadmap.md)) | State |
+|---|---|
+| Repo layout, `Rebuild.sln`, `global.json` (SDK 10 → `net8.0`), `Directory.Build.props` (warnings = errors, no overflow checks, no unsafe) | done |
+| Analyzers: BannedApiAnalyzers ([src/BannedSymbols.txt](../../src/BannedSymbols.txt)) + `Rebuild.Analyzers` RB0001 float, RB0002 unordered enumeration, RB0003 two RNG draws per statement, RB0004 async | done, tested |
+| `Fix` Q48.16, `IntMath` (floor div, exact isqrt), `Pcg32` (reference-vector tested), `SplitMix64`, RNG streams | done |
+| Canonical writer/reader, XxHash64 state hash, savegame format, save/load equivalence test | done |
+| `Command`, `CommandType` catalogue, `TurnBundle`, meta commands + validation, `.rblog` format, `Replay` | done |
+| Culture data loader: `data/cultures/rivermen/culture.json` → source generator → `CultureCatalog` + per-player tables; data hash in `GameVersion` | done (modifiers + hooks only; buildings/goods/units come with M2/M4) |
+| `Rebuild.Tools`: `version`, `probe`, `replay`, `sample-log`, `hashes` | done |
+| Golden values [tests/golden/hashes.txt](../../tests/golden/hashes.txt): 1 M-step probe + scripted 3 000-turn replay | done; identical in Debug and Release on the MacBook M5 |
+| CI ([.github/workflows/ci.yml](../../.github/workflows/ci.yml)): 4 runners × Debug/Release, float-ban check, cross-OS hash comparison | written, **never run**: the repo has no GitHub remote yet |
+
 ## In progress
-- Nothing. Waiting for the user.
+- Nothing running. M0 acceptance still open: "CI green on 4 runners" needs a GitHub remote.
 
 ## Next steps
-1. Nothing is blocking planning. Remaining items in [open-questions.md](../open-questions.md) are deferred by the user: B1 (spikes — wait until the user signals readiness), F2 (final art — after M3), H7 (soldier-cap fallback — after S5), H8 (scope cuts — after LAN Alpha). Record any answer verbatim in [USER-ANSWERS.md](USER-ANSWERS.md), update [DECISIONS-LOG.md](DECISIONS-LOG.md), commit.
-2. Only when spikes are permitted (B1): start with **S1** (Godot .NET export + determinism, [09-roadmap §2](../09-roadmap.md)) in a throwaway folder `spikes/s1-export/`; record results in a new `docs/spikes/S1.md`; commit.
-3. Then S2–S5, each with its own result note; adjust ADRs/roadmap with findings.
-4. After spikes and ADR approval: start milestone **M0 Foundations** ([09-roadmap §3](../09-roadmap.md)).
+1. User: create a (private) GitHub repo and add it as `origin`, then push; check that all 8 CI jobs and `cross-os-hashes` pass. Fix anything that differs per OS.
+2. M0 leftovers: CI rule "golden changes need a `GameVersion` bump" (not yet enforced); nightly workflow with more property cases.
+3. Start **M1 Map generation** ([03-mapgen](../03-mapgen.md)): expand `MapSpec` (bump its `FormatVersion`), integer noise, start placement, validation F1–F11, share code, `mapgen` CLI with PNG preview, 24 golden map hashes.
+4. Before M3: run S1's Godot part — install the Godot **.NET** edition (the installed `/Applications/Godot.app` 4.7.2 is the standard build without C#) and export a test project for macOS and Windows.
 
 ## Blockers / waiting for user approval
-- Permission for spikes S1–S5 / any implementation — B1 (user: "No spikes yet", 2026-10-02).
-- Nothing else; planning is complete and approved.
+- GitHub remote for CI (step 1).
 
 ## Dead ends (tried or rejected, and why)
 - Using Godot `FastNoiseLite` for the shared map: floats, not cross-platform deterministic → rejected ([ADR 0003](../decisions/0003-mapgen-determinism.md)); allowed for client cosmetics only.

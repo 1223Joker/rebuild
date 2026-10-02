@@ -1,0 +1,17 @@
+{
+  "$comment": "Baseline culture; values are integer percent of the shared core (docs/10-cultures.md §3.1). Working concept, balancing starting values.",
+  "id": "rivermen",
+  "name": "Rivermen",
+  "modifiers": {
+    "farm_yield": 125,
+    "fisher_yield": 125,
+    "mill_yield": 125,
+    "settler_production": 125,
+    "mine_yield": 80
+  },
+  "hooks": [
+    "resource_conversion",
+    "aura_bonus",
+    "spear_without_iron"
+  ]
+}
