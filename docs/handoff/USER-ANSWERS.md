@@ -48,3 +48,6 @@ Every answer, instruction or preference the user gives, recorded as close to the
 | 2026-10-02 | Start point | Spikes first, or M0 directly with S1's sim half folded in? | "M0 directly, S1 folded in (Recommended)" — Godot export part of S1 is checked later with the client. |
 | 2026-10-02 | Repository | — (unprompted) | "dokument it in your dokuments that you shoud use https://github.com/1223Joker/rebuild" — this private GitHub repo is the project remote (`origin`). |
 | 2026-10-02 | Next steps | — (unprompted) | "work on the next steps on the Projekt" — continue with the STATUS next steps (M0 leftovers, then M1 Map generation). |
+| 2026-10-02 | M1 design choices | Approve land corridors, per-team F8, max 6 starts on Small maps? | "1. is approved" |
+| 2026-10-02 | Reference-machine benchmark | Run `mapgen --size XL --players 8 --stats 100` on the MacBook M5 | 100/100 first-attempt pass; attempt mean 48 ms, p50 47, p99 56; map max 73 ms |
+| 2026-10-02 | S4 folded into M1 | May S4's map tuning be done as part of M1? | "what do you mean?" — clarification requested; still open |

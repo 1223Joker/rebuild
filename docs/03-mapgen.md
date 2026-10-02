@@ -107,11 +107,11 @@ Measured by `Rebuild.Tools mapgen --bench` in nightly CI ([08-testing](08-testin
 ## 9. Implementation status (M1, 2026-10-02)
 Code: `src/Rebuild.Sim/MapGen/` (`MapGenerator`, `MapValidator`, `IntNoise`/`IntTrig`, `PoissonDisc`, `MapData`, `ShareCode`); spec: `src/Rebuild.Sim/Match/MapSpec.cs`; CLI: `rebuild-tools mapgen` (PNG preview, `--stats`); tests: `tests/Rebuild.Sim.Tests/MapGenTests.cs`.
 
-| Target (§7) | Measured (Linux x64 cloud container, Release, single thread; reference-machine numbers still to be taken) |
+| Target (§7) | Measured (Release, single thread; reference machine = MacBook M5, 2026-10-02; else Linux x64 cloud container) |
 |---|---|
 | First-attempt pass ≥ 90 % (1 000 seeds) | 99.5–100 % for S-4 (monsters), M-8, M-2 Mirror, M-4 Rotational 2v2, L-6 3v3, XL-8; 100 % within 16 attempts |
-| XL 8 players one attempt ≤ 1.5 s | mean 234 ms, p99 301 ms |
+| XL 8 players one attempt ≤ 1.5 s | **MacBook M5: mean 48 ms, p99 56 ms, max map 73 ms** (100 seeds, 100 % first-attempt pass); Linux container: mean 234 ms, p99 301 ms |
 | M one attempt ≤ 0.4 s | mean 27–38 ms |
 | Peak memory XL ≤ 64 MB | not measured; ≈ 20 MB of arrays by construction (estimate) |
 
-Integer heights: water 4, land 10–22, mountains 23–46 (gentle enough that ~80 % of mountain tiles are walkable); fertile share 6 % of tiles (ASSUMPTION). Not done yet: `.rbmap` save/load files (§6, with the lobby in M5), lobby preview/hash check (M5), measurement on the reference Mac.
+Integer heights: water 4, land 10–22, mountains 23–46 (gentle enough that ~80 % of mountain tiles are walkable); fertile share 6 % of tiles (ASSUMPTION). Not done yet: `.rbmap` save/load files (§6, with the lobby in M5), lobby preview/hash check (M5).

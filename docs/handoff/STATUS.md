@@ -64,17 +64,17 @@
 | Validation F1–F11 + deterministic retry (16 attempts, `MapGenResult` with report on failure) | done |
 | Share code `RB-…` (Crockford base32 + checksum) | done |
 | `rebuild-tools mapgen` (report, `--png`, `--stats`, `--min-first-pass`) | done |
-| 24 golden map hashes (`tests/golden/mapgen.json` → `map` lines in `hashes.txt`) | done; identical in Debug and Release on Linux x64; **cross-OS confirmation pending** (next CI run) |
+| 24 golden map hashes (`tests/golden/mapgen.json` → `map` lines in `hashes.txt`) | done; **identical on all 4 runners × Debug/Release** (CI run 37073166996 green incl. `cross-os-hashes` and `golden-version`) |
 | Nightly 1 000 seeds/size ([.github/workflows/nightly.yml](../../.github/workflows/nightly.yml)) | added; local run: 99.5–100 % first-attempt pass |
-| Perf: XL attempt ≤ 1.5 s, p99 ≤ 4 s | 234 ms mean / 301 ms p99 per attempt on the Linux container; reference Mac not measured yet |
+| Perf: XL attempt ≤ 1.5 s, p99 ≤ 4 s | MacBook M5: 48 ms mean / 56 ms p99 (XL, 8 starts, 100 seeds) |
 | `.rbmap` save files, lobby preview & hash check | not started (belongs with the M5 lobby) |
 
 ## In progress
-- Waiting for the first CI run of the M1 commit on https://github.com/1223Joker/rebuild (4 runners × Debug/Release + `cross-os-hashes` + `golden-version`).
+- Nothing. M1 first pass complete and green on CI; corridor / per-team F8 / S ≤ 6 starts approved by the user.
 
 ## Next steps
-1. Check CI (`gh run list -R 1223Joker/rebuild`): if `cross-os-hashes` differs on any runner, the map generator has a platform dependency — find it before anything else; if an action major tag does not exist, step back one major.
-2. M1 polish: measure `mapgen --stats` on the reference Mac (MacBook M5) and record it in [03-mapgen §9](../03-mapgen.md); tune `Dmin`, `Rf`, `Lmin` and the ASSUMPTION thresholds (F5/F6 minimums, fertile share, lair counts) when gameplay exists (spike S4 is folded into M1 the same way S1 was folded into M0 — confirm with the user).
+1. Keep CI green (`gh run list -R 1223Joker/rebuild`).
+2. M1 polish: tune `Dmin`, `Rf`, `Lmin` and the ASSUMPTION thresholds (F5/F6 minimums, fertile share, lair counts) when gameplay exists (spike S4 folded into M1 the same way S1 was folded into M0 — asked the user 2026-10-02, answer pending; see USER-ANSWERS).
 3. Start **M2 Sim economy (headless)** ([06-economy](../06-economy.md)): `Simulation.Create` generates the map from `MatchSetup.Map` (store `MapHash` in the sim state), tiles/territory, first buildings, construction, carriers, A* + HPA*.
 4. Before M3: run S1's Godot part — install the Godot **.NET** edition (the installed `/Applications/Godot.app` 4.7.2 is the standard build without C#) and export a test project for macOS and Windows.
 
