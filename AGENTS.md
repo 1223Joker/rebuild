@@ -14,6 +14,10 @@ Single source of truth for any agent working in this repository. Tool-specific f
 - Art: small fixed palette, clear silhouettes, swappable; prototype with Kenney (CC0) assets.
 - Implementation permitted since 2026-10-02 ([USER-ANSWERS](docs/handoff/USER-ANSWERS.md)); keep the docs and ADRs in sync with the code.
 
+## Repository
+- Remote: **https://github.com/1223Joker/rebuild** (private; `origin`, default branch `main`). Use this repository for all pushes, CI runs, issues and pull requests (user, 2026-10-02).
+- CI runs there via GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)); check it with `gh run list -R 1223Joker/rebuild`.
+
 ## Conventions
 - Language: English for all documents, code identifiers and file names.
 - Docs: concise, tables for option comparisons, `ASSUMPTION:` marks assumptions, every technical recommendation cites a source link.

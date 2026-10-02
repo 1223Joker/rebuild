@@ -51,19 +51,19 @@
 | Culture data loader: `data/cultures/rivermen/culture.json` → source generator → `CultureCatalog` + per-player tables; data hash in `GameVersion` | done (modifiers + hooks only; buildings/goods/units come with M2/M4) |
 | `Rebuild.Tools`: `version`, `probe`, `replay`, `sample-log`, `hashes` | done |
 | Golden values [tests/golden/hashes.txt](../../tests/golden/hashes.txt): 1 M-step probe + scripted 3 000-turn replay | done; identical in Debug and Release on the MacBook M5 |
-| CI ([.github/workflows/ci.yml](../../.github/workflows/ci.yml)): 4 runners × Debug/Release, float-ban check, cross-OS hash comparison | written, **never run**: the repo has no GitHub remote yet |
+| CI ([.github/workflows/ci.yml](../../.github/workflows/ci.yml)): 4 runners × Debug/Release, float-ban check, cross-OS hash comparison | pushed to https://github.com/1223Joker/rebuild on 2026-10-02; first run in progress |
 
 ## In progress
-- Nothing running. M0 acceptance still open: "CI green on 4 runners" needs a GitHub remote.
+- First CI run on https://github.com/1223Joker/rebuild (M0 acceptance: "CI green on 4 runners" + cross-OS hash job).
 
 ## Next steps
-1. User: create a (private) GitHub repo and add it as `origin`, then push; check that all 8 CI jobs and `cross-os-hashes` pass. Fix anything that differs per OS.
+1. Check that all 8 CI jobs and `cross-os-hashes` pass on https://github.com/1223Joker/rebuild (`gh run list -R 1223Joker/rebuild`); fix anything that differs per OS.
 2. M0 leftovers: CI rule "golden changes need a `GameVersion` bump" (not yet enforced); nightly workflow with more property cases.
 3. Start **M1 Map generation** ([03-mapgen](../03-mapgen.md)): expand `MapSpec` (bump its `FormatVersion`), integer noise, start placement, validation F1–F11, share code, `mapgen` CLI with PNG preview, 24 golden map hashes.
 4. Before M3: run S1's Godot part — install the Godot **.NET** edition (the installed `/Applications/Godot.app` 4.7.2 is the standard build without C#) and export a test project for macOS and Windows.
 
 ## Blockers / waiting for user approval
-- GitHub remote for CI (step 1).
+- None.
 
 ## Dead ends (tried or rejected, and why)
 - Using Godot `FastNoiseLite` for the shared map: floats, not cross-platform deterministic → rejected ([ADR 0003](../decisions/0003-mapgen-determinism.md)); allowed for client cosmetics only.

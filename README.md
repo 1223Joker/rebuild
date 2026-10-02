@@ -2,6 +2,8 @@
 
 Real-time city-building strategy game in the style of *The Settlers 4* — Godot 4 (C#), deterministic lockstep multiplayer, seed-based random maps. Start with [AGENTS.md](AGENTS.md).
 
+Repository: https://github.com/1223Joker/rebuild
+
 ## Build & test
 Requires the .NET SDK pinned in [global.json](global.json) (SDK 10, building `net8.0` targets) plus the .NET 8 runtime.
 
