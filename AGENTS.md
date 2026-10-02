@@ -3,7 +3,7 @@
 Single source of truth for any agent working in this repository. Tool-specific files (e.g. `CLAUDE.md`) only point here.
 
 ## Project summary
-"Rebuild" is a real-time city-building strategy game in the style of *The Settlers 4*: economy simulation with production chains, carriers, territory and military. It is built with Godot 4.x for Windows, macOS (Apple Silicon + Intel) and Linux. Multiplayer (LAN + internet) uses deterministic lockstep, and every match is played on a seed-based random map. Supported modes: PvE, PvP, PvPvE with human, AI and neutral-monster slots in freely configurable teams. **Current phase: planning — no production code.**
+"Rebuild" is a real-time city-building strategy game in the style of *The Settlers 4*: economy simulation with production chains and free-walking carriers, territory, 4 asymmetric cultures and RTS-style warfare with walls and siege. It is built with Godot 4.x (C#) for Windows, macOS and Linux. Multiplayer (LAN first, then Steam) uses deterministic lockstep, and every match is played on a seed-based random map. Modes: PvE, PvP, PvPvE with human, AI and neutral-monster slots in free teams. **Current phase: planning — no production code; first goal is the "LAN Alpha" ([docs/09-roadmap.md](docs/09-roadmap.md)).**
 
 ## Non-negotiable constraints (full text: [docs/handoff/ORIGINAL-BRIEF.md](docs/handoff/ORIGINAL-BRIEF.md))
 - Godot 4.x current stable; targets Windows, macOS (ARM + x64), Linux.
@@ -28,7 +28,7 @@ Single source of truth for any agent working in this repository. Tool-specific f
 AGENTS.md                 entry point (this file)
 CLAUDE.md                 pointer to AGENTS.md
 docs/
-  00-vision.md … 09-roadmap.md   planning deliverables
+  00-vision.md … 11-military.md  planning deliverables (10 cultures, 11 military)
   open-questions.md        decisions the user still has to make
   decisions/               ADRs
   handoff/                 ORIGINAL-BRIEF, STATUS, USER-ANSWERS, DECISIONS-LOG, GLOSSARY, RESEARCH-NOTES
@@ -41,4 +41,4 @@ Planned code layout (`src/`, `client/`, `data/`, `tests/`): [docs/01-architectur
 3. [docs/handoff/ORIGINAL-BRIEF.md](docs/handoff/ORIGINAL-BRIEF.md) — the full brief and process.
 4. [docs/handoff/DECISIONS-LOG.md](docs/handoff/DECISIONS-LOG.md) and `docs/decisions/` — what is decided/proposed.
 5. [docs/open-questions.md](docs/open-questions.md) — everything still waiting for the user.
-6. The planning documents `docs/00-vision.md` … `docs/09-roadmap.md` (linked from STATUS.md); [docs/handoff/GLOSSARY.md](docs/handoff/GLOSSARY.md) for terms; [docs/handoff/RESEARCH-NOTES.md](docs/handoff/RESEARCH-NOTES.md) for sources.
+6. The planning documents `docs/00-vision.md` … `docs/11-military.md` (linked from STATUS.md); [docs/handoff/GLOSSARY.md](docs/handoff/GLOSSARY.md) for terms; [docs/handoff/RESEARCH-NOTES.md](docs/handoff/RESEARCH-NOTES.md) for sources.

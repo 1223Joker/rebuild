@@ -36,7 +36,7 @@ Team colors (8, chosen for distinct hue + lightness; verify with a color-blindne
 | Item | Target |
 |---|---|
 | Output | 1280×720 minimum, 1920×1080 target, 4K supported; UI scales with DPI |
-| Frame rate | 60 FPS at 1080p on the reference machine (developer's Apple Silicon Mac); Windows/Linux GPU targets (GTX 1060 class) verified once test hardware exists ([open-questions](open-questions.md) E6) with 5 000 settlers on screen budget-capped; 30 FPS minimum on integrated GPUs |
+| Frame rate | 60 FPS at 1080p on the MacBook M5 (24 GB) and the developer's Windows gaming PC; a mid-range GPU (GTX 1060 class) target is checked via playtesters before release with 5 000 settlers on screen budget-capped; 30 FPS minimum on integrated GPUs |
 | Settler mesh | ≤ 300 triangles, 2–4 animation states (idle, walk, carry, work) |
 | Building mesh | ≤ 1 500 triangles; construction stages = 3 meshes (foundation, frame, done) |
 | Tree / rock | ≤ 150 triangles, 3–4 variants each |
