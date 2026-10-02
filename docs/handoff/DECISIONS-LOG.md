@@ -1,0 +1,19 @@
+# Decisions Log
+
+Chronological one-liners. Format: `date | decision | status | link`. Status: `proposed` (agent) or `approved by user` (record the approval in [USER-ANSWERS.md](USER-ANSWERS.md) too).
+
+| Date | Decision | Status | Link |
+|---|---|---|---|
+| 2026-10-02 | Release on Steam, commercial, closed source (no GPL code reuse) | approved by user | [USER-ANSWERS](USER-ANSWERS.md) Q2 |
+| 2026-10-02 | Low-poly 3D perspective | approved by user (preference); ADR proposed | [ADR 0005](../decisions/0005-rendering-2d-vs-3d.md) |
+| 2026-10-02 | S4-style free-walking carriers, no roads | approved by user | [USER-ANSWERS](USER-ANSWERS.md) Q6 |
+| 2026-10-02 | MVP = full loop incl. military, AI, monsters | approved by user | [USER-ANSWERS](USER-ANSWERS.md) Q7 |
+| 2026-10-02 | Scale: ≤ 8 players, ≤ 512×512 tiles, thousands of settlers | approved by user | [USER-ANSWERS](USER-ANSWERS.md) Q8 |
+| 2026-10-02 | Monsters = escalating waves | approved by user | [USER-ANSWERS](USER-ANSWERS.md) Q9 |
+| 2026-10-02 | MP extras: save/load MP, AI takeover on disconnect, game speed | approved by user | [USER-ANSWERS](USER-ANSWERS.md) Q10 |
+| 2026-10-02 | C# (.NET) for sim + client; sim is a Godot-free library | proposed | [ADR 0001](../decisions/0001-language.md) |
+| 2026-10-02 | Domain integers + `Fix` Q48.16 in `long` | proposed | [ADR 0002](../decisions/0002-fixed-point-format.md) |
+| 2026-10-02 | Map gen: integer noise in sim, hash compare in lobby, host transfer as fallback | proposed | [ADR 0003](../decisions/0003-mapgen-determinism.md) |
+| 2026-10-02 | Transport: Steam SDR primary, ENet LAN/direct, optional custom relay | proposed | [ADR 0004](../decisions/0004-internet-transport.md) |
+| 2026-10-02 | Low-poly 3D, MultiMesh, palette texture | proposed | [ADR 0005](../decisions/0005-rendering-2d-vs-3d.md) |
+| 2026-10-02 | 10 Hz tick, 200 ms turn, square 8-neighbour grid, PCG32 per-subsystem streams, XxHash64 | proposed | [ADR 0006](../decisions/0006-sim-core-conventions.md) |
