@@ -29,3 +29,9 @@ Every answer, instruction or preference the user gives, recorded as close to the
 | 2026-10-02 | E5/E6 Machines | Exact Mac model; Windows/Linux test hardware? | "i have a macbook m5 with 24gb of ram, and a very good gaming pc with windows, linux is not that important," |
 | 2026-10-02 | Prototype art | — | "source your art for the prototype form kenney.nl" |
 | 2026-10-02 | Priority | — | "first of all its important to have a working version with lan support, after that comes steam and so on" |
+| 2026-10-02 | Timing of cultures/war | When should cultures, many warrior types and walls arrive relative to the first LAN version? | "LAN first with 1 culture, then expand (Recommended)" — first LAN build: 1 culture, 2–3 warrior types, no walls; architecture supports cultures from day one. |
+| 2026-10-02 | Culture depth | How different should cultures be? | "S4-style: unique parts (Recommended)" — shared core economy, different costs, 2–4 unique buildings/goods, own special units, a strength/weakness each. |
+| 2026-10-02 | Culture count | How many cultures for the MVP? | "4 cultures" |
+| 2026-10-02 | Combat control | How should war be controlled? | "Direct unit control (Recommended)" — select soldiers, move, attack. |
+| 2026-10-02 | Linux | Linux is "not that important"; what should happen? | "Keep in CI, release later (Recommended)" — determinism tests on Linux in CI from day one; Linux builds ship with the Steam release or later; no manual Linux testing before then. |
+| 2026-10-02 | Walls & siege | Which wall and siege features? | All selected: "Stone walls + gates", "Wall towers with archers", "Siege units", "Wooden palisades". |
