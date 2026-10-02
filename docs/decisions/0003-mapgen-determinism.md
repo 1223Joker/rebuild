@@ -1,6 +1,6 @@
 # ADR 0003 — Map generation determinism
 
-**Status:** proposed (2026-10-02)
+**Status:** approved by user (2026-10-02; proposed same day)
 
 ## Context
 - Requirement: same seed + parameters + game version ⇒ **bit-identical map on all platforms**; seeds are copyable/shareable; golden-hash tests run on Windows, macOS, Linux ([ORIGINAL-BRIEF §3](../handoff/ORIGINAL-BRIEF.md)).
@@ -19,7 +19,7 @@
 | Saved maps / replays | Store seed + params + version (tiny) | Must store full map | Seed (+ full map for edited maps) |
 | Risk | Bugs in own noise | Silent cross-platform divergence; float drift in later regeneration | Lowest |
 
-## Decision (proposed)
+## Decision
 **(c) Hybrid, with (a) as the primary path.**
 1. The complete generator lives in `Rebuild.Sim/MapGen`, uses only integers/`Fix` ([ADR 0002](0002-fixed-point-format.md)) and the sim RNG ([ADR 0006](0006-sim-core-conventions.md)). Noise: integer hash-based value noise (Squirrel-style hash of `(x, y, seed)`) with integer bilinear interpolation (smoothstep as integer polynomial), summed in octaves (fBm).
 2. Every client generates the map locally from `MapSpec` (seed, params, `GeneratorVersion`) and reports `MapHash` (XxHash64 over the canonical map serialization) to the host in the lobby.

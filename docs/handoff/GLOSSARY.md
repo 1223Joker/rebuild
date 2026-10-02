@@ -14,6 +14,7 @@
 | Desync dump | Text dump of the full state at the first mismatching turn, compared by `desync-diff`. |
 | Deterministic lockstep | All peers run the same sim on the same commands in the same turns; state is never sent. |
 | Fix | Q48.16 fixed-point number stored in a 64-bit integer ([ADR 0002](../decisions/0002-fixed-point-format.md)). |
+| Fog of war | Visual hiding of unexplored/unseen tiles per team; visual only, since lockstep clients hold the full state. |
 | Flow field | Per-tile direction grid toward a target; lets many units share one path computation. |
 | Golden hash | Expected hash checked into the repo (map or replay); CI fails if any OS produces a different value. |
 | HPA* | Hierarchical Path-Finding A*: plans on a cluster graph, then refines locally. |
@@ -40,4 +41,5 @@
 | Territory | Tiles owned by a player via military buildings; civilian building and carrier movement allowed only there. |
 | Tick | One fixed sim step: 100 ms at 1× speed. |
 | Turn | Lockstep unit: 2 ticks (200 ms at 1×); commands execute at turn boundaries. |
+| Visibility | Deterministic per-team sim data (`explored` bits, `visibleCount` grid) driving fog rendering and AI perception. |
 | Wave | Group of monsters spawned by a lair at scheduled times with growing strength. |

@@ -1,6 +1,6 @@
 # ADR 0004 — Internet transport: Steam vs custom relay vs port forwarding
 
-**Status:** proposed (2026-10-02). User input: release on Steam, commercial; "Steam is the main plan, but there should be the option for a custom relay" ([USER-ANSWERS](../handoff/USER-ANSWERS.md) Q2, Q3).
+**Status:** approved by user (2026-10-02; proposed same day). User input: release on Steam, commercial; "Steam is the main plan, but there should be the option for a custom relay" ([USER-ANSWERS](../handoff/USER-ANSWERS.md) Q2, Q3).
 
 ## Context
 - Lockstep sends only small command packets; bandwidth is tiny, latency consistency matters more than raw latency ([AoE "1500 Archers"](https://www.gamedeveloper.com/programming/1500-archers-on-a-28-8-network-programming-in-age-of-empires-and-beyond)).
@@ -21,7 +21,7 @@
 | Reliability layer | Built in (reliable + unreliable messages) | Ours (or ENet's) | ENet's |
 | Effort | Low–medium | Medium | Low |
 
-## Decision (proposed)
+## Decision
 **Pluggable `ITransport` with three implementations, all carrying the same lockstep protocol bytes:**
 
 | Priority | Transport | Use |

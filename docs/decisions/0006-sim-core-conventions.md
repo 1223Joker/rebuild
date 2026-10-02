@@ -1,11 +1,11 @@
 # ADR 0006 — Simulation core conventions: tick rate, grid, RNG, state hash, collections
 
-**Status:** proposed (2026-10-02)
+**Status:** approved by user (2026-10-02; proposed same day)
 
 ## Context
 Lockstep needs a fixed tick, a portable RNG, a cheap state hash and strict ordering rules ([ORIGINAL-BRIEF §2](../handoff/ORIGINAL-BRIEF.md)). Desync causes found in shipped games: RNG call order across systems, argument evaluation order, uninitialized memory/padding, unordered containers ([GDC 2024 Pollard](https://media.gdcvault.com/gdc2024/Slides/GDC+slide+presentations/Pollard_Bradley_CrossPlatformDeterminism+2024-03-26+09.34.19.pdf)).
 
-## Decisions (proposed)
+## Decision
 
 | Topic | Options considered | Decision | Why |
 |---|---|---|---|

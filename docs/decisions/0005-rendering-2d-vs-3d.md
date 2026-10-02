@@ -1,6 +1,6 @@
 # ADR 0005 — Rendering: isometric 2D vs low-poly 3D
 
-**Status:** proposed (2026-10-02). User preference: **"Low-poly 3D"** ([USER-ANSWERS](../handoff/USER-ANSWERS.md) Q5). This ADR records the trade-offs and confirms that choice.
+**Status:** approved by user (2026-10-02; proposed same day). User preference: **"Low-poly 3D"** ([USER-ANSWERS](../handoff/USER-ANSWERS.md) Q5). This ADR records the trade-offs and confirms that choice.
 
 ## Context
 - Art goals: timeless, simple, small fixed palette, clear silhouettes, swappable; prototype with Kenney CC0 assets ([ORIGINAL-BRIEF §2](../handoff/ORIGINAL-BRIEF.md)).
@@ -22,7 +22,7 @@
 | GPU requirements | Very low | Low (Godot Compatibility or Mobile renderer suffices) |
 | Asset swap later | Re-render all sprites | Replace meshes with same pivot/scale conventions |
 
-## Decision (proposed)
+## Decision
 **Low-poly 3D**, flat-shaded, fixed-pitch perspective camera (~50°) with zoom and 90° rotation steps.
 - Renderer: Godot **Forward+** on desktop, with Compatibility renderer as fallback for old GPUs (decide after perf spike).
 - Units/buildings drawn through `MultiMeshInstance3D` per mesh type; terrain as chunked heightmap meshes (32×32 tiles per chunk).

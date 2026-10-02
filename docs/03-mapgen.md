@@ -88,7 +88,7 @@ Symmetric (mirror/rotational) maps pass F2–F6, F8, F9 by construction; checks 
 - **Save map**: writes `<name>.rbmap` = header `{GameVersion, GeneratorVersion, MapSpec, attempt, MapHash}` + compressed layers. Loading a saved map does not regenerate; it uses the stored layers (so maps survive generator version bumps).
 
 ## 7. Performance targets
-| Target (reference machine, ASSUMPTION: Apple M1 / Ryzen 5 3600 class, single thread) | Value |
+| Target (reference machine = developer's Apple Silicon Mac, single thread; see [01-architecture §3](01-architecture.md)) | Value |
 |---|---|
 | XL 512², 8 players, one attempt incl. validation | **≤ 1.5 s** |
 | XL worst case incl. retries (p99 over 1 000 seeds) | **≤ 4 s** |

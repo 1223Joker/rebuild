@@ -1,6 +1,6 @@
 # ADR 0001 — Programming language: C# (.NET) vs GDScript
 
-**Status:** proposed (2026-10-02). User delegated the choice to this ADR ([USER-ANSWERS](../handoff/USER-ANSWERS.md), Q4).
+**Status:** approved by user (2026-10-02; proposed same day). User delegated the choice to this ADR ([USER-ANSWERS](../handoff/USER-ANSWERS.md), Q4).
 
 ## Context
 - The simulation must be deterministic, integer/fixed-point only, single-threaded, engine-independent and run headless (CI, AI tests, custom relay/host tooling). See [ORIGINAL-BRIEF §2](../handoff/ORIGINAL-BRIEF.md).
@@ -23,7 +23,7 @@
 | Web export | Not supported for C# (not a target) | Yes | No | No |
 | Solo-dev productivity | High (IDE, refactoring, type safety) | High for small scripts, degrades with size | Two languages | Lowest |
 
-## Decision (proposed)
+## Decision
 **Option A — C# on .NET 8+ (the version Godot .NET currently requires) for everything.**
 - `Rebuild.Sim` is a plain `net8.0` class library with zero Godot dependency, compiled with `<Nullable>enable</Nullable>`, `<CheckForOverflowUnderflow>false</CheckForOverflowUnderflow>` (explicit, documented wraparound) and BannedApiAnalyzers that forbid `float`, `double`, `decimal`, `System.Math` float overloads, `System.Random`, `DateTime.Now`, `Dictionary<,>`/`HashSet<>` enumeration, `Parallel`, `Task`, `Thread`.
 - The Godot client is a Godot .NET project that references `Rebuild.Sim` read-only.

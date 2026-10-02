@@ -34,6 +34,7 @@ Session length target: 45–90 min for a 4-player match on a medium map. ASSUMPT
 | Military | One melee soldier type (3 ranks), 2 tower sizes, castle; attack & capture buildings |
 | Opponents | Host-side AI (easy/normal/hard) acting via commands — [05-ai](05-ai.md) |
 | Monsters | Lairs in neutral zones spawning escalating waves — [04-game-modes](04-game-modes.md) |
+| Visibility | Visual fog of war, shared vision between allies — [04-game-modes §1](04-game-modes.md) |
 | Modes | PvE, PvP, PvPvE; free team assignment; slots: human / AI / monsters / open / closed |
 | Multiplayer | LAN (ENet + discovery), internet via Steam; pause, disconnect, reconnect, AI takeover, save/load MP, game speed 1–3× |
 | Platforms | Windows x64, macOS universal (ARM + x64), Linux x64 |

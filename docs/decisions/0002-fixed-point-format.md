@@ -1,6 +1,6 @@
 # ADR 0002 — Fixed-point number format
 
-**Status:** proposed (2026-10-02)
+**Status:** approved by user (2026-10-02; proposed same day)
 
 ## Context
 - The simulation may not use floats ([ORIGINAL-BRIEF §2](../handoff/ORIGINAL-BRIEF.md)); float results differ across compilers/architectures ([Gaffer — Floating Point Determinism](https://gafferongames.com/post/floating_point_determinism/)). *Realms of Ruin* shipped cross-platform lockstep with fixed point and blocked float types at compile time ([GDC 2024 Pollard](https://media.gdcvault.com/gdc2024/Slides/GDC+slide+presentations/Pollard_Bradley_CrossPlatformDeterminism+2024-03-26+09.34.19.pdf)).
@@ -17,7 +17,7 @@
 | **Q48.16** | `long` | ±1.4·10¹⁴ / 1.5·10⁻⁵ | 128-bit intermediate only for large products | Used by [mas-bandwidth/fixed](https://github.com/mas-bandwidth/fixed) (Glenn Fiedler, author of the Gaffer lockstep articles) |
 | Plain integers in domain units (no generic fixed type) | `int`/`long` | per use | trivial | e.g. position in 1/256 tile, probability in 1/65 536 |
 
-## Decision (proposed)
+## Decision
 Two layers:
 1. **Domain integers first.** Positions = `int` sub-tile units with **1 tile = 256 units** (`TilePos` = `(short x, short y)`, `SubPos` = `(int x, int y)`). Time = `int` ticks. Probabilities/percentages = `int` in parts-per-65 536. Most code never touches a fractional type.
 2. **`Fix` = Q48.16 in `long`** for the remaining fractional math (rates, combat formulas, AI scoring, mapgen falloff curves).

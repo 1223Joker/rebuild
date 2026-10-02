@@ -40,7 +40,7 @@ flowchart TB
 
 | Module | Type | Responsibility | May reference |
 |---|---|---|---|
-| `Rebuild.Sim` | `net8.0` class lib | Deterministic game state & rules: `Core` (Fix, Pcg32, XxHash wrapper, ids, ordered collections), `World` (tiles, height, terrain, resources, territory), `Entities` (settlers, buildings, goods, soldiers, monsters), `Systems` (construction, production, logistics, military, monsters, victory), `Pathfinding`, `MapGen`, `Commands` (definitions + validation), `Serialization` (save/hash) | BCL only (analyzer-restricted) |
+| `Rebuild.Sim` | `net8.0` class lib | Deterministic game state & rules: `Core` (Fix, Pcg32, XxHash wrapper, ids, ordered collections), `World` (tiles, height, terrain, resources, territory), `Entities` (settlers, buildings, goods, soldiers, monsters), `Systems` (construction, production, logistics, military, monsters, visibility, victory), `Pathfinding`, `MapGen`, `Commands` (definitions + validation), `Serialization` (save/hash) | BCL only (analyzer-restricted) |
 | `Rebuild.Ai` | `net8.0` class lib | Computer players; reads `ISimView`, emits `Command`s. Runs on host only ([05-ai](05-ai.md)) | Sim |
 | `Rebuild.Net` | `net8.0` class lib | Lobby/session model, lockstep scheduler, command bundles, ack/redundancy, desync detection, `ITransport` + `LoopbackTransport` | Sim (commands, hash), Ai (host runs AI) |
 | `Rebuild.Client` | Godot .NET project | Rendering, input, UI, audio, ENet/Steam transports, LAN discovery, settings | all libs |
@@ -75,7 +75,7 @@ sequenceDiagram
 ```
 
 - Wall-clock pacing: the scheduler accumulates real time × game speed; it runs at most `maxCatchUpTicks = 4` ticks per frame to avoid spirals.
-- **Sim budget:** ≤ 20 ms per tick at 8 players / 5 000 settlers on the reference machine (ASSUMPTION: Apple M1 or Ryzen 5 3600 class). Exceeding it is a performance bug.
+- **Sim budget:** ≤ 20 ms per tick at 8 players / 5 000 settlers on the reference machine (the developer's Apple Silicon Mac — the only test machine the user owns, [USER-ANSWERS](handoff/USER-ANSWERS.md) E1; exact model still to be recorded, [open-questions](open-questions.md) E5). Exceeding it is a performance bug.
 - Sim runs on the main thread in MVP. ASSUMPTION: if frame pacing suffers, move the whole sim (still single-threaded) to one worker thread with a double-buffered view — allowed because no threads exist *inside* the sim.
 
 ## 4. Command model
@@ -133,6 +133,7 @@ flowchart LR
 ## 8. State, hashing, saves
 - State layout: structure-of-arrays per entity kind, indexed by dense slot, plus `id → slot` lookup (lookup-only dictionary). Iteration always over dense arrays in id order.
 - **Canonical serialization** (explicit field order, little-endian, no padding, no reflection) is used for: save files, state hash (XxHash64), reconnect snapshots, desync dumps.
+- **Visibility** (fog of war) is sim state: per team an `explored` bitset and a `visibleCount` grid (byte per tile), updated incrementally when vision sources change tile (buildings, soldiers, territory edges; carriers inside own territory add nothing new). Deterministic and hashed because the AI reads it.
 - Savegame = `{GameVersion, MapSpec, SlotTable, Turn, SimState}`; MP save/load described in [02-networking](02-networking.md).
 
 ## 9. Repository folder structure (target)

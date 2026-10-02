@@ -74,7 +74,7 @@ Properties: late commands are never rejected, just sealed into a later turn; cli
 | Player reconnects (same Steam ID or session token) | Host sends: snapshot (savegame at last turn `T`, compressed) + bundles `T+1 … now`. Client loads, fast-forwards, verifies hash, then host emits `HumanResume(slot)` and AI control ends. |
 | Host leaves / crashes | MVP: match ends for all; every client auto-saves locally (all have the full state), so the match can be resumed later via MP load. Host migration is post-MVP ([open-questions](open-questions.md)). |
 
-Snapshot transfer is a one-time file transfer for recovery, not continuous state sync; replaying the full command log from turn 0 would take minutes on long matches. ASSUMPTION: this is acceptable under the "commands only" constraint — needs user confirmation ([open-questions](open-questions.md)).
+Snapshot transfer is a one-time file transfer for recovery, not continuous state sync; replaying the full command log from turn 0 would take minutes on long matches. Confirmed by the user on 2026-10-02 as compatible with the "commands only" constraint ([USER-ANSWERS](handoff/USER-ANSWERS.md) D1).
 
 ## 7. Save / load in multiplayer
 - **Save:** host (or any player via request) triggers `SaveGame(name)` meta command at turn `T`; every peer writes the identical savegame locally after turn `T` and reports its hash.
@@ -127,4 +127,4 @@ Bandwidth estimate: 8 players, ≤ 5 commands/s each, ~20 B per command, bundles
 - Internet: Steam lobby (invite friends, lobby browser); lobby metadata carries host Steam ID and game version.
 
 ## 12. Security & cheating (scope)
-Lockstep exposes full state to every client (maphack possible); MVP accepts this. Commands are validated in the sim, so illegal commands are no-ops for everyone. Desync detection also catches modified clients ([Pollard](https://media.gdcvault.com/gdc2024/Slides/GDC+slide+presentations/Pollard_Bradley_CrossPlatformDeterminism+2024-03-26+09.34.19.pdf)).
+Lockstep exposes full state to every client, so the MVP fog of war is visual only (maphack possible with a modified client); MVP accepts this. Commands are validated in the sim, so illegal commands are no-ops for everyone. Desync detection also catches modified clients ([Pollard](https://media.gdcvault.com/gdc2024/Slides/GDC+slide+presentations/Pollard_Bradley_CrossPlatformDeterminism+2024-03-26+09.34.19.pdf)).

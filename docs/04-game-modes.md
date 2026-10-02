@@ -36,7 +36,8 @@ classDiagram
 | Start positions | one per `Human`/`AI` slot; `Monsters` needs none (uses lairs) |
 | Monsters slot | at most one per match; implicitly its own team, hostile to everybody; present ⇔ `MonsterDensity ≠ None` |
 | Teams | free assignment of team ids 1–8 to Human/AI slots; same id = allies; every slot may be its own team (FFA) |
-| Allies | cannot attack each other, share vision and territory borders do not block each other's carriers; economies, stocks and soldiers stay separate. ASSUMPTION — confirm in [open-questions](open-questions.md). |
+| Allies | cannot attack each other, share vision and territory borders do not block each other's carriers; economies, stocks and soldiers stay separate. Confirmed by user 2026-10-02 ([USER-ANSWERS](handoff/USER-ANSWERS.md) C2/C3). |
+| Fog of war | **visual fog in MVP** (user, 2026-10-02): unexplored = black, explored but not visible = terrain + last-seen buildings, visible = live. Vision per team (allies share). Deterministic `VisibilitySystem` in the sim ([01-architecture §2](01-architecture.md)); the client renders it and the AI respects it ([05-ai §2](05-ai.md)). It is *visual*: a modified client could still read all state (inherent to lockstep, [02-networking §12](02-networking.md)). |
 | Disconnected human | slot becomes AI-controlled until reconnect ([02-networking §6](02-networking.md)) |
 
 ## 2. Modes (derived from the slot table)

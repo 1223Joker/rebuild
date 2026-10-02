@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-10-02 — Planning deliverables complete; handoff test done; waiting for user approval of ADRs and open questions.
+**Last updated:** 2026-10-02 — Open questions answered: all ADRs approved, no spikes yet, visual fog added to MVP, docs updated.
 
 ## Current phase / step
-Planning phase — Process step 5 reached (summary delivered, **STOPPED, waiting for the user**). Process steps are defined in [ORIGINAL-BRIEF.md §6](ORIGINAL-BRIEF.md). No production code may be written until the user approves the ADRs; no spike without explicit permission.
+Planning phase complete; ADRs 0001–0006 **approved** (2026-10-02). **Still no code:** the user said "No spikes yet", so implementation and spikes wait for explicit permission. Process steps: [ORIGINAL-BRIEF.md §6](ORIGINAL-BRIEF.md).
 
 ## Done
 - Step 0: git repo, [AGENTS.md](../../AGENTS.md), [CLAUDE.md](../../CLAUDE.md) (pointer), [ORIGINAL-BRIEF.md](ORIGINAL-BRIEF.md), this file.
@@ -13,7 +13,7 @@ Planning phase — Process step 5 reached (summary delivered, **STOPPED, waiting
 
 | Deliverable | State |
 |---|---|
-| [decisions/](../decisions/README.md) ADR 0001–0006 | done (proposed) |
+| [decisions/](../decisions/README.md) ADR 0001–0006 | done (approved 2026-10-02) |
 | [00-vision.md](../00-vision.md) | done |
 | [01-architecture.md](../01-architecture.md) | done |
 | [02-networking.md](../02-networking.md) | done |
@@ -30,21 +30,20 @@ Planning phase — Process step 5 reached (summary delivered, **STOPPED, waiting
 
 - Step 4 handoff test (2026-10-02): all relative links resolve; no context-dependent references; gaps fixed: AGENTS.md now links open-questions, research notes and the code layout; this file now contains the post-approval procedure. Not done: Mermaid diagrams were reviewed by eye, not machine-validated (no renderer installed) — validate when tooling exists (e.g. `npx @mermaid-js/mermaid-cli`).
 
+- Open-questions round (2026-10-02): answers in [USER-ANSWERS.md](USER-ANSWERS.md); resulting changes: visual fog of war + `VisibilitySystem` added (04-game-modes, 01-architecture, 05-ai, roadmap M4 +1.5 w); LAN PvP checkpoint after M5; reference machine = user's Apple Silicon Mac; snapshot transfer and host-loss behaviour confirmed.
+
 ## In progress
 - Nothing. Waiting for the user.
 
-## Next steps (after the user replies)
-1. Record every answer verbatim in [USER-ANSWERS.md](USER-ANSWERS.md); for each answered item in [open-questions.md](../open-questions.md): move it to "Resolved", update [DECISIONS-LOG.md](DECISIONS-LOG.md), set the ADR status (`approved` in the ADR file and in [decisions/README.md](../decisions/README.md)); revise documents if the user changed something; commit.
-2. If spikes are permitted (open question B1): start with **S1** (Godot .NET export + determinism, [09-roadmap §2](../09-roadmap.md)) in a throwaway folder `spikes/s1-export/`; record results in a new `docs/spikes/S1.md`; commit.
+## Next steps
+1. Remaining open items in [open-questions.md](../open-questions.md): B1 (spike permission — ask again), E5 (exact Mac model), E6 (Windows/Linux test hardware, needed before M5), F2 (final art, after M3). Record any answer verbatim in [USER-ANSWERS.md](USER-ANSWERS.md), update [DECISIONS-LOG.md](DECISIONS-LOG.md), commit.
+2. Only when spikes are permitted (B1): start with **S1** (Godot .NET export + determinism, [09-roadmap §2](../09-roadmap.md)) in a throwaway folder `spikes/s1-export/`; record results in a new `docs/spikes/S1.md`; commit.
 3. Then S2–S5, each with its own result note; adjust ADRs/roadmap with findings.
 4. After spikes and ADR approval: start milestone **M0 Foundations** ([09-roadmap §3](../09-roadmap.md)).
 
 ## Blockers / waiting for user approval
-- ADRs 0001–0006 (`proposed`) — open questions A1–A6.
-- Permission for spikes S1–S5 — B1.
-- Scope decision given ≈ 21-month estimate — C1.
-- Snapshot transfer for reconnect/desync recovery under the "commands only" rule — D1.
-- All other items in [open-questions.md](../open-questions.md) have recommendations and are non-blocking for spikes.
+- Permission for spikes S1–S5 / any implementation — B1 (user: "No spikes yet", 2026-10-02).
+- E5 (Mac model) needed before performance spikes; E6 (Windows/Linux hardware) needed before M5.
 
 ## Dead ends (tried or rejected, and why)
 - Using Godot `FastNoiseLite` for the shared map: floats, not cross-platform deterministic → rejected ([ADR 0003](../decisions/0003-mapgen-determinism.md)); allowed for client cosmetics only.

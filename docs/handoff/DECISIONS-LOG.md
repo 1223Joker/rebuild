@@ -5,21 +5,21 @@ Chronological one-liners. Format: `date | decision | status | link`. Status: `pr
 | Date | Decision | Status | Link |
 |---|---|---|---|
 | 2026-10-02 | Release on Steam, commercial, closed source (no GPL code reuse) | approved by user | [USER-ANSWERS](USER-ANSWERS.md) Q2 |
-| 2026-10-02 | Low-poly 3D perspective | approved by user (preference); ADR proposed | [ADR 0005](../decisions/0005-rendering-2d-vs-3d.md) |
+| 2026-10-02 | Low-poly 3D perspective | approved by user | [ADR 0005](../decisions/0005-rendering-2d-vs-3d.md) |
 | 2026-10-02 | S4-style free-walking carriers, no roads | approved by user | [USER-ANSWERS](USER-ANSWERS.md) Q6 |
 | 2026-10-02 | MVP = full loop incl. military, AI, monsters | approved by user | [USER-ANSWERS](USER-ANSWERS.md) Q7 |
 | 2026-10-02 | Scale: ≤ 8 players, ≤ 512×512 tiles, thousands of settlers | approved by user | [USER-ANSWERS](USER-ANSWERS.md) Q8 |
 | 2026-10-02 | Monsters = escalating waves | approved by user | [USER-ANSWERS](USER-ANSWERS.md) Q9 |
 | 2026-10-02 | MP extras: save/load MP, AI takeover on disconnect, game speed | approved by user | [USER-ANSWERS](USER-ANSWERS.md) Q10 |
-| 2026-10-02 | C# (.NET) for sim + client; sim is a Godot-free library | proposed | [ADR 0001](../decisions/0001-language.md) |
-| 2026-10-02 | Domain integers + `Fix` Q48.16 in `long` | proposed | [ADR 0002](../decisions/0002-fixed-point-format.md) |
-| 2026-10-02 | Map gen: integer noise in sim, hash compare in lobby, host transfer as fallback | proposed | [ADR 0003](../decisions/0003-mapgen-determinism.md) |
-| 2026-10-02 | Transport: Steam SDR primary, ENet LAN/direct, optional custom relay | proposed | [ADR 0004](../decisions/0004-internet-transport.md) |
-| 2026-10-02 | Low-poly 3D, MultiMesh, palette texture | proposed | [ADR 0005](../decisions/0005-rendering-2d-vs-3d.md) |
-| 2026-10-02 | 10 Hz tick, 200 ms turn, square 8-neighbour grid, PCG32 per-subsystem streams, XxHash64 | proposed | [ADR 0006](../decisions/0006-sim-core-conventions.md) |
+| 2026-10-02 | C# (.NET) for sim + client; sim is a Godot-free library | approved by user | [ADR 0001](../decisions/0001-language.md) |
+| 2026-10-02 | Domain integers + `Fix` Q48.16 in `long` | approved by user | [ADR 0002](../decisions/0002-fixed-point-format.md) |
+| 2026-10-02 | Map gen: integer noise in sim, hash compare in lobby, host transfer as fallback | approved by user | [ADR 0003](../decisions/0003-mapgen-determinism.md) |
+| 2026-10-02 | Transport: Steam SDR primary, ENet LAN/direct, optional custom relay | approved by user | [ADR 0004](../decisions/0004-internet-transport.md) |
+| 2026-10-02 | Low-poly 3D, MultiMesh, palette texture | approved by user | [ADR 0005](../decisions/0005-rendering-2d-vs-3d.md) |
+| 2026-10-02 | 10 Hz tick, 200 ms turn, square 8-neighbour grid, PCG32 per-subsystem streams, XxHash64 | approved by user | [ADR 0006](../decisions/0006-sim-core-conventions.md) |
 | 2026-10-02 | Sim state as SoA arrays; data definitions JSON → source-generated C# tables; sim on main thread in MVP | proposed | [01-architecture](../01-architecture.md) |
 | 2026-10-02 | Host-sealed turns (host assigns target turn), own redundancy on unreliable channel, adaptive input delay 1–5 turns | proposed | [02-networking](../02-networking.md) |
-| 2026-10-02 | Reconnect & desync recovery via one-time snapshot transfer; host loss ends match with local auto-save (no host migration in MVP) | proposed (needs user confirmation) | [02-networking](../02-networking.md) §6 |
+| 2026-10-02 | Reconnect & desync recovery via one-time snapshot transfer; host loss ends match with local auto-save (no host migration in MVP) | approved by user | [02-networking](../02-networking.md) §6 |
 | 2026-10-02 | Map gen "starts first", 4 symmetry modes, fairness metrics F1–F11, ≤ 16 deterministic retries, XL ≤ 1.5 s/attempt | proposed | [03-mapgen](../03-mapgen.md) |
 | 2026-10-02 | 8 slots (Open/Closed/Human/AI/Monsters), mode derived from slot table, victory: Conquest / Survival / Lair hunt, monster wave formula | proposed | [04-game-modes](../04-game-modes.md) |
 | 2026-10-02 | AI: host-only utility AI emitting commands, deterministic work-unit budget, stateless takeover; monsters = sim state machine | proposed | [05-ai](../05-ai.md) |
@@ -27,3 +27,9 @@ Chronological one-liners. Format: `date | decision | status | link`. Status: `pr
 | 2026-10-02 | Art: fixed-pitch perspective camera with 90° rotation, flat shading, 16-cell palette texture, glTF pipeline, `data/visuals.json` asset mapping | proposed | [07-art-style](../07-art-style.md) |
 | 2026-10-02 | Testing: analyzers, FsCheck, golden map hashes + golden replays, save/load equivalence, 4-runner CI incl. macos-15-intel, cross-OS hash comparison job | proposed | [08-testing](../08-testing.md) |
 | 2026-10-02 | Roadmap: 5 spikes + M0–M10, ≈ 71.5 weeks at 12 h/week (≈ 21 months with contingency) | proposed | [09-roadmap](../09-roadmap.md) |
+| 2026-10-02 | Spikes S1–S5 not permitted yet ("No spikes yet") | approved by user | [09-roadmap](../09-roadmap.md) |
+| 2026-10-02 | Keep full MVP scope; playable LAN PvP checkpoint after M5 (≈ 11 months) | approved by user | [09-roadmap](../09-roadmap.md) |
+| 2026-10-02 | Host loss ends match with auto-saves; no host migration in MVP | approved by user | [02-networking](../02-networking.md) §6 |
+| 2026-10-02 | Allies share vision; visual fog of war in MVP via deterministic `VisibilitySystem` (added to M4, +1.5 w) | approved by user (fog); implementation proposed | [04-game-modes](../04-game-modes.md) §1 |
+| 2026-10-02 | Reference machine = developer's Apple Silicon Mac (only owned test machine); Windows/Linux via CI + extra hardware later | approved by user (machines); approach proposed | [01-architecture](../01-architecture.md) §3 |
+| 2026-10-02 | Remaining recommendations accepted (C4–C8, D3–D5, E2–E4, F1, F3, G1–G2) | approved by user | [open-questions](../open-questions.md) |
