@@ -3,15 +3,19 @@ using System.IO;
 using Rebuild.Sim.Commands;
 using Rebuild.Sim.Core;
 using Rebuild.Sim.Cultures;
+using Rebuild.Sim.MapGen;
 using Rebuild.Sim.Match;
 using Rebuild.Sim.Serialization;
+using Rebuild.Sim.World;
 
 namespace Rebuild.Sim;
 
 /// <summary>
 /// The deterministic simulation: <c>State(n+1) = Step(State(n), Commands(n))</c> (docs/01-architecture.md §1).
-/// Single-threaded, integer-only. M0 holds match/player state and RNG streams; game systems are added
-/// from M2 on and must write their state in <see cref="WriteState"/>.
+/// Single-threaded, integer-only. Holds match/player state, RNG streams, the generated map and territory;
+/// game systems are added from M2 on and must write their state in <see cref="WriteState"/>. The map is
+/// regenerated from <see cref="MatchSetup.Map"/> on create and load (only its hash is saved); systems that
+/// mutate map layers must serialize those layers themselves.
 /// </summary>
 public sealed class Simulation
 {
@@ -21,10 +25,14 @@ public sealed class Simulation
     public const int TicksPerTurn = 2;
 
     private const uint SaveMagic = 0x56415342; // "BSAV" little-endian
-    private const ushort SaveFormatVersion = 1;
+    private const ushort SaveFormatVersion = 2;
+
+    /// <summary>Territory radius of the start castle (docs/06-economy.md §1). ASSUMPTION: moves to building data with the buildings step of M2.</summary>
+    public const int CastleTerritoryRadius = 16;
 
     private readonly PlayerState[] _players;
     private readonly PlayerCultureTable?[] _cultureTables;
+    private readonly int[] _startOfSlot;
 
     public MatchSetup Setup { get; }
     public int Tick { get; private set; }
@@ -39,9 +47,20 @@ public sealed class Simulation
 
     public IReadOnlyList<PlayerState> Players => _players;
 
-    private Simulation(MatchSetup setup, int tick, PlayerState[] players, Pcg32 economy, Pcg32 combat, Pcg32 monsters, int rejected)
+    /// <summary>The generated map (terrain, resources, starts); immutable until systems that change tiles exist.</summary>
+    public MapData Map { get; }
+    /// <summary>Hash of <see cref="Map"/>; part of the state hash so peers with different maps desync at turn 0.</summary>
+    public ulong MapHash { get; }
+    public Territory Territory { get; }
+
+    private Simulation(MatchSetup setup, MapData map, int tick, PlayerState[] players, Pcg32 economy, Pcg32 combat, Pcg32 monsters,
+        int rejected, Territory territory)
     {
         Setup = setup;
+        Map = map;
+        MapHash = map.ComputeHash();
+        Territory = territory;
+        _startOfSlot = StartAssignment.Assign(setup);
         Tick = tick;
         _players = players;
         EconomyRng = economy;
@@ -54,9 +73,14 @@ public sealed class Simulation
                 _cultureTables[i] = new PlayerCultureTable(CultureCatalog.All[players[i].CultureIndex]);
     }
 
-    /// <summary>Starts a new match. Random cultures are resolved with the Setup RNG stream.</summary>
+    /// <summary>
+    /// Starts a new match: generates the map, resolves random cultures with the Setup RNG stream and claims the
+    /// start-castle territory of every Human/AI slot (slot order). Throws <see cref="System.ArgumentException"/>
+    /// if the setup does not fit its map spec or no valid map exists for the spec.
+    /// </summary>
     public static Simulation Create(MatchSetup setup)
     {
+        var map = GenerateMap(setup);
         var setupRng = Pcg32.ForStream(setup.MatchSeed, RngStream.Setup);
         var players = new PlayerState[setup.Slots.Count];
         for (int i = 0; i < players.Length; i++)
@@ -84,12 +108,37 @@ public sealed class Simulation
             };
             players[i] = new PlayerState((byte)i, s.Team, culture, controller, s.Difficulty, PlayerStatus.Active);
         }
-        return new Simulation(setup, 0, players,
+        var territory = new Territory(map.Edge);
+        var starts = StartAssignment.Assign(setup);
+        for (int i = 0; i < starts.Length; i++)
+        {
+            if (starts[i] < 0) continue;
+            var start = map.Starts[starts[i]];
+            territory.AddClaim((byte)i, start.X, start.Y, CastleTerritoryRadius);
+        }
+        return new Simulation(setup, map, 0, players,
             Pcg32.ForStream(setup.MatchSeed, RngStream.Economy),
             Pcg32.ForStream(setup.MatchSeed, RngStream.Combat),
             Pcg32.ForStream(setup.MatchSeed, RngStream.Monsters),
-            rejected: 0);
+            rejected: 0, territory);
     }
+
+    private static MapData GenerateMap(MatchSetup setup)
+    {
+        string? error = setup.Map.Check() ?? StartAssignment.Check(setup);
+        if (error != null) throw new System.ArgumentException("Invalid match setup: " + error, nameof(setup));
+        var result = MapGenerator.Generate(setup.Map);
+        return result.Map ?? throw new System.ArgumentException(
+            $"No valid map for this spec after {result.Attempts} attempts", nameof(setup));
+    }
+
+    /// <summary>Start position of a slot, or null for open and monster slots.</summary>
+    public StartPosition? StartOf(int slot) => _startOfSlot[slot] < 0 ? null : Map.Starts[_startOfSlot[slot]];
+
+    /// <summary>Whether two slots are allies (same team; a slot is its own ally). Monster slots have no allies.</summary>
+    public bool AreAllies(int a, int b) =>
+        a == b || (Setup.Slots[a].Kind != SlotKind.Monster && Setup.Slots[b].Kind != SlotKind.Monster
+                   && _players[a].Team == _players[b].Team);
 
     /// <summary>Culture table of a slot, or null for open/monster slots.</summary>
     public PlayerCultureTable? CultureOf(int slot) => _cultureTables[slot];
@@ -147,11 +196,13 @@ public sealed class Simulation
         MonsterRng.WriteTo(w);
         w.WriteByte((byte)_players.Length);
         foreach (var p in _players) p.WriteTo(w);
+        w.WriteUInt64(MapHash);
+        Territory.WriteTo(w);
     }
 
     public ulong ComputeHash()
     {
-        var w = new CanonicalWriter(256);
+        var w = new CanonicalWriter(Map.TileCount + 1024);
         WriteState(w);
         return StateHash.Of(w);
     }
@@ -159,7 +210,7 @@ public sealed class Simulation
     /// <summary>Savegame = {magic, format, GameVersion, MatchSetup, SimState} (docs/01-architecture.md §8).</summary>
     public byte[] Save()
     {
-        var w = new CanonicalWriter(1024);
+        var w = new CanonicalWriter(Map.TileCount + 2048);
         w.WriteUInt32(SaveMagic);
         w.WriteUInt16(SaveFormatVersion);
         GameVersion.Current.WriteTo(w);
@@ -186,7 +237,15 @@ public sealed class Simulation
         if (count != setup.Slots.Count) throw new InvalidDataException("Player count does not match setup");
         var players = new PlayerState[count];
         for (int i = 0; i < count; i++) players[i] = PlayerState.ReadFrom(r);
+        ulong mapHash = r.ReadUInt64();
+        MapData map;
+        try { map = GenerateMap(setup); }
+        catch (System.ArgumentException e) { throw new InvalidDataException(e.Message, e); }
+        if (map.ComputeHash() != mapHash) throw new InvalidDataException("Regenerated map does not match the saved map hash");
+        var territory = Territory.ReadFrom(r, map.Edge);
+        foreach (var c in territory.Claims)
+            if (c.Owner >= count) throw new InvalidDataException("Territory claim of an unknown slot");
         if (!r.AtEnd) throw new InvalidDataException("Trailing data in save");
-        return new Simulation(setup, tick, players, economy, combat, monsters, rejected);
+        return new Simulation(setup, map, tick, players, economy, combat, monsters, rejected, territory);
     }
 }

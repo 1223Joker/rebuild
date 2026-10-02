@@ -70,7 +70,7 @@
 | `.rbmap` save files, lobby preview & hash check | not started (belongs with the M5 lobby) |
 
 ## In progress
-- Nothing. M1 first pass complete and green on CI; corridor / per-team F8 / S ≤ 6 starts approved by the user.
+- **M2 step 1 — map in the sim + territory** (2026-10-02, branch `claude/charming-ride-1tc20m`, not yet reviewed or merged to `main`): `Simulation.Create` generates the map from `MatchSetup.Map` (existing M1 generator, unchanged) and stores `MapHash` in the state; `World/StartAssignment` maps the k-th Human/AI slot to start k (team must equal `MapSpec.TeamOf(k)`); `World/Territory` holds castle claims (r = 16, older claim wins, incremental add/remove equal to a full rebuild), hashed and saved (save format 2; load regenerates the map and checks its hash). `GameVersion` 0.3.0, golden replay regenerated (its setup now matches its map: 3 starts, teams 0/1/1). 109 tests pass locally. Waiting for the user to confirm the step before code review, merge to `main` and CI check.
 
 ## Next steps
 1. Keep CI green (`gh run list -R 1223Joker/rebuild`).

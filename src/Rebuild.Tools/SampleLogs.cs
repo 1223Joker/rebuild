@@ -16,7 +16,8 @@ public static class SampleLogs
     public static CommandLog MetaScript(ulong seed, int turns)
     {
         var setup = new MatchSetup(
-            new MapSpec(seed, MapSize.Medium, 4),
+            // 3 Human/AI slots → 3 starts in teams 0, 1, 1 (docs/04-game-modes.md §1); the Monster slot needs no start.
+            new MapSpec(seed, MapSize.Medium, 3) with { Teams = MapSpec.PackTeams(new[] { 0, 1, 1 }), Monsters = MonsterDensity.Low },
             seed * 31 + 7,
             new[]
             {

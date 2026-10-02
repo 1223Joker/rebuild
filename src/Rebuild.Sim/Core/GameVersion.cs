@@ -9,7 +9,7 @@ namespace Rebuild.Sim.Core;
 /// </summary>
 public readonly record struct GameVersion(ushort Major, ushort Minor, ushort Patch, ulong DataHash)
 {
-    public static readonly GameVersion Current = new(0, 2, 0, CultureCatalog.DataHash);
+    public static readonly GameVersion Current = new(0, 3, 0, CultureCatalog.DataHash);
 
     public void WriteTo(CanonicalWriter w)
     {
