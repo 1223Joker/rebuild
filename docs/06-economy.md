@@ -29,7 +29,7 @@ Reference for the genre's rules: *The Settlers IV* manual — carriers "automati
 | Metal | Gold smelter | M | smelter | gold ore + coal → gold | |
 | Metal | Toolsmith | M | smith (hammer) | iron + plank → tool (by quota) | |
 | Metal | Weaponsmith | M | smith (hammer) | iron + coal → sword | |
-| Military | Barracks | M | — | carrier + sword → soldier (rank 1) | |
+| Military | Barracks | M | — | carrier + weapon → soldier (unit type per weapon, [11-military](11-military.md)) | |
 | Military | Guard tower small / large | S / M | soldiers 1–3 / 1–6 | gold → rank-up of a garrisoned soldier | territory r=8 / r=12 |
 
 ## 2. Production chains
@@ -100,9 +100,10 @@ Statistics: per player, per good, ring buffer of production/consumption per minu
 ## 5. Territory & military
 - Each military building claims a radius (castle 16, large tower 12, small tower 8 tiles). Ownership per tile; on overlap the older claim keeps the tile (S4/S2 convention). Recomputed incrementally only around changed buildings.
 - Civilian buildings may only be placed in own territory; enemy civilian buildings inside newly captured territory burn down.
-- **Combat** (deterministic duels, `Combat` RNG stream): attackers walk to the target building; defenders come out one at a time; a duel = alternating hit rolls each tick: hit chance and damage per rank (rank 1/2/3: HP 100/130/170, hit 50/55/60 %, damage 10–14/13–17/16–20, all integers). Attacker occupies the building when no defenders remain → territory transfer.
+- **Combat, units, walls, siege**: see [11-military](11-military.md) and [ADR 0008](decisions/0008-combat-model.md) (the earlier duel-at-building model is superseded). Capture: a building changes owner when its garrison is defeated and an attacking melee unit enters it.
 - Rank-up: garrisoned soldier consumes 1 gold → +1 rank (max 3).
-- Monsters use the same duel system with their own stats ([05-ai §5](05-ai.md)).
+- Monsters use the same combat system with their own unit stats ([05-ai §5](05-ai.md)).
+- **Cultures** modify costs, yields and add unique buildings/goods ([10-cultures](10-cultures.md)); the tables in §1–2 describe the shared core (= Rivermen baseline).
 
 ## 6. Pathfinding & movement at scale
 Grid: square tiles, 8-neighbour, octile integer costs 10/14 ([ADR 0006](decisions/0006-sim-core-conventions.md)), terrain cost multipliers (plains 1, forest 1.5, hill 2 — as integers ×10). Settlers **do not collide** with each other (as in the Settlers series) → no local avoidance needed for civilians.
@@ -122,4 +123,4 @@ Scaling rules:
 - Target: 5 000 settlers, average ≤ 60 new path requests/s, pathfinding ≤ 5 ms per tick average on the reference machine (part of the 20 ms sim budget, [01-architecture §3](01-architecture.md)).
 
 ## 7. Out of scope for MVP
-Roads (speed bonus), donkeys/trade, ships, magic, multiple tribes, wine/beer luxury goods, soldier types beyond one melee type, catapults.
+Roads (speed bonus), donkeys/trade, ships, magic, more than 4 cultures, wine/beer luxury goods. (Cultures, unit roster, walls and siege are in scope — [10-cultures](10-cultures.md), [11-military](11-military.md).)
