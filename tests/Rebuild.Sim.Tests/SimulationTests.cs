@@ -123,7 +123,7 @@ public class SimulationTests
     [Fact]
     public void Culture_data_hash_is_part_of_the_version()
     {
-        Assert.Equal(CultureCatalog.DataHash, GameVersion.Current.DataHash);
+        Assert.Equal(GameVersion.CombinedDataHash, GameVersion.Current.DataHash);
         Assert.NotEqual(0UL, CultureCatalog.DataHash);
         Assert.Contains(CultureCatalog.All, c => c.Id == "rivermen");
         Assert.True(CultureCatalog.All.Select(c => c.Id).SequenceEqual(

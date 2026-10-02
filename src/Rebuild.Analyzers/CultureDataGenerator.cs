@@ -52,7 +52,7 @@ namespace Rebuild.Analyzers
             foreach (var f in files)
             {
                 try { cultures.Add(ReadCulture(f)); }
-                catch (Exception e) when (e is FormatException || e is InvalidCastException || e is KeyNotFoundException)
+                catch (Exception e) when (IsDataError(e))
                 {
                     ctx.ReportDiagnostic(Diagnostic.Create(BadData, Location.None, f.Path, e.Message));
                     return;
@@ -141,6 +141,11 @@ namespace Rebuild.Analyzers
             }
             return sb.ToString();
         }
+
+        /// <summary>Malformed data (wrong type, missing or null value, number out of range) → RB diagnostic, not a generator crash.</summary>
+        internal static bool IsDataError(Exception e) =>
+            e is FormatException || e is InvalidCastException || e is KeyNotFoundException
+            || e is NullReferenceException || e is OverflowException;
 
         private static string Literal(string s) =>
             "\"" + s.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";

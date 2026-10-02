@@ -1,8 +1,11 @@
 using System.Collections.Generic;
+using Rebuild.Sim;
+using Rebuild.Sim.Buildings;
 using Rebuild.Sim.Commands;
 using Rebuild.Sim.Core;
 using Rebuild.Sim.Match;
 using Rebuild.Sim.Serialization;
+using Rebuild.Sim.World;
 
 namespace Rebuild.Tools;
 
@@ -61,5 +64,82 @@ public static class SampleLogs
             log.Append(new TurnBundle(turn, commands));
         }
         return log;
+    }
+
+    /// <summary>
+    /// M2 building script: both players place random building types around their castle, half at random
+    /// tiles (mostly enemy/no-man's land, water or other buildings, so rejected) and half at the first valid
+    /// spot scanning from a random tile; they cancel random building ids and send malformed payloads; player 1
+    /// leaves at 3/4. A shadow simulation runs along to find valid spots and the next building id.
+    /// </summary>
+    public static CommandLog BuildScript(ulong seed, int turns)
+    {
+        var setup = new MatchSetup(
+            new MapSpec(seed, MapSize.Medium, 2) with { Monsters = MonsterDensity.Low }, seed * 17 + 3,
+            new[]
+            {
+                new SlotInfo(SlotKind.Human, 0, "rivermen"),
+                new SlotInfo(SlotKind.Ai, 1, SlotInfo.RandomCulture, AiDifficulty.Normal),
+                new SlotInfo(SlotKind.Monster, 2, ""),
+            });
+        var log = new CommandLog(GameVersion.Current, setup);
+        var sim = Simulation.Create(setup);
+        var rng = new Pcg32(seed, 0xB0117);
+        var seq = new ushort[256];
+        for (uint turn = 0; turn < (uint)turns; turn++)
+        {
+            var commands = new List<Command>();
+            for (byte slot = 0; slot < 2; slot++)
+            {
+                var start = sim.StartOf(slot)!.Value;
+                int count = rng.NextInt(3);
+                for (int i = 0; i < count; i++)
+                {
+                    int kind = rng.NextInt(20);
+                    if (kind < 14)
+                    {
+                        ushort type = (ushort)rng.NextInt(BuildingCatalog.All.Count + 1); // + 1: unknown type
+                        int x = start.X - 20 + rng.NextInt(41);
+                        int y = start.Y - 20 + rng.NextInt(41);
+                        if (kind >= 7) FindValidSpot(sim, slot, type, ref x, ref y); // half of them aim at a valid spot
+                        byte rotation = (byte)rng.NextInt(5); // 4 is invalid
+                        commands.Add(BuildingCommands.Place(slot, seq[slot]++, type, x, y, rotation));
+                    }
+                    else if (kind < 18)
+                    {
+                        commands.Add(BuildingCommands.Cancel(slot, seq[slot]++, rng.NextInt(sim.Buildings.NextId + 1)));
+                    }
+                    else
+                    {
+                        var payload = new byte[rng.NextInt(9)];
+                        for (int b = 0; b < payload.Length; b++) payload[b] = (byte)rng.NextUInt();
+                        var type = kind == 18 ? CommandType.PlaceBuilding : CommandType.CancelConstruction;
+                        commands.Add(new Command(type, slot, turn, seq[slot]++, payload));
+                    }
+                }
+            }
+            if (turn == (uint)turns * 3 / 4) commands.Add(MetaCommands.ForSlot(CommandType.PlayerLeft, 1, seq[Command.SystemSlot]++));
+            var bundle = new TurnBundle(turn, commands);
+            log.Append(bundle);
+            sim.ExecuteTurn(bundle);
+        }
+        return log;
+    }
+
+    /// <summary>Moves (x, y) to the first valid spot in row-major order from (x, y) within a 41² window around the slot's start.</summary>
+    private static void FindValidSpot(Simulation sim, byte slot, ushort type, ref int x, ref int y)
+    {
+        var start = sim.StartOf(slot)!.Value;
+        int x0 = start.X - 20, y0 = start.Y - 20;
+        int offset = (y - y0) * 41 + (x - x0);
+        for (int i = 0; i < 41 * 41; i++)
+        {
+            int k = (offset + i) % (41 * 41);
+            int tx = x0 + k % 41, ty = y0 + k / 41;
+            if (BuildingPlacement.Check(sim.Map, sim.Territory, sim.Buildings, slot, type, tx, ty) != PlacementResult.Ok) continue;
+            x = tx;
+            y = ty;
+            return;
+        }
     }
 }

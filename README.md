@@ -20,9 +20,10 @@ dotnet run --project src/Rebuild.Tools -c Release -- mapgen --code RB-… --stat
 | Path | Contents |
 |---|---|
 | `src/Rebuild.Sim` | deterministic simulation (no Godot, no floats, no threads) |
-| `src/Rebuild.Analyzers` | determinism analyzers (RB0001–RB0004) + culture data source generator |
+| `src/Rebuild.Analyzers` | determinism analyzers (RB0001–RB0004) + culture and building data source generators |
 | `src/Rebuild.Sim/MapGen` | seed-based map generator + fairness validation ([docs/03-mapgen.md](docs/03-mapgen.md)) |
 | `src/Rebuild.Tools` | headless CLI: `probe`, `replay`, `sample-log`, `hashes`, `mapgen` |
 | `data/cultures/<id>/culture.json` | culture data, compiled into C# at build time |
+| `data/buildings.json` | building types (size, placement, territory, cost), compiled into C# at build time |
 | `tests/` | xUnit/FsCheck tests and golden hashes/replays/map cases (`tests/golden/`) |
 | `tools/ci/` | CI helper scripts |

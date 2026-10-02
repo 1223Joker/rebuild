@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-10-02 — M0 done; **M1 Map generation first pass done**; **M2 step 1 (map in the sim, start assignment, territory) done**. M1: full pipeline, F1–F11 validation with retries, share codes, `mapgen` CLI with PNG preview, 24 golden map hashes, nightly 1 000-seed workflow; 96 tests.
+**Last updated:** 2026-10-02 — M0 done; **M1 Map generation first pass done**; **M2 step 1 (map in the sim, start assignment, territory) done**; **M2 step 2 (building data, start castle entity, PlaceBuilding/CancelConstruction) done**. M1: full pipeline, F1–F11 validation with retries, share codes, `mapgen` CLI with PNG preview, 24 golden map hashes, nightly 1 000-seed workflow; 96 tests.
 
 ## Current phase / step
-**Implementation, milestone M2 Sim economy (headless)** ([09-roadmap](../09-roadmap.md)) — step 1 (map in the sim + territory) done; M0 Foundations and M1 Map generation complete. The user permitted coding on 2026-10-02 and chose "M0 directly, S1 folded in": S1's sim half is covered by M0; S1's Godot .NET export check moves to the start of M3. Process steps: [ORIGINAL-BRIEF.md §6](ORIGINAL-BRIEF.md).
+**Implementation, milestone M2 Sim economy (headless)** ([09-roadmap](../09-roadmap.md)) — steps 1 (map in the sim + territory) and 2 (building data + placement) done; M0 Foundations and M1 Map generation complete. The user permitted coding on 2026-10-02 and chose "M0 directly, S1 folded in": S1's sim half is covered by M0; S1's Godot .NET export check moves to the start of M3. Process steps: [ORIGINAL-BRIEF.md §6](ORIGINAL-BRIEF.md).
 
 ## Done
 - Step 0: git repo, [AGENTS.md](../../AGENTS.md), [CLAUDE.md](../../CLAUDE.md) (pointer), [ORIGINAL-BRIEF.md](ORIGINAL-BRIEF.md), this file.
@@ -79,6 +79,17 @@
 | Code review (`/code-review`, medium): 2 low findings fixed (radius > ushort, `NextClaimId` < 1 on load) | done |
 | Tests / CI | 110 pass in Debug and Release locally; **CI run 37077142734 green** on `main` (06fc05f): 4 runners × Debug/Release, `cross-os-hashes` (new replay hash identical everywhere) and `golden-version` pass |
 
+| M2 step 2 — building data + placement (2026-10-02) | State |
+|---|---|
+| `data/buildings.json`: 25 shared-core types (castle, storehouse, …, guard towers) with size, placement (land/mountain), territory radius, plank/stone cost (ASSUMPTION) | done |
+| `BuildingDataGenerator` (source generator, RB0101 on bad data) → `BuildingCatalog`, `BuildingIds`; data hash folded into `GameVersion.DataHash` | done |
+| `World/BuildingRegistry`: buildings (id, type, owner, top-left tile, rotation, state, claim) + occupancy grid; footprints S 2², M 3², L 4² keep a 1-tile margin; state hashed + saved (format 3), load validates ids/types/owners/overlap/claims | done |
+| Start castle = complete castle entity centred on the start, owns the r = 16 claim (radius now from data; `Simulation.CastleTerritoryRadius` removed) | done |
+| `PlaceBuilding` (u16 type, u16 x, u16 y, u8 rotation) → construction site, validated by `World/BuildingPlacement` (own territory, terrain, margin; castle not placeable); `CancelConstruction` (i32 id) removes an own site | done |
+| Golden replays: `m0-meta.rblog` regenerated, new `m2-build.rblog` (600 turns of valid/invalid placements and cancels, `sample-log --script build`); `GameVersion` 0.4.0 | done |
+| Code review (`/code-review`, medium): 1 finding fixed — data generators crashed (instead of RB0100/RB0101) on `null` values or out-of-range numbers | done |
+| Tests / CI | 127 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112 from Ubuntu apt); CI: see below |
+
 ## In progress
 - Nothing.
 
@@ -86,7 +97,7 @@
 1. Keep CI green (`gh run list -R 1223Joker/rebuild`).
 2. M1 polish: tune `Dmin`, `Rf`, `Lmin` and the ASSUMPTION thresholds (F5/F6 minimums, fertile share, lair counts) when gameplay exists (spike S4 is done as part of M1; all spikes are allowed, user 2026-10-02).
 3. Run spike **S5** (headless logistics + HPA* + combat scale, [09-roadmap §2](../09-roadmap.md)) alongside the start of M2, so the 20 ms/tick budget is checked before the economy design hardens.
-4. Continue **M2 Sim economy (headless)** ([06-economy](../06-economy.md)): next step = building data (`data/buildings.json`, castle radius from data) + castle entity + `PlaceBuilding` validation (own territory, buildable tiles), then construction, carriers, A* + HPA*.
+4. Continue **M2 Sim economy (headless)** ([06-economy](../06-economy.md)): next step = goods + castle stock (initial stock from 06-economy §3) and **construction** (sites request planks/stone, build progress per tick, complete → military buildings add their territory claim), then `Demolish`, carriers + logistics, A* + HPA*.
 5. Before M3: run S1's Godot part — install the Godot **.NET** edition (the installed `/Applications/Godot.app` 4.7.2 is the standard build without C#) and export a test project for macOS and Windows — and spike S2 (rendering scale). Before M5: spike S3 (ENet transport).
 
 ## Blockers / waiting for user approval

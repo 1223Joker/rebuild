@@ -1,4 +1,5 @@
 using Rebuild.Sim.Match;
+using Rebuild.Sim.World;
 
 namespace Rebuild.Sim.Commands;
 
@@ -13,8 +14,19 @@ public static class CommandValidator
         if (isMeta != (c.Slot == Command.SystemSlot)) return false;
         if (isMeta) return IsValidMeta(sim, c);
         if (c.Slot >= sim.Players.Count || !sim.Players[c.Slot].CanAct) return false;
-        // Gameplay command payloads are validated by their systems (M2+); until then they are no-ops.
-        return false;
+        switch (c.Type)
+        {
+            case CommandType.PlaceBuilding:
+                return BuildingCommands.TryReadPlace(c, out ushort type, out int x, out int y, out byte rotation)
+                    && rotation <= BuildingRegistry.MaxRotation
+                    && BuildingPlacement.Check(sim.Map, sim.Territory, sim.Buildings, c.Slot, type, x, y) == PlacementResult.Ok;
+            case CommandType.CancelConstruction:
+                return BuildingCommands.TryReadCancel(c, out int id) && sim.Buildings.TryGet(id, out var b)
+                    && b.Owner == c.Slot && b.State == BuildingState.ConstructionSite;
+            default:
+                // Other gameplay commands are validated by their systems once they exist; until then they are no-ops.
+                return false;
+        }
     }
 
     private static bool IsValidMeta(Simulation sim, in Command c)

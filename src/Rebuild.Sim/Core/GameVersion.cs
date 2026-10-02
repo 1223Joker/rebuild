@@ -1,3 +1,4 @@
+using Rebuild.Sim.Buildings;
 using Rebuild.Sim.Cultures;
 using Rebuild.Sim.Serialization;
 
@@ -9,7 +10,22 @@ namespace Rebuild.Sim.Core;
 /// </summary>
 public readonly record struct GameVersion(ushort Major, ushort Minor, ushort Patch, ulong DataHash)
 {
-    public static readonly GameVersion Current = new(0, 3, 0, CultureCatalog.DataHash);
+    public static readonly GameVersion Current = new(0, 4, 0, CombinedDataHash);
+
+    /// <summary>All game data hashes folded into one (FNV-1a 64 continued over the building hash bytes).</summary>
+    public static ulong CombinedDataHash
+    {
+        get
+        {
+            ulong hash = CultureCatalog.DataHash;
+            for (int i = 0; i < 8; i++)
+            {
+                hash ^= (BuildingCatalog.DataHash >> (8 * i)) & 0xFF;
+                hash *= 1099511628211UL;
+            }
+            return hash;
+        }
+    }
 
     public void WriteTo(CanonicalWriter w)
     {

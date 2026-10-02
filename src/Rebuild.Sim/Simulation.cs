@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using Rebuild.Sim.Buildings;
 using Rebuild.Sim.Commands;
 using Rebuild.Sim.Core;
 using Rebuild.Sim.Cultures;
@@ -12,8 +13,8 @@ namespace Rebuild.Sim;
 
 /// <summary>
 /// The deterministic simulation: <c>State(n+1) = Step(State(n), Commands(n))</c> (docs/01-architecture.md §1).
-/// Single-threaded, integer-only. Holds match/player state, RNG streams, the generated map and territory;
-/// game systems are added from M2 on and must write their state in <see cref="WriteState"/>. The map is
+/// Single-threaded, integer-only. Holds match/player state, RNG streams, the generated map, territory and
+/// buildings; game systems are added from M2 on and must write their state in <see cref="WriteState"/>. The map is
 /// regenerated from <see cref="MatchSetup.Map"/> on create and load (only its hash is saved); systems that
 /// mutate map layers must serialize those layers themselves.
 /// </summary>
@@ -25,10 +26,7 @@ public sealed class Simulation
     public const int TicksPerTurn = 2;
 
     private const uint SaveMagic = 0x56415342; // "BSAV" little-endian
-    private const ushort SaveFormatVersion = 2;
-
-    /// <summary>Territory radius of the start castle (docs/06-economy.md §1). ASSUMPTION: moves to building data with the buildings step of M2.</summary>
-    public const int CastleTerritoryRadius = 16;
+    private const ushort SaveFormatVersion = 3;
 
     private readonly PlayerState[] _players;
     private readonly PlayerCultureTable?[] _cultureTables;
@@ -52,14 +50,16 @@ public sealed class Simulation
     /// <summary>Hash of <see cref="Map"/>; part of the state hash so peers with different maps desync at turn 0.</summary>
     public ulong MapHash { get; }
     public Territory Territory { get; }
+    public BuildingRegistry Buildings { get; }
 
     private Simulation(MatchSetup setup, MapData map, int tick, PlayerState[] players, Pcg32 economy, Pcg32 combat, Pcg32 monsters,
-        int rejected, Territory territory)
+        int rejected, Territory territory, BuildingRegistry buildings)
     {
         Setup = setup;
         Map = map;
         MapHash = map.ComputeHash();
         Territory = territory;
+        Buildings = buildings;
         _startOfSlot = StartAssignment.Assign(setup);
         Tick = tick;
         _players = players;
@@ -74,8 +74,8 @@ public sealed class Simulation
     }
 
     /// <summary>
-    /// Starts a new match: generates the map, resolves random cultures with the Setup RNG stream and claims the
-    /// start-castle territory of every Human/AI slot (slot order). Throws <see cref="System.ArgumentException"/>
+    /// Starts a new match: generates the map, resolves random cultures with the Setup RNG stream and places the
+    /// complete start castle (centred on the start, with its territory claim) of every Human/AI slot in slot order. Throws <see cref="System.ArgumentException"/>
     /// if the setup does not fit its map spec or no valid map exists for the spec.
     /// </summary>
     public static Simulation Create(MatchSetup setup)
@@ -109,18 +109,25 @@ public sealed class Simulation
             players[i] = new PlayerState((byte)i, s.Team, culture, controller, s.Difficulty, PlayerStatus.Active);
         }
         var territory = new Territory(map.Edge);
+        var buildings = new BuildingRegistry(map.Edge);
+        var castle = BuildingCatalog.All[BuildingIds.Castle];
         var starts = StartAssignment.Assign(setup);
         for (int i = 0; i < starts.Length; i++)
         {
             if (starts[i] < 0) continue;
             var start = map.Starts[starts[i]];
-            territory.AddClaim((byte)i, start.X, start.Y, CastleTerritoryRadius);
+            // The start castle ignores terrain (the start plateau is flat by construction, docs/03-mapgen.md §3).
+            int x = start.X - castle.Side / 2, y = start.Y - castle.Side / 2;
+            if (!buildings.IsFootprintFree(x, y, castle.Side))
+                throw new System.ArgumentException($"Start castle of slot {i} does not fit at ({start.X}, {start.Y})", nameof(setup));
+            int claim = territory.AddClaim((byte)i, start.X, start.Y, castle.TerritoryRadius);
+            buildings.Add(BuildingIds.Castle, (byte)i, x, y, 0, BuildingState.Complete, claim);
         }
         return new Simulation(setup, map, 0, players,
             Pcg32.ForStream(setup.MatchSeed, RngStream.Economy),
             Pcg32.ForStream(setup.MatchSeed, RngStream.Combat),
             Pcg32.ForStream(setup.MatchSeed, RngStream.Monsters),
-            rejected: 0, territory);
+            rejected: 0, territory, buildings);
     }
 
     private static MapData GenerateMap(MatchSetup setup)
@@ -181,8 +188,16 @@ public sealed class Simulation
             case CommandType.HumanResume:
                 _players[c.Payload[0]].Controller = Controller.Human;
                 break;
+            case CommandType.PlaceBuilding:
+                BuildingCommands.TryReadPlace(c, out ushort type, out int x, out int y, out byte rotation);
+                Buildings.Add(type, c.Slot, x, y, rotation, BuildingState.ConstructionSite, claimId: 0);
+                break;
+            case CommandType.CancelConstruction:
+                BuildingCommands.TryReadCancel(c, out int id);
+                Buildings.Remove(id);
+                break;
             // PlayerJoined, Pause, Resume and SetSpeed are handled by the lockstep scheduler; the sim only
-            // sees them in the log. Gameplay commands get their handlers with their systems (M2+).
+            // sees them in the log. Other gameplay commands get their handlers with their systems (M2+).
         }
     }
 
@@ -198,6 +213,7 @@ public sealed class Simulation
         foreach (var p in _players) p.WriteTo(w);
         w.WriteUInt64(MapHash);
         Territory.WriteTo(w);
+        Buildings.WriteTo(w);
     }
 
     public ulong ComputeHash()
@@ -245,7 +261,8 @@ public sealed class Simulation
         var territory = Territory.ReadFrom(r, map.Edge);
         foreach (var c in territory.Claims)
             if (c.Owner >= count) throw new InvalidDataException("Territory claim of an unknown slot");
+        var buildings = BuildingRegistry.ReadFrom(r, map.Edge, count, territory);
         if (!r.AtEnd) throw new InvalidDataException("Trailing data in save");
-        return new Simulation(setup, map, tick, players, economy, combat, monsters, rejected, territory);
+        return new Simulation(setup, map, tick, players, economy, combat, monsters, rejected, territory, buildings);
     }
 }

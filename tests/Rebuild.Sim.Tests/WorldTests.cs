@@ -204,9 +204,10 @@ public class WorldTests
         var sim = Simulation.Create(new MatchSetup(new MapSpec(9, MapSize.Small, 2), 1,
             new[] { new SlotInfo(SlotKind.Human, 0, "rivermen"), new SlotInfo(SlotKind.Ai, 1, "rivermen") }));
         var save = sim.Save();
-        // The MapHash follows the player table; flip one of its bytes.
+        // The MapHash follows the player table and precedes territory and buildings; flip one of its bytes.
         var w = new CanonicalWriter(4096);
         sim.Territory.WriteTo(w);
+        sim.Buildings.WriteTo(w);
         int mapHashOffset = save.Length - w.Length - 8;
         save[mapHashOffset] ^= 0xFF;
         var e = Assert.Throws<InvalidDataException>(() => Simulation.Load(save));

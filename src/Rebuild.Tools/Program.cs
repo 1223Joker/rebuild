@@ -20,8 +20,8 @@ public static class Program
           version                          print GameVersion
           probe [--seed N] [--steps N]     cross-platform determinism hash (Pcg32 + Fix)
           replay <file.rblog> [--every N]  run a command log, print state hashes every N turns and at the end
-          sample-log <out.rblog> [--seed N] [--turns N]
-                                           write the scripted M0 sample log
+          sample-log <out.rblog> [--script meta|build] [--seed N] [--turns N]
+                                           write a scripted sample log (meta: M0 meta commands, build: M2 buildings)
           hashes <golden-dir>              print probe hash, final hash of every *.rblog in <golden-dir>/replays and
                                            the MapHash of every case in <golden-dir>/mapgen.json
                                            (CI compares this output across operating systems)
@@ -81,7 +81,16 @@ public static class Program
     private static int SampleLogCommand(string[] args)
     {
         if (args.Length < 2) return Fail(Usage);
-        var log = SampleLogs.MetaScript(ULongOption(args, "--seed", 1), (int)ULongOption(args, "--turns", 3000));
+        string script = StringOption(args, "--script") ?? "meta";
+        ulong seed = ULongOption(args, "--seed", 1);
+        int turns = (int)ULongOption(args, "--turns", 3000);
+        CommandLog log;
+        switch (script)
+        {
+            case "meta": log = SampleLogs.MetaScript(seed, turns); break;
+            case "build": log = SampleLogs.BuildScript(seed, turns); break;
+            default: return Fail("unknown --script (meta, build)");
+        }
         File.WriteAllBytes(args[1], log.ToBytes());
         Console.WriteLine($"wrote {args[1]}: {log.Bundles.Count} turns");
         return 0;

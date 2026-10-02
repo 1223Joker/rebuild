@@ -32,6 +32,8 @@ Reference for the genre's rules: *The Settlers IV* manual — carriers "automati
 | Military | Barracks | M | — | carrier + weapon → soldier (unit type per weapon, [11-military](11-military.md)) | |
 | Military | Guard tower small / large | S / M | soldiers 1–3 / 1–6 | gold → rank-up of a garrisoned soldier | territory r=8 / r=12 |
 
+As built (M2 step 2): the table lives in [data/buildings.json](../data/buildings.json) (id, size, placement, territory radius, plank/stone cost — costs are ASSUMPTIONS), compiled into `BuildingCatalog`/`BuildingIds` at build time (`src/Rebuild.Analyzers/BuildingDataGenerator.cs`, error RB0101 on bad data). Footprints are squares, S 2×2, M 3×3, L 4×4 tiles (ASSUMPTION), and keep a 1-tile free margin to every other footprint so buildings never close a passage. `PlaceBuilding(type, x, y, rotation)` (top-left tile; rotation 0–3 is cosmetic) is valid when every footprint tile is in the player's own territory and suits the building (land: buildable tile; mines: walkable mountain tile without objects) — rules in `src/Rebuild.Sim/World/BuildingPlacement.cs`, shared by validation, UI and AI. It creates a construction site; `CancelConstruction(id)` removes an own site. The start castle is placed complete, centred on the start, and owns the r = 16 claim.
+
 ## 2. Production chains
 ```mermaid
 flowchart LR

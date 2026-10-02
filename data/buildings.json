@@ -1,0 +1,30 @@
+{
+  "$comment": "Shared core buildings (docs/06-economy.md §1). Order = type index in PlaceBuilding commands. size S/M/L = 2x2/3x3/4x4 tile footprint; placement land = buildable tiles, mountain = mountain tiles (mines); territory = claim radius once complete; cost = construction materials. Costs are ASSUMPTIONS to be tuned in playtests.",
+  "buildings": [
+    { "id": "castle", "name": "Castle", "size": "L", "placement": "land", "territory": 16, "cost": { "plank": 0, "stone": 0 }, "player_placeable": false },
+    { "id": "storehouse", "name": "Storehouse", "size": "M", "placement": "land", "cost": { "plank": 4, "stone": 3 } },
+    { "id": "residence", "name": "Residence", "size": "S", "placement": "land", "cost": { "plank": 2, "stone": 2 } },
+    { "id": "woodcutter", "name": "Woodcutter", "size": "S", "placement": "land", "cost": { "plank": 2, "stone": 0 } },
+    { "id": "forester", "name": "Forester", "size": "S", "placement": "land", "cost": { "plank": 2, "stone": 0 } },
+    { "id": "sawmill", "name": "Sawmill", "size": "M", "placement": "land", "cost": { "plank": 3, "stone": 2 } },
+    { "id": "stonecutter", "name": "Stonecutter", "size": "S", "placement": "land", "cost": { "plank": 2, "stone": 0 } },
+    { "id": "fisher", "name": "Fisher", "size": "S", "placement": "land", "cost": { "plank": 2, "stone": 0 } },
+    { "id": "hunter", "name": "Hunter", "size": "S", "placement": "land", "cost": { "plank": 2, "stone": 0 } },
+    { "id": "farm", "name": "Farm", "size": "M", "placement": "land", "cost": { "plank": 3, "stone": 2 } },
+    { "id": "waterworks", "name": "Waterworks", "size": "S", "placement": "land", "cost": { "plank": 2, "stone": 1 } },
+    { "id": "mill", "name": "Mill", "size": "M", "placement": "land", "cost": { "plank": 3, "stone": 2 } },
+    { "id": "bakery", "name": "Bakery", "size": "M", "placement": "land", "cost": { "plank": 3, "stone": 2 } },
+    { "id": "pig_farm", "name": "Pig farm", "size": "M", "placement": "land", "cost": { "plank": 3, "stone": 2 } },
+    { "id": "slaughterhouse", "name": "Slaughterhouse", "size": "M", "placement": "land", "cost": { "plank": 3, "stone": 2 } },
+    { "id": "coal_mine", "name": "Coal mine", "size": "S", "placement": "mountain", "cost": { "plank": 3, "stone": 0 } },
+    { "id": "iron_mine", "name": "Iron mine", "size": "S", "placement": "mountain", "cost": { "plank": 3, "stone": 0 } },
+    { "id": "gold_mine", "name": "Gold mine", "size": "S", "placement": "mountain", "cost": { "plank": 3, "stone": 0 } },
+    { "id": "iron_smelter", "name": "Iron smelter", "size": "M", "placement": "land", "cost": { "plank": 2, "stone": 4 } },
+    { "id": "gold_smelter", "name": "Gold smelter", "size": "M", "placement": "land", "cost": { "plank": 2, "stone": 4 } },
+    { "id": "toolsmith", "name": "Toolsmith", "size": "M", "placement": "land", "cost": { "plank": 3, "stone": 3 } },
+    { "id": "weaponsmith", "name": "Weaponsmith", "size": "M", "placement": "land", "cost": { "plank": 3, "stone": 3 } },
+    { "id": "barracks", "name": "Barracks", "size": "M", "placement": "land", "cost": { "plank": 4, "stone": 4 } },
+    { "id": "guard_tower_small", "name": "Guard tower (small)", "size": "S", "placement": "land", "territory": 8, "cost": { "plank": 2, "stone": 3 } },
+    { "id": "guard_tower_large", "name": "Guard tower (large)", "size": "M", "placement": "land", "territory": 12, "cost": { "plank": 3, "stone": 6 } }
+  ]
+}
