@@ -19,8 +19,8 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest, macos-15-intel]
         config: [Debug, Release]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 8.0.x
           global-json-file: global.json
@@ -33,7 +33,7 @@ jobs:
       - name: Hashes
         shell: bash
         run: dotnet run --project src/Rebuild.Tools -c ${{ matrix.config }} --no-build -- hashes tests/golden > hashes-${{ matrix.os }}-${{ matrix.config }}.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: hashes-${{ matrix.os }}-${{ matrix.config }}
           path: hashes-${{ matrix.os }}-${{ matrix.config }}.txt
@@ -42,11 +42,20 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v6
         with:
           pattern: hashes-*
           merge-multiple: true
           path: hashes
       - name: Compare all runners against tests/golden/hashes.txt
         run: tools/ci/compare-hashes.sh tests/golden/hashes.txt hashes/*.txt
+
+  golden-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Golden changes need a version bump
+        run: tools/ci/check-golden-version.sh "${{ github.event.pull_request.base.sha || github.event.before }}"
