@@ -1,6 +1,6 @@
 # STATUS
 
-**Last updated:** 2026-10-02 — 08-testing.md written.
+**Last updated:** 2026-10-02 — 09-roadmap.md written.
 
 ## Current phase / step
 Planning phase — Process step 3 (Write deliverables). Process steps are defined in [ORIGINAL-BRIEF.md §6](ORIGINAL-BRIEF.md). No production code may be written until the user approves the ADRs.
@@ -23,7 +23,7 @@ Planning phase — Process step 3 (Write deliverables). Process steps are define
 | [06-economy.md](../06-economy.md) | done |
 | [07-art-style.md](../07-art-style.md) | done |
 | [08-testing.md](../08-testing.md) | done |
-| [09-roadmap.md](../09-roadmap.md) | todo |
+| [09-roadmap.md](../09-roadmap.md) | done |
 | [open-questions.md](../open-questions.md) | todo |
 | [GLOSSARY.md](GLOSSARY.md) | todo |
 | [DECISIONS-LOG.md](DECISIONS-LOG.md) | living |
