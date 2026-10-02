@@ -16,3 +16,11 @@ Every answer, instruction or preference the user gives, recorded as close to the
 | 2026-10-02 | Q9 Monsters | How should neutral monsters behave? | "Escalating waves" — pressure increases over time, PvE survival flavor. |
 | 2026-10-02 | Q10 MP extras | Which multiplayer comfort features are required beyond pause/disconnect/reconnect? | "Save/load multiplayer games", "AI takes over disconnected player", "Game speed control". (Not selected: spectators / replay viewer.) |
 | 2026-10-02 | Execution plan | Agent proposed: commit setup, record answers, write ADRs then docs 00–09, open-questions, glossary, handoff test, summary, stop. | Approved the plan (no changes requested). |
+| 2026-10-02 | A1–A6 ADRs | Which ADRs do you approve as proposed? | Selected all: "0001 C# / 0002 fixed point", "0003 map determinism", "0004 transport", "0005 3D / 0006 sim core" → ADRs 0001–0006 approved. |
+| 2026-10-02 | B1 Spikes | May I build the throwaway spikes S1–S5? | "No spikes yet" |
+| 2026-10-02 | C1 Scope | MVP ~21 months part-time; how to handle scope? | "Keep scope, LAN PvP first (Recommended)" — full MVP, playable LAN PvP build after M5. |
+| 2026-10-02 | D1 Snapshot | One-time state snapshot OK for reconnect and desync recovery? | "Yes, allowed (Recommended)" |
+| 2026-10-02 | E1 Machines | Which machines do you own for testing? | "Mac Apple Silicon" (only). |
+| 2026-10-02 | D2 Host loss | If the host leaves mid-game? | "End match + auto-save (Recommended)" |
+| 2026-10-02 | C2/C3 Allies & fog | Alliance & visibility rules? | "Shared vision + visual fog" — allies share vision, carriers may cross allied land, visual fog of war in MVP. |
+| 2026-10-02 | Remaining defaults | Accept recommendations for C4–C8, D3–D5, E2–E4, F1, F3, G1–G2? | "Accept all (Recommended)" |
