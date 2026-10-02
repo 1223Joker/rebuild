@@ -47,3 +47,5 @@ Chronological one-liners. Format: `date | decision | status | link`. Status: `pr
 | 2026-10-02 | 4 cultures and unit roster approved as working concepts / balancing starting values | approved by user | [10-cultures](../10-cultures.md), [11-military](../11-military.md) |
 | 2026-10-02 | Phase order: A LAN Alpha → B Cultures & war → C Steam → D AI & monsters → E Release; milestones renumbered | approved by user | [09-roadmap](../09-roadmap.md) |
 | 2026-10-02 | Spikes still not permitted ("Not yet"); final art decided after M3 | approved by user | [open-questions](../open-questions.md) |
+| 2026-10-02 | Implementation permitted; start with M0 Foundations directly, S1's sim half (Fix, Pcg32, analyzers, cross-OS hash) folded into M0; S1's Godot-export check moves to the start of M3 | approved by user | [09-roadmap](../09-roadmap.md) |
+| 2026-10-02 | Toolchain: .NET SDK 10 (pinned in `global.json`) building `net8.0` targets, so the libraries stay loadable by Godot .NET | proposed | [ADR 0001](../decisions/0001-language.md) |

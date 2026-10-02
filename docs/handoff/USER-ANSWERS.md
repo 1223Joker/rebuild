@@ -43,3 +43,6 @@ Every answer, instruction or preference the user gives, recorded as close to the
 | 2026-10-02 | H6 Unit cap | Maximum soldiers per player? | "800" (offered note: huge battles, may need lower player count). |
 | 2026-10-02 | B1 Spikes | May I build spikes S1–S5 now? | "Not yet" |
 | 2026-10-02 | F2 Final art | How should final art be made? | "Decide after M3 (Recommended)" |
+| 2026-10-02 | Start implementation | — (unprompted) | "start with the Projekt Rebuild, everything is planned and dokumented, start with the coding" — implementation is permitted (supersedes "Not yet" for B1). |
+| 2026-10-02 | .NET SDK | May the agent install the .NET SDK to ~/.dotnet via Microsoft's dotnet-install.sh? | "Install .NET 8 + 10 SDK (Recommended)" |
+| 2026-10-02 | Start point | Spikes first, or M0 directly with S1's sim half folded in? | "M0 directly, S1 folded in (Recommended)" — Godot export part of S1 is checked later with the client. |
