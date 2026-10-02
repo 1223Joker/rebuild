@@ -2,7 +2,7 @@
 
 System design: [ADR 0007](decisions/0007-culture-system.md). User requirements ([USER-ANSWERS](handoff/USER-ANSWERS.md), 2026-10-02): different mechanics, advantages and disadvantages ("need more wood, or more stone"); S4-style depth; **4 cultures** in the MVP; the **first LAN build has 1 culture**.
 
-All names, numbers and unique content below are **ASSUMPTIONS / first proposals** for the user to approve or rename ([open-questions](open-questions.md) H1–H3). Numbers are integer percentages relative to the baseline culture; they are balancing starting points, not final values.
+The user approved these cultures as **working concepts** (2026-10-02): names and details may still change. Numbers are integer percentages relative to the baseline culture; they are balancing starting points, not final values.
 
 ## 1. Design rules
 1. **Shared core**: every culture has the base economy of [06-economy](06-economy.md) (woodcutter, sawmill, stonecutter, food chain, mines, smelters, smiths, barracks, towers) and the base units of [11-military](11-military.md).

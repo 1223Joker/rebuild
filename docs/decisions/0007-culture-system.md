@@ -1,6 +1,6 @@
 # ADR 0007 — Culture system: data-driven cultures on a shared core
 
-**Status:** proposed (2026-10-02)
+**Status:** approved by user (2026-10-02)
 
 ## Context
 - The user wants "different cultures with different mechanics … different advantages and disadvantages, like need more wood, or more stone" ([USER-ANSWERS](../handoff/USER-ANSWERS.md), 2026-10-02).
@@ -17,7 +17,7 @@
 | Balancing effort | High | Low | Medium (tables, AI soak) |
 | Risk of desync bugs | Highest | Lowest | Low |
 
-## Decision (proposed)
+## Decision
 **(C).** All cultures run the same systems (construction, production, logistics, combat). A culture is a data package:
 
 ```text

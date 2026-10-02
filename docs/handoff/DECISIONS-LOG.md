@@ -42,3 +42,8 @@ Chronological one-liners. Format: `date | decision | status | link`. Status: `pr
 | 2026-10-02 | 4 cultures proposed: Rivermen (baseline, first LAN build), Highlanders, Woodfolk, Riders | proposed | [10-cultures](../10-cultures.md) |
 | 2026-10-02 | Roadmap restructured into phases A (LAN Alpha) → B (Steam) → C (Cultures & war) → D (AI & monsters) → E (Release); ≈ 114 weeks (≈ 33 months with contingency) | proposed | [09-roadmap](../09-roadmap.md) |
 | 2026-10-02 | Reference machine = MacBook M5 24 GB; second test machine = Windows gaming PC; Linux CI-only until phase E | approved by user (machines); approach proposed | [01-architecture](../01-architecture.md) §3 |
+| 2026-10-02 | ADR 0007 culture system | approved by user | [ADR 0007](../decisions/0007-culture-system.md) |
+| 2026-10-02 | ADR 0008 combat model, soldier cap 800/player (combat budget ≤ 10 ms with 6 400 soldiers) | approved by user | [ADR 0008](../decisions/0008-combat-model.md) |
+| 2026-10-02 | 4 cultures and unit roster approved as working concepts / balancing starting values | approved by user | [10-cultures](../10-cultures.md), [11-military](../11-military.md) |
+| 2026-10-02 | Phase order: A LAN Alpha → B Cultures & war → C Steam → D AI & monsters → E Release; milestones renumbered | approved by user | [09-roadmap](../09-roadmap.md) |
+| 2026-10-02 | Spikes still not permitted ("Not yet"); final art decided after M3 | approved by user | [open-questions](../open-questions.md) |

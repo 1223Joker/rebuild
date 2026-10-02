@@ -5,19 +5,15 @@ Each item names a recommendation. When the user answers: record it verbatim in [
 ## Open
 | ID | Question | Recommendation | Needed before | Ref |
 |---|---|---|---|---|
-| B1 | May spikes S1–S5 be built? User said "No spikes yet" on 2026-10-02 — **ask again** when planning is considered finished. | Yes, S1 first (export + determinism risk) | any implementation | [09-roadmap §2](09-roadmap.md) |
-| H1 | Approve [ADR 0007](decisions/0007-culture-system.md) (data-driven cultures) and [ADR 0008](decisions/0008-combat-model.md) (direct control, typed units, walls, siege)? | Approve | M0 (culture loader), M4 (combat) | ADRs |
-| H2 | Approve the 4 proposed cultures — Rivermen (baseline, food/economy), Highlanders (stone/walls), Woodfolk (wood/archers), Riders (horses/mobility) — or rename/replace any? | Approve as working concepts; names can change any time | M9 | [10-cultures](10-cultures.md) |
-| H3 | Unit roster (5 shared + 7 culture units) and numbers OK as balancing starting values? | Yes | M4 | [11-military §3](11-military.md) |
-| H4 | Phase order: Steam (phase B) **before** cultures & walls (phase C), based on "after that comes steam and so on". Correct, or cultures/walls first? | Steam first: online playtests with friends help balance cultures | M6 | [09-roadmap §1](09-roadmap.md) |
-| H5 | The MVP is now ≈ 114 weeks (≈ 26 months, ≈ 33 with contingency). Accept, or use a lever (e.g. release with 2 cultures, add 2 as updates: −11 w)? | Accept; decide on levers after LAN Alpha | phase C | [09-roadmap §4](09-roadmap.md) |
-| H6 | Soldier cap 400 per player? | Yes, revisit after spike S5 | M4 | [ADR 0008](decisions/0008-combat-model.md) |
-| F2 | Final art: commission an artist, buy asset packs, or own Blender work? (Prototype art: Kenney only — decided.) | Decide after M3 | M17 | [07-art-style](07-art-style.md) |
+| B1 | May spikes S1–S5 be built? User said "No spikes yet" and "Not yet" (2026-10-02) — **ask again** only when the user signals readiness. | Yes, S1 first (export + determinism risk) | any implementation | [09-roadmap §2](09-roadmap.md) |
+| F2 | Final art: commission an artist, buy asset packs, or own Blender work? (Prototype art: Kenney only.) User: decide after M3. | Ask again after M3 | M17 | [07-art-style](07-art-style.md) |
+| H7 | Only if spike S5 shows 6 400 soldiers exceed the 10 ms combat budget: switch to a total soldier cap across all players (e.g. 4 000)? | Decide after S5 | M4 | [ADR 0008](decisions/0008-combat-model.md) |
+| H8 | Scope cuts (e.g. release with 2 cultures) — user: "decide after LAN Alpha". | Ask again after M5 | phase B | [09-roadmap §4](09-roadmap.md) |
 
 ## Action items from accepted recommendations (not questions)
 | ID | Action | When |
 |---|---|---|
-| D5 | Acquire a Steam AppID (Steam Direct fee); use AppID 480 until then | before M6 |
+| D5 | Acquire a Steam AppID (Steam Direct fee); use AppID 480 until then | before M12 |
 | G1 | Check the name "Rebuild" for trademark/Steam store conflicts | before creating the Steam page |
 | D3 | Pick Steam binding (default Steamworks.NET) after spike S3 | S3 |
 
@@ -38,7 +34,7 @@ Each item names a recommendation. When the user answers: record it verbatim in [
 | D2 | Host loss → match ends with auto-saves, no host migration in MVP | accepted |
 | D3 | Steam binding decided after S3 (default Steamworks.NET) | accepted (now action item) |
 | D4 | LAN discovery UDP port 47800 | accepted |
-| D5 | Steam AppID before M8 | accepted (now action item) |
+| D5 | Steam AppID before Steam milestone | accepted (now action item) |
 | E1 | Test machines | Mac with Apple Silicon → follow-ups E5, E6 |
 | E5 | Exact Mac model | MacBook M5, 24 GB RAM (reference machine) |
 | E6 | Windows/Linux manual testing | own Windows gaming PC; "linux is not that important" → Linux CI-only until release |
@@ -54,3 +50,9 @@ Each item names a recommendation. When the user answers: record it verbatim in [
 | F3 | CC0 placeholder audio for MVP | accepted |
 | G1 | Check name trademark | accepted (now action item) |
 | G2 | English-only UI, strings externalized | accepted |
+| H1 | Approve ADR 0007 / 0008 | approved both |
+| H2 | 4 cultures as working concepts | yes (names/details may change) |
+| H3 | Unit roster & stats as starting values | yes |
+| H4 | Steam vs cultures & walls first after LAN Alpha | **cultures & walls first** (changed from recommendation) |
+| H5 | Accept ~114-week scope | accept, decide on cuts after LAN Alpha (→ H8) |
+| H6 | Soldier cap | **800 per player** (recommendation was 400) |

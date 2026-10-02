@@ -1,6 +1,6 @@
 # 11 — Military: Units, Combat, Walls, Siege
 
-System decisions: [ADR 0008](decisions/0008-combat-model.md). Culture-specific units: [10-cultures](10-cultures.md). User requirements ([USER-ANSWERS](handoff/USER-ANSWERS.md), 2026-10-02): many different warriors, big stone walls, direct unit control, gates, wall towers with archers, siege units, wooden palisades. All numbers are **ASSUMPTIONS** (balancing starting values in `data/units.json`).
+System decisions: [ADR 0008](decisions/0008-combat-model.md). Culture-specific units: [10-cultures](10-cultures.md). User requirements ([USER-ANSWERS](handoff/USER-ANSWERS.md), 2026-10-02): many different warriors, big stone walls, direct unit control, gates, wall towers with archers, siege units, wooden palisades. All numbers are balancing starting values in `data/units.json`, approved as such by the user (2026-10-02).
 
 ## 1. Phasing
 | Content | First LAN build (Phase A) | Full MVP |
@@ -80,8 +80,8 @@ Castle (garrison 10), large guard tower (6), small guard tower (3) as in [06-eco
 5. Movement uses tile occupancy (≤ 2 soldiers per tile); blocked units wait 1 tick, then request a local repath.
 
 ## 7. Performance
-- Soldier cap 400 per player (ASSUMPTION, [ADR 0008](decisions/0008-combat-model.md)).
-- Budget: combat + soldier movement ≤ 6 ms per tick with 3 000 soldiers engaged, on the reference machine (MacBook M5, [01-architecture §3](01-architecture.md)); part of the 20 ms sim budget. Verified in spike S5 (extended) and milestone benchmarks.
+- Soldier cap **800 per player** (user, 2026-10-02; [ADR 0008](decisions/0008-combat-model.md)).
+- Budget: combat + soldier movement ≤ 10 ms per tick with 6 400 soldiers engaged (8 × 800), on the reference machine (MacBook M5, [01-architecture §3](01-architecture.md)). Together with economy (≤ 20 ms) the worst-case tick stays ≤ 30 ms of the 100 ms tick. Verified in spike S5 and milestone benchmarks; fallback in [ADR 0008](decisions/0008-combat-model.md).
 
 ## 8. Rendering notes
 Kenney [Castle Kit](https://kenney.nl/assets/castle-kit) provides walls, towers, gates and siege weapons for the prototype ([07-art-style §6](07-art-style.md)). Projectiles are client-side arcs interpolated from `(spawnTick, arrivalTick, from, to)` events.

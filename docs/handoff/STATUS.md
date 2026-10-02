@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-10-02 — New requirements integrated: 4 cultures, direct-control warfare with walls/siege, LAN-first phased roadmap, machines (MacBook M5 + Windows PC).
+**Last updated:** 2026-10-02 — All open questions answered: ADR 0007/0008 approved, soldier cap 800, cultures & war before Steam, spikes still not permitted.
 
 ## Current phase / step
-Planning phase; ADRs 0001–0006 **approved**, ADRs 0007–0008 **proposed** (2026-10-02). First implementation goal: **LAN Alpha** (phase A, [09-roadmap](../09-roadmap.md)). **Still no code:** the user said "No spikes yet", so implementation and spikes wait for explicit permission. Process steps: [ORIGINAL-BRIEF.md §6](ORIGINAL-BRIEF.md).
+Planning phase; ADRs 0001–0008 **all approved** (2026-10-02). First implementation goal: **LAN Alpha** (phase A, [09-roadmap](../09-roadmap.md)). **Still no code:** the user said "No spikes yet", so implementation and spikes wait for explicit permission. Process steps: [ORIGINAL-BRIEF.md §6](ORIGINAL-BRIEF.md).
 
 ## Done
 - Step 0: git repo, [AGENTS.md](../../AGENTS.md), [CLAUDE.md](../../CLAUDE.md) (pointer), [ORIGINAL-BRIEF.md](ORIGINAL-BRIEF.md), this file.
@@ -14,7 +14,7 @@ Planning phase; ADRs 0001–0006 **approved**, ADRs 0007–0008 **proposed** (20
 | Deliverable | State |
 |---|---|
 | [decisions/](../decisions/README.md) ADR 0001–0006 | done (approved 2026-10-02) |
-| [decisions/](../decisions/README.md) ADR 0007–0008 | done (proposed) |
+| [decisions/](../decisions/README.md) ADR 0007–0008 | done (approved 2026-10-02) |
 | [00-vision.md](../00-vision.md) | done |
 | [01-architecture.md](../01-architecture.md) | done |
 | [02-networking.md](../02-networking.md) | done |
@@ -37,18 +37,20 @@ Planning phase; ADRs 0001–0006 **approved**, ADRs 0007–0008 **proposed** (20
 
 - New-requirements round (2026-10-02): cultures, many warriors, walls/siege, LAN-first priority, machines → ADR 0007/0008, docs 10/11, phased roadmap (≈ 114 w), updates to 00, 01, 04, 05, 06, 07, 08, glossary, AGENTS.
 
+- Final question round (2026-10-02): H1–H6, B1, F2 answered → ADR 0007/0008 approved; soldier cap 800 (combat budget 10 ms for 6 400 soldiers); roadmap order now A LAN Alpha → B Cultures & war → C Steam → D AI & monsters → E Release (milestones renumbered); spikes still "Not yet".
+
 ## In progress
 - Nothing. Waiting for the user.
 
 ## Next steps
-1. Open items in [open-questions.md](../open-questions.md): H1 (approve ADR 0007/0008), H2–H6 (cultures, roster, phase order, scope, soldier cap), B1 (spike permission — ask again), F2 (final art, after M3). Record any answer verbatim in [USER-ANSWERS.md](USER-ANSWERS.md), update [DECISIONS-LOG.md](DECISIONS-LOG.md), commit.
+1. Nothing is blocking planning. Remaining items in [open-questions.md](../open-questions.md) are deferred by the user: B1 (spikes — wait until the user signals readiness), F2 (final art — after M3), H7 (soldier-cap fallback — after S5), H8 (scope cuts — after LAN Alpha). Record any answer verbatim in [USER-ANSWERS.md](USER-ANSWERS.md), update [DECISIONS-LOG.md](DECISIONS-LOG.md), commit.
 2. Only when spikes are permitted (B1): start with **S1** (Godot .NET export + determinism, [09-roadmap §2](../09-roadmap.md)) in a throwaway folder `spikes/s1-export/`; record results in a new `docs/spikes/S1.md`; commit.
 3. Then S2–S5, each with its own result note; adjust ADRs/roadmap with findings.
 4. After spikes and ADR approval: start milestone **M0 Foundations** ([09-roadmap §3](../09-roadmap.md)).
 
 ## Blockers / waiting for user approval
 - Permission for spikes S1–S5 / any implementation — B1 (user: "No spikes yet", 2026-10-02).
-- ADR 0007/0008 approval (H1) before M0/M4.
+- Nothing else; planning is complete and approved.
 
 ## Dead ends (tried or rejected, and why)
 - Using Godot `FastNoiseLite` for the shared map: floats, not cross-platform deterministic → rejected ([ADR 0003](../decisions/0003-mapgen-determinism.md)); allowed for client cosmetics only.

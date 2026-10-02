@@ -75,7 +75,7 @@ sequenceDiagram
 ```
 
 - Wall-clock pacing: the scheduler accumulates real time × game speed; it runs at most `maxCatchUpTicks = 4` ticks per frame to avoid spirals.
-- **Sim budget:** ≤ 20 ms per tick at 8 players / 5 000 settlers on the reference machine (**MacBook with Apple M5, 24 GB RAM** — the developer's machine, [USER-ANSWERS](handoff/USER-ANSWERS.md) 2026-10-02; the developer's Windows gaming PC is the second test machine). Since the M5 is fast, budgets must also be checked on a weaker CI runner (trend only). Exceeding it is a performance bug.
+- **Sim budget:** ≤ 20 ms per tick for the economy at 8 players / 5 000 settlers, plus ≤ 10 ms for combat with 6 400 soldiers ([11-military §7](11-military.md)), on the reference machine (**MacBook with Apple M5, 24 GB RAM** — the developer's machine, [USER-ANSWERS](handoff/USER-ANSWERS.md) 2026-10-02; the developer's Windows gaming PC is the second test machine). Since the M5 is fast, budgets must also be checked on a weaker CI runner (trend only). Exceeding it is a performance bug.
 - Sim runs on the main thread in MVP. ASSUMPTION: if frame pacing suffers, move the whole sim (still single-threaded) to one worker thread with a double-buffered view — allowed because no threads exist *inside* the sim.
 
 ## 4. Command model

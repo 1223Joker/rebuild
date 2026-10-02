@@ -28,8 +28,8 @@ Session length target: 45–90 min for a 4-player match on a medium map. ASSUMPT
 | Phase | Content | Details |
 |---|---|---|
 | **A — LAN Alpha** | 1 culture (Rivermen), economy, 3 warrior types with direct control, territory, fog, LAN multiplayer PvP | first playable goal |
-| B — Steam online | Steam internet play | |
-| C — Cultures & war | 4 cultures, full unit roster, walls, gates, wall towers, palisades, siege | [10-cultures](10-cultures.md), [11-military](11-military.md) |
+| B — Cultures & war | 4 cultures, full unit roster, walls, gates, wall towers, palisades, siege | [10-cultures](10-cultures.md), [11-military](11-military.md) |
+| C — Steam online | Steam internet play | user: "Cultures & walls first" (2026-10-02) |
 | D — AI & monsters | AI players, monster waves, PvE/PvPvE | |
 | E — Release | reconnect, MP save/load, polish, Linux build | |
 Milestones and estimates: [09-roadmap](09-roadmap.md).
