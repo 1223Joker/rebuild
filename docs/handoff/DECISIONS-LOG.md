@@ -21,3 +21,4 @@ Chronological one-liners. Format: `date | decision | status | link`. Status: `pr
 | 2026-10-02 | Host-sealed turns (host assigns target turn), own redundancy on unreliable channel, adaptive input delay 1–5 turns | proposed | [02-networking](../02-networking.md) |
 | 2026-10-02 | Reconnect & desync recovery via one-time snapshot transfer; host loss ends match with local auto-save (no host migration in MVP) | proposed (needs user confirmation) | [02-networking](../02-networking.md) §6 |
 | 2026-10-02 | Map gen "starts first", 4 symmetry modes, fairness metrics F1–F11, ≤ 16 deterministic retries, XL ≤ 1.5 s/attempt | proposed | [03-mapgen](../03-mapgen.md) |
+| 2026-10-02 | 8 slots (Open/Closed/Human/AI/Monsters), mode derived from slot table, victory: Conquest / Survival / Lair hunt, monster wave formula | proposed | [04-game-modes](../04-game-modes.md) |
