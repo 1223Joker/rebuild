@@ -74,9 +74,10 @@
 
 ## Next steps
 1. Keep CI green (`gh run list -R 1223Joker/rebuild`).
-2. M1 polish: tune `Dmin`, `Rf`, `Lmin` and the ASSUMPTION thresholds (F5/F6 minimums, fertile share, lair counts) when gameplay exists (spike S4 folded into M1 the same way S1 was folded into M0 — asked the user 2026-10-02, answer pending; see USER-ANSWERS).
-3. Start **M2 Sim economy (headless)** ([06-economy](../06-economy.md)): `Simulation.Create` generates the map from `MatchSetup.Map` (store `MapHash` in the sim state), tiles/territory, first buildings, construction, carriers, A* + HPA*.
-4. Before M3: run S1's Godot part — install the Godot **.NET** edition (the installed `/Applications/Godot.app` 4.7.2 is the standard build without C#) and export a test project for macOS and Windows.
+2. M1 polish: tune `Dmin`, `Rf`, `Lmin` and the ASSUMPTION thresholds (F5/F6 minimums, fertile share, lair counts) when gameplay exists (spike S4 is done as part of M1; all spikes are allowed, user 2026-10-02).
+3. Run spike **S5** (headless logistics + HPA* + combat scale, [09-roadmap §2](../09-roadmap.md)) alongside the start of M2, so the 20 ms/tick budget is checked before the economy design hardens.
+4. Start **M2 Sim economy (headless)** ([06-economy](../06-economy.md)): `Simulation.Create` generates the map from `MatchSetup.Map` (store `MapHash` in the sim state), tiles/territory, first buildings, construction, carriers, A* + HPA*.
+5. Before M3: run S1's Godot part — install the Godot **.NET** edition (the installed `/Applications/Godot.app` 4.7.2 is the standard build without C#) and export a test project for macOS and Windows — and spike S2 (rendering scale). Before M5: spike S3 (ENet transport).
 
 ## Blockers / waiting for user approval
 - None.

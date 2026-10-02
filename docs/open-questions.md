@@ -5,7 +5,7 @@ Each item names a recommendation. When the user answers: record it verbatim in [
 ## Open
 | ID | Question | Recommendation | Needed before | Ref |
 |---|---|---|---|---|
-| B1 | May spikes S1–S5 be built? User said "No spikes yet" and "Not yet" (2026-10-02) — **ask again** only when the user signals readiness. | Yes, S1 first (export + determinism risk) | any implementation | [09-roadmap §2](09-roadmap.md) |
+| ~~B1~~ | ~~May spikes S1–S5 be built?~~ **Answered 2026-10-02: all spikes allowed** (the earlier "Not yet" applied to the planning phase only). | — | — | [09-roadmap §2](09-roadmap.md) |
 | F2 | Final art: commission an artist, buy asset packs, or own Blender work? (Prototype art: Kenney only.) User: decide after M3. | Ask again after M3 | M17 | [07-art-style](07-art-style.md) |
 | H7 | Only if spike S5 shows 6 400 soldiers exceed the 10 ms combat budget: switch to a total soldier cap across all players (e.g. 4 000)? | Decide after S5 | M4 | [ADR 0008](decisions/0008-combat-model.md) |
 | H8 | Scope cuts (e.g. release with 2 cultures) — user: "decide after LAN Alpha". | Ask again after M5 | phase B | [09-roadmap §4](09-roadmap.md) |
