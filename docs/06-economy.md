@@ -28,7 +28,7 @@ Reference for the genre's rules: *The Settlers IV* manual — carriers "automati
 | Metal | Iron smelter | M | smelter | iron ore + coal → iron | |
 | Metal | Gold smelter | M | smelter | gold ore + coal → gold | |
 | Metal | Toolsmith | M | smith (hammer) | iron + plank → tool (by quota) | |
-| Metal | Weaponsmith | M | smith (hammer) | iron + coal → sword | |
+| Metal | Weaponsmith | M | smith (hammer) | iron + coal → sword; iron + plank → spear; plank → bow + arrows | weapon chosen by quota |
 | Military | Barracks | M | — | carrier + weapon → soldier (unit type per weapon, [11-military](11-military.md)) | |
 | Military | Guard tower small / large | S / M | soldiers 1–3 / 1–6 | gold → rank-up of a garrisoned soldier | territory r=8 / r=12 |
 
@@ -56,7 +56,7 @@ flowchart LR
   WS -->|sword| BK[Barracks] -->|soldier| MIL[Towers / Castle]
   GS -->|gold| MIL
 ```
-Goods (19): log, plank, stone, fish, meat, grain, flour, water, bread, pig, coal, iron ore, gold ore, iron, gold, sword, + tools (axe, saw, pickaxe, shovel, hammer, scythe, rod, bow, cleaver, bucket → tracked as one "tool" family with sub-type).
+Goods (21 shared): log, plank, stone, fish, meat, grain, flour, water, bread, pig, coal, iron ore, gold ore, iron, gold, sword, spear, bow (arrows abstracted into bow), + culture goods ([10-cultures](10-cultures.md)), + tools (axe, saw, pickaxe, shovel, hammer, scythe, rod, bow, cleaver, bucket → tracked as one "tool" family with sub-type).
 
 ## 3. Settlers
 | Role | Becomes one by | Behaviour |

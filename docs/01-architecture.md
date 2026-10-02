@@ -40,7 +40,7 @@ flowchart TB
 
 | Module | Type | Responsibility | May reference |
 |---|---|---|---|
-| `Rebuild.Sim` | `net8.0` class lib | Deterministic game state & rules: `Core` (Fix, Pcg32, XxHash wrapper, ids, ordered collections), `World` (tiles, height, terrain, resources, territory), `Entities` (settlers, buildings, goods, soldiers, monsters), `Systems` (construction, production, logistics, military, monsters, visibility, victory), `Pathfinding`, `MapGen`, `Commands` (definitions + validation), `Serialization` (save/hash) | BCL only (analyzer-restricted) |
+| `Rebuild.Sim` | `net8.0` class lib | Deterministic game state & rules: `Core` (Fix, Pcg32, XxHash wrapper, ids, ordered collections), `World` (tiles, height, terrain, resources, territory), `Entities` (settlers, buildings, goods, soldiers, monsters), `Systems` (construction, production, logistics, combat, fortifications, monsters, visibility, victory), `Cultures` (resolves culture data + modifiers into per-player tables at match start, [ADR 0007](decisions/0007-culture-system.md)), `Pathfinding`, `MapGen`, `Commands` (definitions + validation), `Serialization` (save/hash) | BCL only (analyzer-restricted) |
 | `Rebuild.Ai` | `net8.0` class lib | Computer players; reads `ISimView`, emits `Command`s. Runs on host only ([05-ai](05-ai.md)) | Sim |
 | `Rebuild.Net` | `net8.0` class lib | Lobby/session model, lockstep scheduler, command bundles, ack/redundancy, desync detection, `ITransport` + `LoopbackTransport` | Sim (commands, hash), Ai (host runs AI) |
 | `Rebuild.Client` | Godot .NET project | Rendering, input, UI, audio, ENet/Steam transports, LAN discovery, settings | all libs |
@@ -75,7 +75,7 @@ sequenceDiagram
 ```
 
 - Wall-clock pacing: the scheduler accumulates real time × game speed; it runs at most `maxCatchUpTicks = 4` ticks per frame to avoid spirals.
-- **Sim budget:** ≤ 20 ms per tick at 8 players / 5 000 settlers on the reference machine (the developer's Apple Silicon Mac — the only test machine the user owns, [USER-ANSWERS](handoff/USER-ANSWERS.md) E1; exact model still to be recorded, [open-questions](open-questions.md) E5). Exceeding it is a performance bug.
+- **Sim budget:** ≤ 20 ms per tick at 8 players / 5 000 settlers on the reference machine (**MacBook with Apple M5, 24 GB RAM** — the developer's machine, [USER-ANSWERS](handoff/USER-ANSWERS.md) 2026-10-02; the developer's Windows gaming PC is the second test machine). Since the M5 is fast, budgets must also be checked on a weaker CI runner (trend only). Exceeding it is a performance bug.
 - Sim runs on the main thread in MVP. ASSUMPTION: if frame pacing suffers, move the whole sim (still single-threaded) to one worker thread with a double-buffered view — allowed because no threads exist *inside* the sim.
 
 ## 4. Command model
@@ -97,7 +97,7 @@ Command {
 |---|---|
 | Building | `PlaceBuilding(type, tile, rotation)`, `CancelConstruction(id)`, `Demolish(id)`, `SetBuildingPaused(id, bool)` |
 | Economy | `SetTransportPriority(goodType, rank)`, `SetToolProductionQuota(tool, n)`, `SetFoodDistribution(target, pct)`, `SetStorePolicy(storeId, good, accept/reject)` |
-| Military | `Attack(targetBuildingId, soldierCount)`, `SetGarrison(buildingId, min, max)`, `SetRecruitment(on/off)` |
+| Military | `Move`, `AttackMove`, `Attack(target)`, `Stop`, `Hold`, `SetStance`, `Garrison`, `Ungarrison`, `Train`, `BuildWall`, `BuildGate`, `SetGateLocked` — payloads in [11-military §2](11-military.md) (unit id lists ≤ 200) |
 | Meta (from host, Slot=255) | `PlayerJoined`, `PlayerLeft(slot)`, `AiTakeover(slot, difficulty)`, `HumanResume(slot)`, `Pause`, `Resume`, `SetSpeed(k)`, `Surrender(slot)` |
 
 ## 5. Fixed-point strategy (summary of [ADR 0002](decisions/0002-fixed-point-format.md))
@@ -155,6 +155,7 @@ flowchart LR
 │  ├─ scenes/  scripts/  ui/  shaders/
 │  └─ assets/                    art behind asset-mapping table (see 07-art-style)
 ├─ data/                         building/good/unit definitions (JSON → generated C# tables)
+│  └─ cultures/<id>/             per-culture data packages (ADR 0007)
 ├─ tests/
 │  ├─ Rebuild.Sim.Tests/  Rebuild.Net.Tests/  Rebuild.Ai.Tests/
 │  └─ golden/                    map hashes, replay logs + expected hashes

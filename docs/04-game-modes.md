@@ -18,6 +18,7 @@ classDiagram
     byte color
     AiDifficulty? difficulty
     PlayerId? human
+    CultureId culture
   }
   class SlotType {
     <<enum>>
@@ -33,6 +34,7 @@ classDiagram
 |---|---|
 | Slots | 8 per match ([USER-ANSWERS](handoff/USER-ANSWERS.md) Q8) |
 | Slot types | `Open` (joinable), `Closed`, `Human`, `AI(Easy/Normal/Hard)`, `Monsters` |
+| Culture | per Human/AI slot: one of the cultures in [10-cultures](10-cultures.md) or `Random` (resolved with the match RNG at start). First LAN build: Rivermen only. |
 | Start positions | one per `Human`/`AI` slot; `Monsters` needs none (uses lairs) |
 | Monsters slot | at most one per match; implicitly its own team, hostile to everybody; present ⇔ `MonsterDensity ≠ None` |
 | Teams | free assignment of team ids 1–8 to Human/AI slots; same id = allies; every slot may be its own team (FFA) |

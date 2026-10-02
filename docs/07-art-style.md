@@ -64,6 +64,8 @@ flowchart LR
 | Buildings | [Fantasy Town Kit](https://kenney.nl/assets/fantasy-town-kit), [Castle Kit](https://kenney.nl/assets/castle-kit), [Retro Medieval Kit](https://kenney-assets.itch.io/retro-medieval-kit) |
 | Trees, rocks, terrain props | [Nature Kit](https://kenney.nl/assets/nature-kit) |
 | Settlers, soldiers, monsters | [Mini Characters](https://kenney.nl/assets/mini-characters) (placeholder), recolored via palette |
+| Walls, gates, wall towers, siege (ram, catapult) | [Castle Kit](https://kenney.nl/assets/castle-kit) — includes walls, towers and siege weapons |
+| Culture variants | Highlanders: stone Castle Kit pieces · Woodfolk: wooden Fantasy Town pieces · Rivermen: plaster/roof Fantasy Town pieces · Riders: wooden/tent-like pieces; plus one palette variant per culture ([10-cultures §6](10-cultures.md)) |
 | UI | Kenney UI packs ([kenney.nl/assets](https://kenney.nl/assets)) |
 
-Gaps (no Kenney equivalent; use primitive placeholders): mines entrance, smelters, specific tool icons → listed in [open-questions](open-questions.md) under art.
+Prototype art comes **only from kenney.nl** (user, 2026-10-02). Gaps (no Kenney 3D equivalent found; use primitive placeholders built from Kenney pieces): horses/cavalry (Kenney's animal pack is 2D only), mine entrances, smelters, specific tool icons → listed in [open-questions](open-questions.md) under art.

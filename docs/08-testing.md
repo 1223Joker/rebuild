@@ -21,7 +21,8 @@ Related: [01-architecture](01-architecture.md) · [02-networking §4 desync](02-
 | AI soak | headless AI-vs-AI matches; win-rate and "no stuck economy" metrics ([05-ai §4](05-ai.md)) | `Rebuild.Tools soak` | nightly |
 | Performance | sim tick time at 8 players/5 000 settlers; mapgen time ([03-mapgen §7](03-mapgen.md)) | BenchmarkDotNet + soak telemetry | nightly, trend tracked |
 | Client smoke | Godot headless boot, load map, run 600 ticks, exit 0 | Godot `--headless` | every push (Linux), nightly (all) |
-| Manual | LAN + Steam sessions across Win/macOS/Linux. The user owns only an Apple Silicon Mac: macOS is tested locally; Windows/Linux determinism is covered by CI; real Windows/Linux play sessions need extra hardware, cloud VMs or playtesters ([open-questions](open-questions.md) E6) | checklist in roadmap milestones | per milestone |
+| Manual | LAN sessions between the developer's MacBook (M5, 24 GB) and Windows gaming PC — a real cross-OS, cross-architecture (arm64 ↔ x64) lockstep test; later Steam sessions. Linux: CI only until the release phase (user, 2026-10-02) | checklist in roadmap milestones | per milestone |
+| Culture balance | 10 matchups (4 mirror + 6 cross) as AI soak once the AI exists; before that, scripted build-order benchmarks per culture within ±15 % of baseline ([10-cultures §5](10-cultures.md)) | `Rebuild.Tools soak` | nightly from phase C |
 
 ## 3. Determinism tests in detail
 **Command log format (`.rblog`)**: header `{GameVersion, MapSpec, SlotTable, matchSeed}` + stream of `TurnBundle`s. The same format is written by every real match (host side) → any played game becomes a regression test.
