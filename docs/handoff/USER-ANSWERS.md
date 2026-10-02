@@ -35,3 +35,11 @@ Every answer, instruction or preference the user gives, recorded as close to the
 | 2026-10-02 | Combat control | How should war be controlled? | "Direct unit control (Recommended)" — select soldiers, move, attack. |
 | 2026-10-02 | Linux | Linux is "not that important"; what should happen? | "Keep in CI, release later (Recommended)" — determinism tests on Linux in CI from day one; Linux builds ship with the Steam release or later; no manual Linux testing before then. |
 | 2026-10-02 | Walls & siege | Which wall and siege features? | All selected: "Stone walls + gates", "Wall towers with archers", "Siege units", "Wooden palisades". |
+| 2026-10-02 | H1 ADR 0007/0008 | Approve ADR 0007 (cultures) and ADR 0008 (combat)? | "Approve both (Recommended)" |
+| 2026-10-02 | H2 Cultures | Rivermen, Highlanders, Woodfolk, Riders OK as working concepts? | "Yes, as working concepts (Recommended)" — names/details may still change. |
+| 2026-10-02 | H3 Units | Unit roster and stats as balancing starting values? | "Yes (Recommended)" |
+| 2026-10-02 | H4 Phase order | After LAN Alpha: Steam first, then cultures & walls? | "Cultures & walls first" — Steam after the cultures & war phase. |
+| 2026-10-02 | H5 Scope | ~114 weeks; accept or cut? | "Accept, decide after LAN Alpha (Recommended)" |
+| 2026-10-02 | H6 Unit cap | Maximum soldiers per player? | "800" (offered note: huge battles, may need lower player count). |
+| 2026-10-02 | B1 Spikes | May I build spikes S1–S5 now? | "Not yet" |
+| 2026-10-02 | F2 Final art | How should final art be made? | "Decide after M3 (Recommended)" |
