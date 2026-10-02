@@ -17,3 +17,6 @@ Chronological one-liners. Format: `date | decision | status | link`. Status: `pr
 | 2026-10-02 | Transport: Steam SDR primary, ENet LAN/direct, optional custom relay | proposed | [ADR 0004](../decisions/0004-internet-transport.md) |
 | 2026-10-02 | Low-poly 3D, MultiMesh, palette texture | proposed | [ADR 0005](../decisions/0005-rendering-2d-vs-3d.md) |
 | 2026-10-02 | 10 Hz tick, 200 ms turn, square 8-neighbour grid, PCG32 per-subsystem streams, XxHash64 | proposed | [ADR 0006](../decisions/0006-sim-core-conventions.md) |
+| 2026-10-02 | Sim state as SoA arrays; data definitions JSON → source-generated C# tables; sim on main thread in MVP | proposed | [01-architecture](../01-architecture.md) |
+| 2026-10-02 | Host-sealed turns (host assigns target turn), own redundancy on unreliable channel, adaptive input delay 1–5 turns | proposed | [02-networking](../02-networking.md) |
+| 2026-10-02 | Reconnect & desync recovery via one-time snapshot transfer; host loss ends match with local auto-save (no host migration in MVP) | proposed (needs user confirmation) | [02-networking](../02-networking.md) §6 |
