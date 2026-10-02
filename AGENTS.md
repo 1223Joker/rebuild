@@ -3,7 +3,7 @@
 Single source of truth for any agent working in this repository. Tool-specific files (e.g. `CLAUDE.md`) only point here.
 
 ## Project summary
-"Rebuild" is a real-time city-building strategy game in the style of *The Settlers 4*: economy simulation with production chains and free-walking carriers, territory, 4 asymmetric cultures and RTS-style warfare with walls and siege. It is built with Godot 4.x (C#) for Windows, macOS and Linux. Multiplayer (LAN first, then Steam) uses deterministic lockstep, and every match is played on a seed-based random map. Modes: PvE, PvP, PvPvE with human, AI and neutral-monster slots in free teams. **Current phase: implementation, milestone M0 Foundations; first goal is the "LAN Alpha" ([docs/09-roadmap.md](docs/09-roadmap.md)).**
+"Rebuild" is a real-time city-building strategy game in the style of *The Settlers 4*: economy simulation with production chains and free-walking carriers, territory, 4 asymmetric cultures and RTS-style warfare with walls and siege. It is built with Godot 4.x (C#) for Windows, macOS and Linux. Multiplayer (LAN first, then Steam) uses deterministic lockstep, and every match is played on a seed-based random map. Modes: PvE, PvP, PvPvE with human, AI and neutral-monster slots in free teams. **Current phase: implementation, milestone M1 Map generation (M0 done); first goal is the "LAN Alpha" ([docs/09-roadmap.md](docs/09-roadmap.md)).**
 
 ## Non-negotiable constraints (full text: [docs/handoff/ORIGINAL-BRIEF.md](docs/handoff/ORIGINAL-BRIEF.md))
 - Godot 4.x current stable; targets Windows, macOS (ARM + x64), Linux.
@@ -38,7 +38,7 @@ docs/
   decisions/               ADRs
   handoff/                 ORIGINAL-BRIEF, STATUS, USER-ANSWERS, DECISIONS-LOG, GLOSSARY, RESEARCH-NOTES
 ```
-Code: `src/` (Rebuild.Sim, Rebuild.Analyzers, Rebuild.Tools), `data/`, `tests/`, `tools/ci/`, `.github/workflows/` — see [README.md](README.md); target layout incl. `client/`: [docs/01-architecture.md §9](docs/01-architecture.md).
+Code: `src/` (Rebuild.Sim incl. MapGen, Rebuild.Analyzers, Rebuild.Tools), `data/`, `tests/`, `tools/ci/`, `.github/workflows/` — see [README.md](README.md); target layout incl. `client/`: [docs/01-architecture.md §9](docs/01-architecture.md).
 
 ## Start here (reading order)
 1. [docs/handoff/STATUS.md](docs/handoff/STATUS.md) — where the project is and what to do next.

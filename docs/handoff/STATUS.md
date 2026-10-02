@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-10-02 — Implementation started (user permission); M0 Foundations core in place: sim library, analyzers, culture data generator, tools CLI, 71 tests, CI workflow.
+**Last updated:** 2026-10-02 — M0 done; **M1 Map generation first pass done**: full pipeline, F1–F11 validation with retries, share codes, `mapgen` CLI with PNG preview, 24 golden map hashes, nightly 1 000-seed workflow; 96 tests.
 
 ## Current phase / step
-**Implementation, milestone M0 Foundations** ([09-roadmap](../09-roadmap.md)). The user permitted coding on 2026-10-02 and chose "M0 directly, S1 folded in": S1's sim half is covered by M0; S1's Godot .NET export check moves to the start of M3. Process steps: [ORIGINAL-BRIEF.md §6](ORIGINAL-BRIEF.md).
+**Implementation, milestone M1 Map generation** ([09-roadmap](../09-roadmap.md)) — first pass complete, waiting for the cross-OS CI confirmation; M0 Foundations complete. The user permitted coding on 2026-10-02 and chose "M0 directly, S1 folded in": S1's sim half is covered by M0; S1's Godot .NET export check moves to the start of M3. Process steps: [ORIGINAL-BRIEF.md §6](ORIGINAL-BRIEF.md).
 
 ## Done
 - Step 0: git repo, [AGENTS.md](../../AGENTS.md), [CLAUDE.md](../../CLAUDE.md) (pointer), [ORIGINAL-BRIEF.md](ORIGINAL-BRIEF.md), this file.
@@ -53,14 +53,31 @@
 | Golden values [tests/golden/hashes.txt](../../tests/golden/hashes.txt): 1 M-step probe + scripted 3 000-turn replay | done; identical in Debug and Release on the MacBook M5 |
 | CI ([.github/workflows/ci.yml](../../.github/workflows/ci.yml)): 4 runners × Debug/Release, float-ban check, cross-OS hash comparison | **green** on https://github.com/1223Joker/rebuild (run 37069100671, 2026-10-02): all 8 jobs pass, `cross-os-hashes` confirms identical probe + replay hashes on Linux x64, Windows x64, macOS arm64, macOS x64 in Debug and Release |
 
+- M0 leftovers done (2026-10-02): CI actions bumped to the Node 24 majors (`checkout@v5`, `setup-dotnet@v5`, `upload-artifact@v6`, `download-artifact@v6` — tag existence not verifiable from the container, confirm on the first CI run); new CI job `golden-version` runs [tools/ci/check-golden-version.sh](../../tools/ci/check-golden-version.sh): a changed probe/replay value needs a changed `version` line, a changed map value a changed `generator` (or `version`) line.
+
+- M1 Map generation, first pass (2026-10-02) — details and measurements: [03-mapgen §9](../03-mapgen.md):
+
+| M1 item ([09-roadmap §3](../09-roadmap.md)) | State |
+|---|---|
+| `MapSpec` v2 (teams, terrain mix, resources, symmetry, monsters, generator version) + `Check()`; `GameVersion` → 0.2.0 | done |
+| Pipeline steps 1–12 incl. land corridors (new step 2b), symmetry modes None/Mirror/Rotational/Equalized | done |
+| Validation F1–F11 + deterministic retry (16 attempts, `MapGenResult` with report on failure) | done |
+| Share code `RB-…` (Crockford base32 + checksum) | done |
+| `rebuild-tools mapgen` (report, `--png`, `--stats`, `--min-first-pass`) | done |
+| 24 golden map hashes (`tests/golden/mapgen.json` → `map` lines in `hashes.txt`) | done; **identical on all 4 runners × Debug/Release** (CI run 37073166996 green incl. `cross-os-hashes` and `golden-version`) |
+| Nightly 1 000 seeds/size ([.github/workflows/nightly.yml](../../.github/workflows/nightly.yml)) | added; local run: 99.5–100 % first-attempt pass |
+| Perf: XL attempt ≤ 1.5 s, p99 ≤ 4 s | MacBook M5: 48 ms mean / 56 ms p99 (XL, 8 starts, 100 seeds) |
+| `.rbmap` save files, lobby preview & hash check | not started (belongs with the M5 lobby) |
+
 ## In progress
-- Nothing. M0 acceptance met (CI green on 4 runners, cross-OS hash job, 10 000-case `Fix` property tests, float fails the build).
+- Nothing. M1 first pass complete and green on CI; corridor / per-team F8 / S ≤ 6 starts approved by the user.
 
 ## Next steps
-1. Keep CI green on https://github.com/1223Joker/rebuild (`gh run list -R 1223Joker/rebuild`). Housekeeping: GitHub warns that `actions/checkout@v4`, `setup-dotnet@v4`, `upload-artifact@v4` use the deprecated Node 20 runtime — bump to the next major versions when convenient.
-2. M0 leftovers: CI rule "golden changes need a `GameVersion` bump" (not yet enforced); nightly workflow with more property cases.
-3. Start **M1 Map generation** ([03-mapgen](../03-mapgen.md)): expand `MapSpec` (bump its `FormatVersion`), integer noise, start placement, validation F1–F11, share code, `mapgen` CLI with PNG preview, 24 golden map hashes.
-4. Before M3: run S1's Godot part — install the Godot **.NET** edition (the installed `/Applications/Godot.app` 4.7.2 is the standard build without C#) and export a test project for macOS and Windows.
+1. Keep CI green (`gh run list -R 1223Joker/rebuild`).
+2. M1 polish: tune `Dmin`, `Rf`, `Lmin` and the ASSUMPTION thresholds (F5/F6 minimums, fertile share, lair counts) when gameplay exists (spike S4 is done as part of M1; all spikes are allowed, user 2026-10-02).
+3. Run spike **S5** (headless logistics + HPA* + combat scale, [09-roadmap §2](../09-roadmap.md)) alongside the start of M2, so the 20 ms/tick budget is checked before the economy design hardens.
+4. Start **M2 Sim economy (headless)** ([06-economy](../06-economy.md)): `Simulation.Create` generates the map from `MatchSetup.Map` (store `MapHash` in the sim state), tiles/territory, first buildings, construction, carriers, A* + HPA*.
+5. Before M3: run S1's Godot part — install the Godot **.NET** edition (the installed `/Applications/Godot.app` 4.7.2 is the standard build without C#) and export a test project for macOS and Windows — and spike S2 (rendering scale). Before M5: spike S3 (ENet transport).
 
 ## Blockers / waiting for user approval
 - None.

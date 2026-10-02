@@ -1,5 +1,31 @@
 # Expected output of `rebuild-tools hashes tests/golden`; identical on every OS/CPU/configuration.
-# Change only together with a GameVersion bump (docs/08-testing.md §3).
-version 0.1.0+fce73cb42908f005
+# Change only together with a GameVersion bump (map lines: MapGenerator.Version bump); enforced by
+# tools/ci/check-golden-version.sh (docs/08-testing.md §3).
+version 0.2.0+fce73cb42908f005
 probe 33c88e85bfc149f8
 replay m0-meta.rblog 3000 e61562a5d61188b5
+generator 1
+map s2-equalized 1 9ca13f4c37341a1a
+map s2-mirror 1 30ae44ce3cd1b713
+map s3-none 2 9e12d4d5cadb35a3
+map s4-rotational 1 e9b083474e7cf634
+map s6-equalized 1 ec0ed2d8341e3e43
+map m2-water 1 bc7cf4047321928b
+map m3-equalized 1 c7d2aafcb36ec6fb
+map m4-ffa 1 3878a1c15bcbfc44
+map m4-teams-mirror 1 9840fa64c5e2f930
+map m4-rotational 1 b81fcbc1b1ed2ce7
+map m5-none 3 6ad86275eeff8789
+map m6-teams 1 e1877226e2ea0b2e
+map m8-ffa 1 cd2c57336c5be5a1
+map l2-mountains 1 305f2c78a2985a57
+map l4-coop 1 fd23bd89aea090c4
+map l4-rotational 1 546fe4352103c0af
+map l6-ffa 1 12dbb19c4dadc93b
+map l7-none 2 b95c4f7f8394a633
+map l8-teams-mirror 1 5697461b1c83e997
+map xl2-mirror 1 815c76cb7cf1c552
+map xl4-forest 1 23288ba340b6554b
+map xl6-teams 1 b589d1efca0c3d76
+map xl8-ffa 1 51a3a066e42af87d
+map xl8-big-seed 1 2972b7d3ee30bda8
