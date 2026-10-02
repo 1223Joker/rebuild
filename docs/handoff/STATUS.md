@@ -77,7 +77,7 @@
 | `Simulation.StartOf`, `AreAllies` (monsters have no allies) | done |
 | `GameVersion` 0.3.0; golden replay `m0-meta.rblog` regenerated (its setup now matches its map: 3 starts, teams 0/1/1, monsters Low) | done |
 | Code review (`/code-review`, medium): 2 low findings fixed (radius > ushort, `NextClaimId` < 1 on load) | done |
-| Tests | 110 pass in Debug and Release locally |
+| Tests / CI | 110 pass in Debug and Release locally; **CI run 37077142734 green** on `main` (06fc05f): 4 runners × Debug/Release, `cross-os-hashes` (new replay hash identical everywhere) and `golden-version` pass |
 
 ## In progress
 - Nothing.
