@@ -23,3 +23,4 @@ Chronological one-liners. Format: `date | decision | status | link`. Status: `pr
 | 2026-10-02 | Map gen "starts first", 4 symmetry modes, fairness metrics F1–F11, ≤ 16 deterministic retries, XL ≤ 1.5 s/attempt | proposed | [03-mapgen](../03-mapgen.md) |
 | 2026-10-02 | 8 slots (Open/Closed/Human/AI/Monsters), mode derived from slot table, victory: Conquest / Survival / Lair hunt, monster wave formula | proposed | [04-game-modes](../04-game-modes.md) |
 | 2026-10-02 | AI: host-only utility AI emitting commands, deterministic work-unit budget, stateless takeover; monsters = sim state machine | proposed | [05-ai](../05-ai.md) |
+| 2026-10-02 | 24 MVP buildings; request/offer logistics with sector search; duel combat; A* + HPA* + flow fields with node-count budgets | proposed | [06-economy](../06-economy.md) |

@@ -1,6 +1,6 @@
 # STATUS
 
-**Last updated:** 2026-10-02 — 05-ai.md written.
+**Last updated:** 2026-10-02 — 06-economy.md written.
 
 ## Current phase / step
 Planning phase — Process step 3 (Write deliverables). Process steps are defined in [ORIGINAL-BRIEF.md §6](ORIGINAL-BRIEF.md). No production code may be written until the user approves the ADRs.
@@ -20,7 +20,7 @@ Planning phase — Process step 3 (Write deliverables). Process steps are define
 | [03-mapgen.md](../03-mapgen.md) | done |
 | [04-game-modes.md](../04-game-modes.md) | done |
 | [05-ai.md](../05-ai.md) | done |
-| [06-economy.md](../06-economy.md) | todo |
+| [06-economy.md](../06-economy.md) | done |
 | [07-art-style.md](../07-art-style.md) | todo |
 | [08-testing.md](../08-testing.md) | todo |
 | [09-roadmap.md](../09-roadmap.md) | todo |
