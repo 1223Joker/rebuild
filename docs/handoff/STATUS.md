@@ -1,6 +1,6 @@
 # STATUS
 
-**Last updated:** 2026-10-02 — 00-vision.md written.
+**Last updated:** 2026-10-02 — 01-architecture.md written.
 
 ## Current phase / step
 Planning phase — Process step 3 (Write deliverables). Process steps are defined in [ORIGINAL-BRIEF.md §6](ORIGINAL-BRIEF.md). No production code may be written until the user approves the ADRs.
@@ -15,7 +15,7 @@ Planning phase — Process step 3 (Write deliverables). Process steps are define
 |---|---|
 | [decisions/](../decisions/README.md) ADR 0001–0006 | done (proposed) |
 | [00-vision.md](../00-vision.md) | done |
-| [01-architecture.md](../01-architecture.md) | todo |
+| [01-architecture.md](../01-architecture.md) | done |
 | [02-networking.md](../02-networking.md) | todo |
 | [03-mapgen.md](../03-mapgen.md) | todo |
 | [04-game-modes.md](../04-game-modes.md) | todo |
