@@ -88,7 +88,7 @@
 | `PlaceBuilding` (u16 type, u16 x, u16 y, u8 rotation) → construction site, validated by `World/BuildingPlacement` (own territory, terrain, margin; castle not placeable); `CancelConstruction` (i32 id) removes an own site | done |
 | Golden replays: `m0-meta.rblog` regenerated, new `m2-build.rblog` (600 turns of valid/invalid placements and cancels, `sample-log --script build`); `GameVersion` 0.4.0 | done |
 | Code review (`/code-review`, medium): 1 finding fixed — data generators crashed (instead of RB0100/RB0101) on `null` values or out-of-range numbers | done |
-| Tests / CI | 127 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112 from Ubuntu apt); CI: see below |
+| Tests / CI | 127 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112 from Ubuntu apt); **CI run 37078721964 green** on `main` (3d29b33): 4 runners × Debug/Release, `cross-os-hashes` (both replay hashes identical everywhere) and `golden-version` pass |
 
 ## In progress
 - Nothing.
