@@ -74,7 +74,7 @@ Each hook is implemented once in the sim and switched on per culture by data ([A
 All other differences are plain numeric modifiers.
 
 ## 5. Balance process
-- Every matchup (4 mirror + 6 cross) is run as headless AI-vs-AI soak once the AI exists (milestone M12 in [09-roadmap](09-roadmap.md)); target: no culture wins > 60 % of a cross matchup at equal AI difficulty ([08-testing](08-testing.md)).
+- Every matchup (4 mirror + 6 cross) is run as headless AI-vs-AI soak once the AI exists (milestone M13 in [09-roadmap](09-roadmap.md)); target: no culture wins > 60 % of a cross matchup at equal AI difficulty ([08-testing](08-testing.md)).
 - Before the AI exists: scripted build-order benchmarks per culture (time to first soldier, to first wall, to first siege unit) must stay within ±15 % of the baseline.
 - Human playtests on LAN after each culture lands.
 

@@ -40,3 +40,5 @@ Chronological one-liners. Format: `date | decision | status | link`. Status: `pr
 | 2026-10-02 | Combat: attack-type × armour-class table, delayed-hit projectiles, tile occupancy, gate-filtered HPA*, 400 soldiers/player cap | proposed | [ADR 0008](../decisions/0008-combat-model.md) |
 | 2026-10-02 | Unit roster: 5 base + 7 culture units; damage table; palisade/stone wall/gate/wall tower rules; first LAN build = Swordsman, Spearman, Archer | proposed | [11-military](../11-military.md) |
 | 2026-10-02 | 4 cultures proposed: Rivermen (baseline, first LAN build), Highlanders, Woodfolk, Riders | proposed | [10-cultures](../10-cultures.md) |
+| 2026-10-02 | Roadmap restructured into phases A (LAN Alpha) → B (Steam) → C (Cultures & war) → D (AI & monsters) → E (Release); ≈ 114 weeks (≈ 33 months with contingency) | proposed | [09-roadmap](../09-roadmap.md) |
+| 2026-10-02 | Reference machine = MacBook M5 24 GB; second test machine = Windows gaming PC; Linux CI-only until phase E | approved by user (machines); approach proposed | [01-architecture](../01-architecture.md) §3 |
