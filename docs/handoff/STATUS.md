@@ -51,13 +51,13 @@
 | Culture data loader: `data/cultures/rivermen/culture.json` → source generator → `CultureCatalog` + per-player tables; data hash in `GameVersion` | done (modifiers + hooks only; buildings/goods/units come with M2/M4) |
 | `Rebuild.Tools`: `version`, `probe`, `replay`, `sample-log`, `hashes` | done |
 | Golden values [tests/golden/hashes.txt](../../tests/golden/hashes.txt): 1 M-step probe + scripted 3 000-turn replay | done; identical in Debug and Release on the MacBook M5 |
-| CI ([.github/workflows/ci.yml](../../.github/workflows/ci.yml)): 4 runners × Debug/Release, float-ban check, cross-OS hash comparison | pushed to https://github.com/1223Joker/rebuild on 2026-10-02; first run in progress |
+| CI ([.github/workflows/ci.yml](../../.github/workflows/ci.yml)): 4 runners × Debug/Release, float-ban check, cross-OS hash comparison | **green** on https://github.com/1223Joker/rebuild (run 37069100671, 2026-10-02): all 8 jobs pass, `cross-os-hashes` confirms identical probe + replay hashes on Linux x64, Windows x64, macOS arm64, macOS x64 in Debug and Release |
 
 ## In progress
-- First CI run on https://github.com/1223Joker/rebuild (M0 acceptance: "CI green on 4 runners" + cross-OS hash job).
+- Nothing. M0 acceptance met (CI green on 4 runners, cross-OS hash job, 10 000-case `Fix` property tests, float fails the build).
 
 ## Next steps
-1. Check that all 8 CI jobs and `cross-os-hashes` pass on https://github.com/1223Joker/rebuild (`gh run list -R 1223Joker/rebuild`); fix anything that differs per OS.
+1. Keep CI green on https://github.com/1223Joker/rebuild (`gh run list -R 1223Joker/rebuild`). Housekeeping: GitHub warns that `actions/checkout@v4`, `setup-dotnet@v4`, `upload-artifact@v4` use the deprecated Node 20 runtime — bump to the next major versions when convenient.
 2. M0 leftovers: CI rule "golden changes need a `GameVersion` bump" (not yet enforced); nightly workflow with more property cases.
 3. Start **M1 Map generation** ([03-mapgen](../03-mapgen.md)): expand `MapSpec` (bump its `FormatVersion`), integer noise, start placement, validation F1–F11, share code, `mapgen` CLI with PNG preview, 24 golden map hashes.
 4. Before M3: run S1's Godot part — install the Godot **.NET** edition (the installed `/Applications/Godot.app` 4.7.2 is the standard build without C#) and export a test project for macOS and Windows.
