@@ -24,3 +24,8 @@ Every answer, instruction or preference the user gives, recorded as close to the
 | 2026-10-02 | D2 Host loss | If the host leaves mid-game? | "End match + auto-save (Recommended)" |
 | 2026-10-02 | C2/C3 Allies & fog | Alliance & visibility rules? | "Shared vision + visual fog" — allies share vision, carriers may cross allied land, visual fog of war in MVP. |
 | 2026-10-02 | Remaining defaults | Accept recommendations for C4–C8, D3–D5, E2–E4, F1, F3, G1–G2? | "Accept all (Recommended)" |
+| 2026-10-02 | Cultures (new requirement) | — (unprompted) | "there should be different cultures with different mecheaniks, like in other games. they should have differnt addvantiages and disaddvantages, like need more wood, or more stone," |
+| 2026-10-02 | Military depth (new requirement) | — (unprompted) | "there should be many different warieres, and big stone walls etc. to have a nice war experance." |
+| 2026-10-02 | E5/E6 Machines | Exact Mac model; Windows/Linux test hardware? | "i have a macbook m5 with 24gb of ram, and a very good gaming pc with windows, linux is not that important," |
+| 2026-10-02 | Prototype art | — | "source your art for the prototype form kenney.nl" |
+| 2026-10-02 | Priority | — | "first of all its important to have a working version with lan support, after that comes steam and so on" |
