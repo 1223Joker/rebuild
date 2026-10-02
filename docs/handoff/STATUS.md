@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-10-02 — M0 done; **M1 Map generation first pass done**: full pipeline, F1–F11 validation with retries, share codes, `mapgen` CLI with PNG preview, 24 golden map hashes, nightly 1 000-seed workflow; 96 tests.
+**Last updated:** 2026-10-02 — M0 done; **M1 Map generation first pass done**; **M2 step 1 (map in the sim, start assignment, territory) done**. M1: full pipeline, F1–F11 validation with retries, share codes, `mapgen` CLI with PNG preview, 24 golden map hashes, nightly 1 000-seed workflow; 96 tests.
 
 ## Current phase / step
-**Implementation, milestone M1 Map generation** ([09-roadmap](../09-roadmap.md)) — first pass complete, waiting for the cross-OS CI confirmation; M0 Foundations complete. The user permitted coding on 2026-10-02 and chose "M0 directly, S1 folded in": S1's sim half is covered by M0; S1's Godot .NET export check moves to the start of M3. Process steps: [ORIGINAL-BRIEF.md §6](ORIGINAL-BRIEF.md).
+**Implementation, milestone M2 Sim economy (headless)** ([09-roadmap](../09-roadmap.md)) — step 1 (map in the sim + territory) done; M0 Foundations and M1 Map generation complete. The user permitted coding on 2026-10-02 and chose "M0 directly, S1 folded in": S1's sim half is covered by M0; S1's Godot .NET export check moves to the start of M3. Process steps: [ORIGINAL-BRIEF.md §6](ORIGINAL-BRIEF.md).
 
 ## Done
 - Step 0: git repo, [AGENTS.md](../../AGENTS.md), [CLAUDE.md](../../CLAUDE.md) (pointer), [ORIGINAL-BRIEF.md](ORIGINAL-BRIEF.md), this file.
@@ -69,14 +69,24 @@
 | Perf: XL attempt ≤ 1.5 s, p99 ≤ 4 s | MacBook M5: 48 ms mean / 56 ms p99 (XL, 8 starts, 100 seeds) |
 | `.rbmap` save files, lobby preview & hash check | not started (belongs with the M5 lobby) |
 
+| M2 step 1 — map in the sim + territory (2026-10-02) | State |
+|---|---|
+| `Simulation.Create` generates the map from `MatchSetup.Map` with the M1 generator (unchanged); `MapHash` in the state hash; load regenerates the map and rejects a hash mismatch (save format 2) | done |
+| `World/StartAssignment`: k-th Human/AI slot → start k, team must equal `MapSpec.TeamOf(k)`; invalid setups throw | done |
+| `World/Territory`: castle claims r = 16 (ASSUMPTION constant until building data exists), older claim wins, incremental add/remove = full rebuild (brute-force tests), owner grid hashed + saved | done |
+| `Simulation.StartOf`, `AreAllies` (monsters have no allies) | done |
+| `GameVersion` 0.3.0; golden replay `m0-meta.rblog` regenerated (its setup now matches its map: 3 starts, teams 0/1/1, monsters Low) | done |
+| Code review (`/code-review`, medium): 2 low findings fixed (radius > ushort, `NextClaimId` < 1 on load) | done |
+| Tests | 110 pass in Debug and Release locally |
+
 ## In progress
-- **M2 step 1 — map in the sim + territory** (2026-10-02, branch `claude/charming-ride-1tc20m`, not yet reviewed or merged to `main`): `Simulation.Create` generates the map from `MatchSetup.Map` (existing M1 generator, unchanged) and stores `MapHash` in the state; `World/StartAssignment` maps the k-th Human/AI slot to start k (team must equal `MapSpec.TeamOf(k)`); `World/Territory` holds castle claims (r = 16, older claim wins, incremental add/remove equal to a full rebuild), hashed and saved (save format 2; load regenerates the map and checks its hash). `GameVersion` 0.3.0, golden replay regenerated (its setup now matches its map: 3 starts, teams 0/1/1). 109 tests pass locally. Waiting for the user to confirm the step before code review, merge to `main` and CI check.
+- Nothing.
 
 ## Next steps
 1. Keep CI green (`gh run list -R 1223Joker/rebuild`).
 2. M1 polish: tune `Dmin`, `Rf`, `Lmin` and the ASSUMPTION thresholds (F5/F6 minimums, fertile share, lair counts) when gameplay exists (spike S4 is done as part of M1; all spikes are allowed, user 2026-10-02).
 3. Run spike **S5** (headless logistics + HPA* + combat scale, [09-roadmap §2](../09-roadmap.md)) alongside the start of M2, so the 20 ms/tick budget is checked before the economy design hardens.
-4. Start **M2 Sim economy (headless)** ([06-economy](../06-economy.md)): `Simulation.Create` generates the map from `MatchSetup.Map` (store `MapHash` in the sim state), tiles/territory, first buildings, construction, carriers, A* + HPA*.
+4. Continue **M2 Sim economy (headless)** ([06-economy](../06-economy.md)): next step = building data (`data/buildings.json`, castle radius from data) + castle entity + `PlaceBuilding` validation (own territory, buildable tiles), then construction, carriers, A* + HPA*.
 5. Before M3: run S1's Godot part — install the Godot **.NET** edition (the installed `/Applications/Godot.app` 4.7.2 is the standard build without C#) and export a test project for macOS and Windows — and spike S2 (rendering scale). Before M5: spike S3 (ENet transport).
 
 ## Blockers / waiting for user approval

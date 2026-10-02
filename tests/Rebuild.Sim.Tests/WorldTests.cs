@@ -122,6 +122,19 @@ public class WorldTests
     }
 
     [Fact]
+    public void Invalid_claims_and_ids_are_rejected()
+    {
+        var t = new Territory(16);
+        Assert.Throws<System.ArgumentOutOfRangeException>(() => t.AddClaim(0, 1, 1, Territory.MaxRadius + 1));
+        Assert.Throws<System.ArgumentOutOfRangeException>(() => t.AddClaim(Territory.NoOwner, 1, 1, 3));
+        var w = new CanonicalWriter(512);
+        t.WriteTo(w);
+        var bytes = w.ToArray();
+        bytes[0] = 0; // NextClaimId = 0 would collide with the "unclaimed" marker
+        Assert.Throws<InvalidDataException>(() => Territory.ReadFrom(new CanonicalReader(bytes), 16));
+    }
+
+    [Fact]
     public void Starts_go_to_human_and_ai_slots_in_slot_order()
     {
         var setup = new MatchSetup(

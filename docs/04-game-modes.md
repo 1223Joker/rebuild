@@ -35,7 +35,7 @@ classDiagram
 | Slots | 8 per match ([USER-ANSWERS](handoff/USER-ANSWERS.md) Q8) |
 | Slot types | `Open` (joinable), `Closed`, `Human`, `AI(Easy/Normal/Hard)`, `Monsters` |
 | Culture | per Human/AI slot: one of the cultures in [10-cultures](10-cultures.md) or `Random` (resolved with the match RNG at start). First LAN build: Rivermen only. |
-| Start positions | one per `Human`/`AI` slot; `Monsters` needs none (uses lairs) |
+| Start positions | one per `Human`/`AI` slot; `Monsters` needs none (uses lairs). As built (M2): the k-th Human/AI slot in slot order gets map start k, and its team must equal the map spec's team of start k (the lobby derives `MapSpec.Teams` from the slot table) — `src/Rebuild.Sim/World/StartAssignment.cs` |
 | Monsters slot | at most one per match; implicitly its own team, hostile to everybody; present ⇔ `MonsterDensity ≠ None` |
 | Teams | free assignment of team ids 1–8 to Human/AI slots; same id = allies; every slot may be its own team (FFA) |
 | Allies | cannot attack each other, share vision and territory borders do not block each other's carriers; economies, stocks and soldiers stay separate. Confirmed by user 2026-10-02 ([USER-ANSWERS](handoff/USER-ANSWERS.md) C2/C3). |

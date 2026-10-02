@@ -52,3 +52,5 @@ Every answer, instruction or preference the user gives, recorded as close to the
 | 2026-10-02 | Reference-machine benchmark | Run `mapgen --size XL --players 8 --stats 100` on the MacBook M5 | 100/100 first-attempt pass; attempt mean 48 ms, p50 47, p99 56; map max 73 ms |
 | 2026-10-02 | S4 folded into M1 | May S4's map tuning be done as part of M1? | "what do you mean?" — clarification requested |
 | 2026-10-02 | Spikes | (after the clarification) | "the \"not yet\" was in the planning phase, that is now over, and all spikes are allowed" — S1–S5 may be built; S4 counts as done within M1. |
+| 2026-10-02 | Next step (scheduled task) | — (unprompted) | "Build the next Step, test it and push it. Use the skill code-review. Dokument what you have done/finished! Check CI when finished! Push it to MAIN" |
+| 2026-10-02 | M2 step 1 scope | "generating the world is already done????" → explained: M1 generator unchanged, this step wires it into the sim + territory | "ok then go on" — finish the step, review, push to `main`, check CI. |

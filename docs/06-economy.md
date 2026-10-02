@@ -98,7 +98,7 @@ Production: building cycles `wait inputs → work (N ticks) → place output in 
 Statistics: per player, per good, ring buffer of production/consumption per minute (used by UI and AI, [05-ai](05-ai.md)).
 
 ## 5. Territory & military
-- Each military building claims a radius (castle 16, large tower 12, small tower 8 tiles). Ownership per tile; on overlap the older claim keeps the tile (S4/S2 convention). Recomputed incrementally only around changed buildings.
+- Each military building claims a radius (castle 16, large tower 12, small tower 8 tiles). Ownership per tile; on overlap the older claim keeps the tile (S4/S2 convention). Recomputed incrementally only around changed buildings. As built (M2 step 1, `src/Rebuild.Sim/World/Territory.cs`): disc `dx²+dy² ≤ r²`, claim age = monotonically growing claim id, tiles of a removed claim go to the oldest remaining covering claim; the owner grid is hashed every turn and a save must rebuild to the identical grid.
 - Civilian buildings may only be placed in own territory; enemy civilian buildings inside newly captured territory burn down.
 - **Combat, units, walls, siege**: see [11-military](11-military.md) and [ADR 0008](decisions/0008-combat-model.md) (the earlier duel-at-building model is superseded). Capture: a building changes owner when its garrison is defeated and an attacking melee unit enters it.
 - Rank-up: garrisoned soldier consumes 1 gold → +1 rank (max 3).

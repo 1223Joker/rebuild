@@ -18,6 +18,8 @@ public sealed class Territory
 {
     /// <summary>Owner value of an unclaimed tile.</summary>
     public const byte NoOwner = 0xFF;
+    /// <summary>Largest claim radius (serialized as ushort; far above any building's radius).</summary>
+    public const int MaxRadius = ushort.MaxValue;
 
     private readonly int _edge;
     private readonly byte[] _owner;
@@ -55,7 +57,7 @@ public sealed class Territory
     {
         if (owner == NoOwner) throw new System.ArgumentOutOfRangeException(nameof(owner));
         if ((uint)x >= (uint)_edge || (uint)y >= (uint)_edge) throw new System.ArgumentOutOfRangeException(nameof(x));
-        if (radius < 0) throw new System.ArgumentOutOfRangeException(nameof(radius));
+        if (radius < 0 || radius > MaxRadius) throw new System.ArgumentOutOfRangeException(nameof(radius));
         var claim = new TerritoryClaim(NextClaimId++, owner, x, y, radius);
         _claims.Add(claim);
         Apply(claim);
@@ -125,6 +127,7 @@ public sealed class Territory
     {
         var t = new Territory(edge);
         t.NextClaimId = r.ReadInt32();
+        if (t.NextClaimId < 1) throw new InvalidDataException("Invalid next claim id");
         int count = r.ReadInt32();
         if (count < 0 || count > edge * edge) throw new InvalidDataException("Invalid claim count");
         int lastId = 0;
