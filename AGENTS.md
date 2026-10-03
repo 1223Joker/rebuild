@@ -14,6 +14,10 @@ Single source of truth for any agent working in this repository. Tool-specific f
 - Art: small fixed palette, clear silhouettes, swappable; prototype with Kenney (CC0) assets.
 - Implementation permitted since 2026-10-02 ([USER-ANSWERS](docs/handoff/USER-ANSWERS.md)); keep the docs and ADRs in sync with the code.
 
+## Agent tooling
+- Agents use the **ponytail** plugin ([DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail): the simplest code that works — YAGNI, stdlib first, no needless abstractions), enabled for every session in [.claude/settings.json](.claude/settings.json) (user, 2026-10-03).
+- Ponytail shapes **how much code** is written, not the process: the rules in this file win over it — keep docs/ADRs in sync, `ASSUMPTION:` marks, tests, determinism analyzers, golden-hash/version rules and STATUS updates.
+
 ## Repository
 - Remote: **https://github.com/1223Joker/rebuild** (private; `origin`, default branch `main`). Use this repository for all pushes, CI runs, issues and pull requests (user, 2026-10-02).
 - CI runs there via GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)); check it with `gh run list -R 1223Joker/rebuild`.
