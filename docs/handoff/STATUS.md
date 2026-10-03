@@ -135,7 +135,7 @@
 | Production data (ASSUMPTIONS): fisher (fish r 6, 15 s), hunter (game r 10, 20 s), farm (fertile r 4, 30 s; fields abstracted), waterworks (water r 4, 9 s), mill (grain → flour), bakery (flour + water → bread), pig farm (grain + water → pig), slaughterhouse (pig → meat), iron/gold smelter (ore + coal → metal) | done |
 | `World/MapChanges` records the resource layer (fished tiles); load validation: object gone/reduced with resource untouched, or fish gone/reduced on a tile without object; save format 8; `GameVersion` 0.9.0; both golden replays regenerated; `m2-build.rblog` now also places fishers, hunters, farms and waterworks with their source in reach | done |
 | Code review (`/code-review`, medium): no code findings; docs (06-economy §4, STATUS, DECISIONS-LOG) brought up to date as it asked | done |
-| Tests / CI | 170 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112); float-ban, golden-version and hash comparison pass locally; CI on `main`: see below | pending |
+| Tests / CI | 170 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112); float-ban, golden-version and hash comparison pass locally; **CI run 37095410902 green** on `main` (15f3c5b): 4 runners × Debug/Release, `cross-os-hashes` (new build replay hash identical everywhere) and `golden-version` pass | done |
 
 ## In progress
 - Nothing.
@@ -148,7 +148,7 @@
 5. Before M3: run S1's Godot part — install the Godot **.NET** edition (the installed `/Applications/Godot.app` 4.7.2 is the standard build without C#) and export a test project for macOS and Windows — and spike S2 (rendering scale). Before M5: spike S3 (ENet transport).
 
 ## Blockers / waiting for user approval
-- Deleting old remote branches (`claude/amazing-hopper-tq38xc`, `claude/amazing-hopper-s87jxe`, `claude/amazing-hopper-p2ghnv`, and any other merged `claude/amazing-hopper-*` branch still listed, all fully merged into `main`) is not possible from the cloud session (git proxy HTTP 403 earlier; on 2026-10-03 the session's permission policy blocked the delete); delete them in the GitHub UI.
+- Deleting old remote branches (`claude/amazing-hopper-tq38xc`, `claude/amazing-hopper-s87jxe`, `claude/amazing-hopper-p2ghnv`, `claude/amazing-hopper-zablrl`, `claude/amazing-hopper-wcv8g0`, and any other merged `claude/amazing-hopper-*` branch still listed, all fully merged into `main`) is not possible from the cloud session (git proxy HTTP 403 earlier; on 2026-10-03 the session's permission policy blocked the delete again, twice); delete them in the GitHub UI.
 
 ## Dead ends (tried or rejected, and why)
 - Using Godot `FastNoiseLite` for the shared map: floats, not cross-platform deterministic → rejected ([ADR 0003](../decisions/0003-mapgen-determinism.md)); allowed for client cosmetics only.
