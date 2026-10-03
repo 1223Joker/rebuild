@@ -37,7 +37,8 @@ public readonly record struct TransportJob(int Id, byte Owner, int CarrierId, us
     JobKind Kind = JobKind.Transport);
 
 /// <summary>
-/// Logistics system (docs/06-economy.md §3–4). Worker requests come first: every complete production building without a
+/// Logistics system (docs/06-economy.md §3–4). Worker requests come first: every construction site with delivered material to work in (its
+/// builder, see <see cref="Construction.BuilderTool"/>) and complete production building without a
 /// worker (inside or on the way) gets the owner's idle carrier nearest to the owner's storage nearest to it that holds its
 /// <see cref="ProductionDefinition.Tool"/> (none held: it waits), or — without a tool — the idle carrier nearest to the
 /// building; the tool leaves the stock at once, and at the door the carrier becomes the building's worker
@@ -155,8 +156,24 @@ public sealed class Logistics
     {
         if (job.Kind == JobKind.Transport) return Accepts(buildings, index, job.Good);
         var b = buildings.All[index];
-        return b.State == BuildingState.Complete && b.Definition.Production?.Tool == job.Good;
+        return TakesWorker(b) && ToolOf(b) == job.Good;
     }
+
+    /// <summary>Whether a unit is on its way to building <paramref name="id"/>.</summary>
+    internal bool HasDeliveryTo(int id)
+    {
+        foreach (var job in _jobs)
+            if (job.Kind == JobKind.Transport && job.DestinationId == id) return true;
+        return false;
+    }
+
+    /// <summary>Whether a building takes a worker: a construction site (its builder) or a complete production building.</summary>
+    internal static bool TakesWorker(in Building b) =>
+        b.State == BuildingState.ConstructionSite || b.Definition.Production != null;
+
+    /// <summary>Tool of a building's worker: a site's builder takes <see cref="Construction.BuilderTool"/>, else the production's tool.</summary>
+    internal static ushort ToolOf(in Building b) =>
+        b.State == BuildingState.ConstructionSite ? Construction.BuilderTool : b.Definition.Production?.Tool ?? ProductionDefinition.NoTool;
 
     /// <summary>Whether each building, by list index, has its worker inside or on the way.</summary>
     private bool[] Staffed(BuildingRegistry buildings, Settlers settlers)
@@ -245,17 +262,19 @@ public sealed class Logistics
         var staffed = Staffed(buildings, settlers);
         for (int i = 0; i < all.Count && matches < MaxMatchesPerTick && idle.Count > 0; i++)
         {
-            // Workers: the tool from the nearest storage holding it, or straight to the building without a tool.
+            // Workers (and builders): the tool from the nearest storage holding it, or straight to the building without a tool.
             var b = all[i];
-            var p = b.Definition.Production;
-            if (p == null || b.State != BuildingState.Complete || staffed[i] || noCarrier[b.Owner] || IsUnreachable(b.Id)) continue;
+            if (!TakesWorker(b) || staffed[i] || noCarrier[b.Owner] || IsUnreachable(b.Id)) continue;
+            if (b.State == BuildingState.ConstructionSite && b.WorkDone == (b.DeliveredPlanks + b.DeliveredStone) * Construction.WorkTicksPerMaterial)
+                continue; // a builder only once delivered material waits to be worked in
+            ushort tool = ToolOf(b);
             int source = i;
-            if (p.Tool != ProductionDefinition.NoTool)
+            if (tool != ProductionDefinition.NoTool)
             {
-                source = NearestStorage(buildings, b.Owner, p.Tool, b.CenterY * _edge + b.CenterX);
+                source = NearestStorage(buildings, b.Owner, tool, b.CenterY * _edge + b.CenterX);
                 if (source < 0) continue;
             }
-            if (TryCreate(buildings, settlers, idle, b.Owner, p.Tool, source, i, JobKind.Employ)) matches++;
+            if (TryCreate(buildings, settlers, idle, b.Owner, tool, source, i, JobKind.Employ)) matches++;
             else noCarrier[b.Owner] = true;
         }
         int[]? room = null;
@@ -534,7 +553,7 @@ public sealed class Logistics
     internal void ReleaseWorkerAt(BuildingRegistry buildings, Settlers settlers, int index)
     {
         var s = settlers.All[index];
-        ushort tool = buildings.TryGet(s.WorkplaceId, out var b) ? b.Definition.Production!.Tool : ProductionDefinition.NoTool;
+        ushort tool = buildings.TryGet(s.WorkplaceId, out var b) ? ToolOf(b) : ProductionDefinition.NoTool;
         s = s with { Kind = SettlerKind.Carrier, WorkplaceId = 0, WaitTicks = Settlers.MinIdleTicks };
         int storage = tool == ProductionDefinition.NoTool ? -1 : NearestStorage(buildings, s.Owner, good: -1, s.Tile);
         if (storage >= 0)
@@ -623,7 +642,7 @@ public sealed class Logistics
     /// Reads and validates jobs (ids, owners, goods, building ids, a live source being a storage or a production building
     /// with that output — a worker job's live source a storage or, without a tool, its destination with the job carrying;
     /// its destination is checked when the carrier acts — a one-to-one link to carriers of the same owner, at most one worker inside or on the way per building and
-    /// only in complete production buildings, a running cycle only with its worker inside, no site receiving more than its cost and no input
+    /// only in construction sites and complete production buildings, a running cycle only with its worker inside, no site receiving more than its cost and no input
     /// pile more than <see cref="Production.InputTarget"/>, delivered + on the way, no output pile over
     /// <see cref="Production.OutputCap"/> counting reserved units and a running cycle) and the back-offs (ascending ids of live buildings).
     /// </summary>
@@ -674,7 +693,7 @@ public sealed class Logistics
             if (s.Kind != SettlerKind.Worker) continue;
             int index = buildings.IndexOf(s.WorkplaceId);
             if (index < 0) throw new InvalidDataException("Worker of a missing building");
-            if (buildings.All[index].State != BuildingState.Complete || buildings.All[index].Definition.Production == null)
+            if (!TakesWorker(buildings.All[index]))
                 throw new InvalidDataException("Worker of a building that takes none");
             workers[index]++;
         }
@@ -689,13 +708,13 @@ public sealed class Logistics
         for (int i = 0; i < buildings.All.Count; i++)
         {
             var b = buildings.All[i];
+            if (workers[i] > 1) throw new InvalidDataException("More than one worker for a building");
             if (b.State == BuildingState.ConstructionSite)
             {
                 if (b.DeliveredPlanks + pending[Slots * i] > b.Definition.CostPlanks || b.DeliveredStone + pending[Slots * i + 1] > b.Definition.CostStone)
                     throw new InvalidDataException("More material on the way than a site needs");
                 continue;
             }
-            if (workers[i] > 1) throw new InvalidDataException("More than one worker for a building");
             if (b.Cycle > 0 && !working[i]) throw new InvalidDataException("Work cycle running without its worker");
             var piles = buildings.PilesAt(i);
             if (piles == null) continue;

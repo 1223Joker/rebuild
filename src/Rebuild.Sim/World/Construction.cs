@@ -7,30 +7,46 @@ namespace Rebuild.Sim.World;
 /// Construction system (docs/06-economy.md §4), run once per tick before other systems. Carriers deliver a site's
 /// plank/stone cost one unit at a time (<see cref="Logistics"/>); the site is built up <see cref="WorkTicksPerMaterial"/>
 /// ticks per delivered unit; when all work is done it becomes complete, military buildings add their territory claim,
-/// storage buildings get an empty stock and production buildings empty piles. Until builders exist, the work happens
-/// without one (ASSUMPTION).
+/// storage buildings get an empty stock and production buildings empty piles. Work only advances while the site's builder
+/// (a worker with a <see cref="BuilderTool"/>, brought by <see cref="Logistics"/> once delivered material waits to be
+/// worked in; it leaves again when that is done and nothing is on the way, so stalled sites do not hold every hammer) is inside, at the worker speed of its home
+/// (Short −25 %, Crisis stops, as <see cref="Production"/>); on completion the builder comes out as a carrier and takes the
+/// hammer to storage. ponytail: no digger — placement already demands flat land, so there is nothing to level.
 /// </summary>
 public static class Construction
 {
     /// <summary>Build ticks per delivered plank/stone unit (2 s, ASSUMPTION).</summary>
     public const int WorkTicksPerMaterial = 20;
+    /// <summary>Tool a site's builder takes.</summary>
+    public const ushort BuilderTool = GoodIds.Hammer;
 
     /// <summary>Total build ticks of a building type.</summary>
     public static int TotalWork(BuildingDefinition def) => def.CostTotal * WorkTicksPerMaterial;
 
     /// <summary>Runs one tick of construction.</summary>
-    public static void Step(BuildingRegistry buildings, Territory territory)
+    public static void Step(int tick, BuildingRegistry buildings, Territory territory, Settlers settlers, Logistics logistics)
     {
         var all = buildings.All;
+        bool[]? working = null;
+        NeedState[]? states = null;
         for (int i = 0; i < all.Count; i++)
         {
             var b = all[i];
             if (b.State != BuildingState.ConstructionSite) continue;
             var def = b.Definition;
+            working ??= settlers.Working(buildings);
+            states ??= settlers.WorkerHomeStates(buildings);
+            if (!working[i] || states[i] == NeedState.Crisis || (states[i] == NeedState.Short && tick % Production.ShortSkipEvery == 0)) continue;
             if (b.WorkDone < (b.DeliveredPlanks + b.DeliveredStone) * WorkTicksPerMaterial)
                 b = b with { WorkDone = b.WorkDone + 1 };
+            else if (!logistics.HasDeliveryTo(b.Id))
+            {
+                logistics.ReleaseWorker(buildings, settlers, b.Id); // stalled: the hammer goes back for other sites
+                continue;
+            }
             if (b.WorkDone == TotalWork(def))
             {
+                logistics.ReleaseWorker(buildings, settlers, b.Id); // the builder takes its hammer back while this is a site
                 int claim = def.TerritoryRadius > 0 ? territory.AddClaim(b.Owner, b.CenterX, b.CenterY, def.TerritoryRadius) : 0;
                 b = b with { State = BuildingState.Complete, ClaimId = claim, DeliveredPlanks = 0, DeliveredStone = 0, WorkDone = 0 };
             }

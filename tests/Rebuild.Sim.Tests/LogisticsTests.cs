@@ -81,7 +81,7 @@ public class LogisticsTests
         }
         // The three sites need 7 planks + 5 stone; all are matched at once (30 idle carriers).
         Assert.Equal(12, maxJobs);
-        Assert.All(sim.Logistics.All, j => Assert.Equal(JobKind.Employ, j.Kind)); // workers of completed production buildings
+        Assert.All(sim.Logistics.All, j => Assert.True(j.Kind == JobKind.Employ || j.Good == GoodIds.Hammer)); // workers of completed production buildings, builders' hammers going back
         Assert.Equal(sim.Logistics.All.Count, sim.Settlers.All.Count(s => s.JobId != 0));
     }
 
@@ -102,8 +102,8 @@ public class LogisticsTests
         stock[GoodIds.Plank] = 5;
         var at = Spot(sim, 0, BuildingIds.Woodcutter, (x, y) => Sector(x + 1, y + 1, house) < Sector(x + 1, y + 1, castle));
         int site = Place(sim, 0, BuildingIds.Woodcutter, at, 1);
-        Assert.All(sim.Logistics.All.Where(j => j.DestinationId == site), j => Assert.Equal(store, j.SourceId));
-        Assert.Equal(2, sim.Logistics.All.Count(j => j.DestinationId == site));
+        Assert.All(sim.Logistics.All.Where(j => j.DestinationId == site && j.Kind == JobKind.Transport), j => Assert.Equal(store, j.SourceId));
+        Assert.Equal(2, sim.Logistics.All.Count(j => j.DestinationId == site && j.Kind == JobKind.Transport));
         Assert.Equal(3, stock[GoodIds.Plank]); // reserved units leave the stock at once
         ConstructionTests.RunUntilComplete(sim, site);
         Assert.Equal(3, stock[GoodIds.Plank]);

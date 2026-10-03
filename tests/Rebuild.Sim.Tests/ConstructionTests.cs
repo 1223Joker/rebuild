@@ -100,7 +100,8 @@ public class ConstructionTests
 
     /// <summary>Whether the production building has its worker inside.</summary>
     internal static bool HasWorker(Simulation sim, int id) =>
-        sim.Settlers.All.Any(s => s.Kind == SettlerKind.Worker && s.WorkplaceId == id);
+        sim.Buildings.TryGet(id, out var b) && b.State == BuildingState.Complete
+        && sim.Settlers.All.Any(s => s.Kind == SettlerKind.Worker && s.WorkplaceId == id);
 
     /// <summary>Runs turns until the production building's worker is inside; fails after <paramref name="maxTurns"/>.</summary>
     internal static void RunUntilWorking(Simulation sim, int id, int maxTurns = 1000)
@@ -144,9 +145,89 @@ public class ConstructionTests
         Assert.Equal(planks - def.CostPlanks, CastleStock(sim, 0, GoodIds.Plank));
         Assert.Equal(stone - def.CostStone, CastleStock(sim, 0, GoodIds.Stone));
         Assert.Null(sim.Buildings.StockOf(id));
-        // Only the sawmill's worker is on the way: the saw left the castle stock.
-        Assert.Equal((JobKind.Employ, (ushort)GoodIds.Saw, id), sim.Logistics.All.Select(j => (j.Kind, j.Good, j.DestinationId)).Single());
+        // The builder takes its hammer back and the sawmill's worker is on the way: the saw left the castle stock.
+        Assert.Equal(new[] { (JobKind.Transport, (ushort)GoodIds.Hammer, id), (JobKind.Employ, (ushort)GoodIds.Saw, id) },
+            sim.Logistics.All.Select(j => (j.Kind, j.Good, j.Kind == JobKind.Transport ? j.SourceId : j.DestinationId)));
         Assert.Equal(0, CastleStock(sim, 0, GoodIds.Saw));
+    }
+
+    /// <summary>Hammers of slot 0: castle stock, builders inside sites and hammers in open jobs.</summary>
+    private static int Hammers(Simulation sim) =>
+        CastleStock(sim, 0, GoodIds.Hammer)
+        + sim.Settlers.All.Count(s => s.Kind == SettlerKind.Worker && sim.Buildings.TryGet(s.WorkplaceId, out var b) && b.State == BuildingState.ConstructionSite)
+        + sim.Logistics.All.Count(j => j.Good == GoodIds.Hammer);
+
+    private static bool HasBuilder(Simulation sim, int id) =>
+        sim.Settlers.All.Any(s => s.Kind == SettlerKind.Worker && s.WorkplaceId == id);
+
+    [Fact]
+    public void A_site_is_built_only_by_a_builder_who_takes_the_hammer_back()
+    {
+        var sim = Simulation.Create(TwoPlayers());
+        int hammers = CastleStock(sim, 0, GoodIds.Hammer);
+        sim.Buildings.StockAt(0)![GoodIds.Hammer] = 0;
+        int id = Place(sim, 0, BuildingIds.Woodcutter);
+        RunTurns(sim, 100);
+        var site = Get(sim, id);
+        Assert.Equal(site.Definition.CostTotal, site.DeliveredPlanks + site.DeliveredStone); // materials arrive without a builder
+        Assert.Equal(0, site.WorkDone);
+        Assert.False(HasBuilder(sim, id));
+
+        sim.Buildings.StockAt(0)![GoodIds.Hammer] = hammers;
+        Run(sim);
+        Assert.Equal(hammers - 1, CastleStock(sim, 0, GoodIds.Hammer)); // one builder fetches one hammer
+        Assert.Single(sim.Logistics.All, j => j.Kind == JobKind.Employ && j.DestinationId == id && j.Good == GoodIds.Hammer);
+        for (int turns = 0; Get(sim, id).State == BuildingState.ConstructionSite; turns++)
+        {
+            Assert.True(turns < 1000, "site never completed");
+            Assert.Equal(hammers, Hammers(sim));
+            Run(sim);
+        }
+        Assert.Contains(sim.Logistics.All, j => (j.Kind, j.Good, j.SourceId) == (JobKind.Transport, GoodIds.Hammer, id)); // the builder came out
+        Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
+        while (sim.Logistics.All.Any(j => j.Good == GoodIds.Hammer)) Run(sim);
+        Assert.Equal(hammers, CastleStock(sim, 0, GoodIds.Hammer)); // back in stock
+    }
+
+    [Fact]
+    public void Sites_stalled_without_material_do_not_hold_the_hammers()
+    {
+        var sim = Simulation.Create(TwoPlayers());
+        var stock = sim.Buildings.StockAt(0)!;
+        stock[GoodIds.Stone] = 0;
+        stock[GoodIds.Hammer] = 1;
+        // A sawmill stalls for stone; the woodcutter placed after it (planks only) must still get the one hammer.
+        int mill = Place(sim, 0, BuildingIds.Sawmill);
+        int cutter = Place(sim, 0, BuildingIds.Woodcutter, 1);
+        for (int turns = 0; Get(sim, cutter).State == BuildingState.ConstructionSite; turns++)
+        {
+            Assert.True(turns < 1000, "the planks-only site never got the hammer");
+            Run(sim);
+        }
+        var site = Get(sim, mill);
+        Assert.Equal(BuildingState.ConstructionSite, site.State);
+        Assert.Equal(site.DeliveredPlanks * Construction.WorkTicksPerMaterial, site.WorkDone); // its planks were worked in
+    }
+
+    [Fact]
+    public void Cancelling_a_site_sends_its_builder_out_with_the_hammer()
+    {
+        var sim = Simulation.Create(TwoPlayers());
+        int hammers = CastleStock(sim, 0, GoodIds.Hammer);
+        int id = Place(sim, 0, BuildingIds.Sawmill);
+        for (int turns = 0; !HasBuilder(sim, id); turns++)
+        {
+            Assert.True(turns < 1000, "builder never arrived");
+            Run(sim);
+        }
+        Assert.Equal(BuildingState.ConstructionSite, Get(sim, id).State);
+        Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash()); // a builder inside a site loads
+        Run(sim, BuildingCommands.Cancel(0, 1, id));
+        Assert.False(sim.Buildings.TryGet(id, out _));
+        Assert.DoesNotContain(sim.Settlers.All, s => s.Kind == SettlerKind.Worker);
+        Assert.Equal(hammers, Hammers(sim));
+        RunUntilNoJobs(sim);
+        Assert.Equal(hammers, CastleStock(sim, 0, GoodIds.Hammer));
     }
 
     [Fact]
@@ -174,7 +255,7 @@ public class ConstructionTests
         int site = Place(sim, 0, BuildingIds.Woodcutter, 1);
         RunUntilComplete(sim, site);
         Assert.Equal(planks - BuildingCatalog.All[BuildingIds.Woodcutter].CostPlanks, CastleStock(sim, 0, GoodIds.Plank));
-        Assert.All(sim.Buildings.StockOf(store)!, n => Assert.Equal(0, n));
+        Assert.All(sim.Buildings.StockOf(store)!.Where((_, g) => g != GoodIds.Hammer), n => Assert.Equal(0, n)); // a builder may bring its hammer here
     }
 
     [Fact]

@@ -11,9 +11,9 @@ public enum SettlerKind : byte
     /// <summary>Carries goods (docs/06-economy.md §3).</summary>
     Carrier = 0,
     /// <summary>
-    /// Works inside the production building <see cref="Settler.WorkplaceId"/> (a carrier that took the building's tool; standing
+    /// Works inside the production building or construction site (builder) <see cref="Settler.WorkplaceId"/> (a carrier that took the building's tool; standing
     /// at its door, never walking) and keeps its bed at <see cref="Settler.HomeId"/>; comes out as a carrier bringing its tool
-    /// back when the building is demolished or it stayed homeless too long (<see cref="Logistics.ReleaseWorker"/>).
+    /// back when the building is demolished, the site is finished or cancelled, or it stayed homeless too long (<see cref="Logistics.ReleaseWorker"/>).
     /// </summary>
     Worker = 1,
 }
@@ -29,7 +29,7 @@ public enum SettlerState : byte
 /// <summary>
 /// A settler on the tile grid. <see cref="HomeId"/> is the home whose bed it has (docs/12-needs-seasons-weather.md §1.1);
 /// once that home is gone the settler is homeless and counts <see cref="HomelessTicks"/> (<see cref="Households"/>).
-/// <see cref="WorkplaceId"/> is a worker's production building (0 for carriers). <see cref="Progress"/> counts sub-tile
+/// <see cref="WorkplaceId"/> is a worker's production building or site (0 for carriers). <see cref="Progress"/> counts sub-tile
 /// units (<see cref="Settlers.SubTile"/> per straight step) walked towards the next path tile. <see cref="JobId"/> is the
 /// carrier's <see cref="TransportJob"/> (0 = none).
 /// </summary>

@@ -129,6 +129,7 @@ public class WorkerTests
         // Mid-walk saves keep the tool-less job.
         Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
         ConstructionTests.RunUntilWorking(sim, id);
+        while (sim.Logistics.All.Any(j => j.Good == GoodIds.Hammer)) Run(sim); // the builder's hammer is back
         bool Tool(int g) => g != GoodIds.Plank && g != GoodIds.Stone && g != GoodIds.Water && !Households.FoodGoods.Contains((ushort)g);
         Assert.Equal(stock.Where((_, g) => Tool(g)), CastleStock(sim).Where((_, g) => Tool(g)));
         Assert.Equal(0, sim.Statistics.TotalConsumed(0, GoodIds.Axe));
@@ -288,14 +289,15 @@ public class WorkerTests
         var sim = Simulation.Create(TwoPlayers());
         int id = Build(sim, BuildingIds.Mill, 0);
         Run(sim);
-        Assert.Single(sim.Logistics.All);
+        int employ = sim.Logistics.All.ToList().FindIndex(j => j.Kind == JobKind.Employ); // besides the builder's hammer on its way back
+        Assert.Equal(employ, sim.Logistics.All.ToList().FindLastIndex(j => j.Kind == JobKind.Employ));
         var w = new CanonicalWriter(4096);
         sim.Logistics.WriteTo(w);
         var good = w.ToArray();
         Logistics Read(byte[] bytes) =>
             Logistics.ReadFrom(new CanonicalReader(bytes), sim.Map.Edge, sim.Players.Count, sim.Buildings, sim.Settlers);
         Read(good);
-        const int first = 8; // next id, count
+        int first = 8 + 21 * employ; // next id, count, earlier jobs
         var cases = new (int Offset, byte Value)[]
         {
             (first + 11, 1),    // a tool-less worker job sourced at the castle
@@ -309,6 +311,6 @@ public class WorkerTests
             bytes[offset] = value;
             Assert.Throws<InvalidDataException>(() => Read(bytes));
         }
-        Assert.Equal(id, sim.Logistics.All[0].DestinationId);
+        Assert.Equal(id, sim.Logistics.All[employ].DestinationId);
     }
 }

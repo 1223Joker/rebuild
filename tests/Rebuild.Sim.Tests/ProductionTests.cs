@@ -506,6 +506,7 @@ public class ProductionTests
         if (cutter < 0) return false;
         ConstructionTests.RunUntilComplete(sim, store);
         ConstructionTests.RunUntilComplete(sim, cutter);
+        while (sim.Logistics.All.Any(j => j.Kind == JobKind.Transport)) Run(sim); // the builders' hammers are back
         Run(sim, BuildingCommands.Demolish(0, 3, tower));
         Assert.Equal(0, sim.RejectedCommands);
         Assert.NotEqual(0, sim.Territory.OwnerAt(house.CenterX, house.CenterY));
