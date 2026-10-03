@@ -214,4 +214,56 @@ public class LogisticsTests
         w.WriteInt32(0);
         Assert.Throws<InvalidDataException>(() => Read(w.ToArray()));
     }
+
+    /// <summary>The good of the only job one idle carrier gets for a fresh plank-and-stone site, after <paramref name="setup"/>.</summary>
+    private static ushort FirstServed(System.Action<Simulation> setup)
+    {
+        var sim = Simulation.Create(TwoPlayers());
+        setup(sim);
+        var at = Spot(sim, 0, BuildingIds.GuardTowerLarge, (_, _) => true);
+        Assert.Equal(0, Construction.DigWork(sim.Map, BuildingIds.GuardTowerLarge, at.X, at.Y));
+        sim.Buildings.Add(BuildingIds.GuardTowerLarge, 0, at.X, at.Y, 0, BuildingState.ConstructionSite, claimId: 0);
+        int idle = 0;
+        for (int i = 0; i < sim.Settlers.All.Count; i++)
+            if (sim.Settlers.All[i].Owner == 0 && sim.Settlers.All[i].JobId == 0 && idle++ > 0)
+                sim.Settlers.Replace(i, sim.Settlers.All[i] with { State = SettlerState.Walking });
+        sim.Logistics.Match(sim.Tick, sim.Buildings, sim.Settlers, Season.Spring);
+        return Assert.Single(sim.Logistics.All, j => j.Owner == 0).Good;
+    }
+
+    [Fact]
+    public void Transport_priority_decides_which_good_a_scarce_carrier_moves()
+    {
+        Assert.Equal(GoodIds.Plank, FirstServed(_ => { })); // default: plank, stone, then data order
+        var fresh = Simulation.Create(TwoPlayers()).Logistics;
+        Assert.Equal((0, 1, 2), (fresh.RankOf(0, GoodIds.Plank), fresh.RankOf(0, GoodIds.Stone), fresh.RankOf(0, GoodIds.Log)));
+        Assert.Equal(GoodIds.Stone, FirstServed(sim => sim.Logistics.SetPriority(0, GoodIds.Stone, 0)));
+    }
+
+    [Fact]
+    public void SetTransportPriority_reorders_the_list_and_survives_save_and_load()
+    {
+        var sim = Simulation.Create(TwoPlayers());
+        int last = GoodCatalog.All.Count - 1;
+        Run(sim, EconomyCommands.Priority(0, 0, (ushort)GoodIds.Bread, 0), EconomyCommands.Priority(0, 1, (ushort)GoodIds.Log, (byte)last),
+            EconomyCommands.Priority(0, 2, (ushort)GoodIds.Bread, (byte)(last + 1)), EconomyCommands.Priority(0, 3, (ushort)(last + 1), 0));
+        Assert.Equal(2, sim.RejectedCommands); // rank and good out of range
+        Assert.Equal((0, last, 1), (sim.Logistics.RankOf(0, GoodIds.Bread), sim.Logistics.RankOf(0, GoodIds.Log), sim.Logistics.RankOf(0, GoodIds.Plank)));
+        Assert.Equal(GoodIds.Bread, sim.Logistics.RankOf(1, GoodIds.Bread)); // other players keep the default (bread comes after plank and stone)
+        var loaded = Simulation.Load(sim.Save());
+        Assert.Equal(0, loaded.Logistics.RankOf(0, GoodIds.Bread));
+        Assert.Equal(sim.ComputeHash(), loaded.ComputeHash());
+        // A priority list that is not a permutation of the goods fails to load.
+        var w = new CanonicalWriter(4096);
+        sim.Logistics.WriteTo(w);
+        var bytes = w.ToArray();
+        int list = bytes.Length - 2 * GoodCatalog.All.Count;
+        Assert.Equal(GoodIds.Bread, bytes[list]);
+        Logistics Read(byte[] b) => Logistics.ReadFrom(new CanonicalReader(b), sim.Map.Edge, sim.Players.Count, sim.Buildings, sim.Settlers);
+        Read(bytes);
+        bytes[list] = (byte)GoodIds.Plank; // duplicate
+        Assert.Throws<InvalidDataException>(() => Read(bytes));
+        bytes[list] = 0xEE; // unknown good
+        Assert.Throws<InvalidDataException>(() => Read(bytes));
+    }
 }

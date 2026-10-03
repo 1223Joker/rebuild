@@ -49,9 +49,9 @@ public readonly record struct TransportJob(int Id, byte Owner, int CarrierId, us
 /// <see cref="Households.PantryTarget"/>, a storage home's own stock of the need's goods to <see cref="Households.StockTarget"/>,
 /// from other storages; food takes any food good) and output overflow (every unit left in an
 /// output pile goes to a storage with room, see <see cref="BuildingDefinition.StorageCapacity"/>). Offers: storage stocks and output piles. Matching runs every tick after production and
-/// before movement, in three passes over the buildings in id order (older first): site materials (planks, then stone),
-/// production inputs and pantries (data order; a pile with alternative goods takes any of them), then
-/// overflow. Each request takes the owner's offer of the good nearest to the
+/// before movement: requests (site materials, production inputs, pantries; a pile with alternative goods takes any of them)
+/// in the owner's transport priority order of their good (<see cref="RankOf"/>; ties: sites first, then id order), then
+/// overflow in building id order. Each request takes the owner's offer of the good nearest to the
 /// requester by <see cref="SectorDistance"/> (ties: lower id; never the requester itself), overflow the owner's nearest
 /// storage with room; then the owner's idle carrier nearest to the source (ties: lower id); at most <see cref="MaxMatchesPerTick"/>
 /// jobs per tick. A matched unit leaves the source stock or pile at once (reservation). Carriers execute their job inside
@@ -77,17 +77,42 @@ public sealed class Logistics
     private readonly List<TransportJob> _jobs = new();
     /// <summary>Buildings left out of matching until the given tick (exclusive), in ascending building id order.</summary>
     private readonly List<(int BuildingId, int Until)> _unreachable = new();
+    /// <summary>Per player, every good index in transport priority order (first = served first).</summary>
+    private readonly byte[][] _priority;
 
-    public Logistics(int edge)
+    public Logistics(int edge, int playerCount)
     {
         _edge = edge;
         NextId = 1;
+        _priority = new byte[playerCount][];
+        for (int p = 0; p < playerCount; p++)
+        {
+            _priority[p] = new byte[GoodCatalog.All.Count];
+            // ASSUMPTION: construction materials first at match start, then data order (Settlers default).
+            int n = 0;
+            _priority[p][n++] = (byte)GoodIds.Plank;
+            _priority[p][n++] = (byte)GoodIds.Stone;
+            for (int g = 0; g < GoodCatalog.All.Count; g++)
+                if (g != GoodIds.Plank && g != GoodIds.Stone) _priority[p][n++] = (byte)g;
+        }
     }
 
     public int NextId { get; private set; }
     public IReadOnlyList<TransportJob> All => _jobs;
     /// <summary>Buildings currently left out of matching, with the tick their back-off ends.</summary>
     public IReadOnlyList<(int BuildingId, int Until)> Unreachable => _unreachable;
+
+    /// <summary>Transport priority rank of a good for a player (0 = served first).</summary>
+    public int RankOf(int player, int good) => System.Array.IndexOf(_priority[player], (byte)good);
+
+    /// <summary>Moves <paramref name="good"/> to position <paramref name="rank"/> of the player's priority list (callers validate both).</summary>
+    public void SetPriority(int player, int good, int rank)
+    {
+        var order = new List<byte>(_priority[player]);
+        order.Remove((byte)good);
+        order.Insert(rank, (byte)good);
+        order.CopyTo(_priority[player]);
+    }
 
     /// <summary>Whether matching skips building <paramref name="id"/>.</summary>
     public bool IsUnreachable(int id)
@@ -281,85 +306,93 @@ public sealed class Logistics
             if (TryCreate(buildings, settlers, idle, b.Owner, tool, source, i, JobKind.Employ)) matches++;
             else noCarrier[b.Owner] = true;
         }
-        int[]? room = null;
-        for (int pass = 0; pass < 3; pass++)
+        // Requests (site materials, production inputs, pantries) in the owner's transport priority order of their good (a pile
+        // with alternatives ranks by its best good; ties: construction sites first, then building list index, then slot), then overflow.
+        var requests = new List<(int Rank, bool NotSite, int Index, int Slot)>();
+        for (int i = 0; i < all.Count; i++)
         {
-            for (int i = 0; i < all.Count && matches < MaxMatchesPerTick && idle.Count > 0; i++)
+            var b = all[i];
+            if (noCarrier[b.Owner] || IsUnreachable(b.Id)) continue;
+            int slots = b.State == BuildingState.ConstructionSite ? 2
+                : BuildingRegistry.IsHome(b) ? Households.NeedCount
+                : b.State == BuildingState.Complete && b.Definition.Production != null ? b.Definition.Production.Inputs.Count : 0;
+            for (int k = 0; k < slots; k++)
             {
-                var b = all[i];
-                if (noCarrier[b.Owner] || IsUnreachable(b.Id)) continue;
-                var p = b.Definition.Production;
-                int tile = b.CenterY * _edge + b.CenterX;
-                if (pass == 2)
-                {
-                    // Overflow: every unit left in an output pile goes to the nearest storage with room (output piles in data
-                    // order); with none, it stays and the full pile pauses the building.
-                    var piles = buildings.PilesAt(i);
-                    if (piles == null || p == null) continue;
-                    for (int o = p.Inputs.Count; o < piles.Length && !noCarrier[b.Owner]; o++)
-                        while (piles[o] > 0 && matches < MaxMatchesPerTick)
-                        {
-                            room ??= Room(buildings);
-                            int storage = NearestStorage(buildings, b.Owner, good: -1, tile, room);
-                            if (storage < 0) break;
-                            if (!TryCreate(buildings, settlers, idle, b.Owner, p.Outputs[o - p.Inputs.Count], i, storage))
-                            {
-                                noCarrier[b.Owner] = true;
-                                break;
-                            }
-                            room[storage]--;
-                            matches++;
-                        }
-                    continue;
-                }
-                bool home = BuildingRegistry.IsHome(b);
-                int slots = pass == 0
-                    ? (b.State == BuildingState.ConstructionSite ? 2 : 0)
-                    : home ? Households.NeedCount : (b.State == BuildingState.Complete && p != null ? p.Inputs.Count : 0);
-                for (int k = 0; k < slots && !noCarrier[b.Owner]; k++)
-                {
-                    IReadOnlyList<ushort> goods;
-                    int need;
-                    if (pass == 0)
-                    {
-                        goods = k == 0 ? PlankOnly : StoneOnly;
-                        need = k == 0 ? b.Definition.CostPlanks - b.DeliveredPlanks : b.Definition.CostStone - b.DeliveredStone;
-                    }
-                    else if (home)
-                    {
-                        if (k == Households.Heat && season < Season.Autumn) continue; // fuel is stockpiled from autumn on
-                        // A storage home (castle) counts the need's goods in its stock and fetches them from other storages.
-                        goods = Households.NeedGoods[k];
-                        var stock = buildings.StockAt(i);
-                        if (stock == null) need = Households.PantryTarget - buildings.PilesAt(i)![k];
-                        else
-                        {
-                            need = Households.StockTarget(b);
-                            foreach (ushort g in goods) need -= stock[g];
-                        }
-                    }
-                    else
-                    {
-                        goods = p!.Alternatives[k];
-                        need = Production.InputTarget - buildings.PilesAt(i)![k];
-                    }
-                    need -= pending[Slots * i + k];
-                    while (need > 0 && matches < MaxMatchesPerTick)
-                    {
-                        var (source, good) = NearestSource(buildings, b.Owner, goods, tile, exclude: i);
-                        if (source < 0) break;
-                        if (!TryCreate(buildings, settlers, idle, b.Owner, good, source, i))
-                        {
-                            noCarrier[b.Owner] = true;
-                            break;
-                        }
-                        need--;
-                        matches++;
-                    }
-                }
+                int rank = int.MaxValue;
+                foreach (ushort g in RequestGoods(b, k)) rank = System.Math.Min(rank, RankOf(b.Owner, g));
+                requests.Add((rank, b.State != BuildingState.ConstructionSite, i, k));
             }
         }
+        requests.Sort();
+        foreach (var (_, _, i, k) in requests)
+        {
+            if (matches >= MaxMatchesPerTick || idle.Count == 0) break;
+            var b = all[i];
+            if (noCarrier[b.Owner]) continue;
+            var goods = RequestGoods(b, k);
+            int need;
+            if (b.State == BuildingState.ConstructionSite)
+                need = k == 0 ? b.Definition.CostPlanks - b.DeliveredPlanks : b.Definition.CostStone - b.DeliveredStone;
+            else if (BuildingRegistry.IsHome(b))
+            {
+                if (k == Households.Heat && season < Season.Autumn) continue; // fuel is stockpiled from autumn on
+                // A storage home (castle) counts the need's goods in its stock and fetches them from other storages.
+                var stock = buildings.StockAt(i);
+                if (stock == null) need = Households.PantryTarget - buildings.PilesAt(i)![k];
+                else
+                {
+                    need = Households.StockTarget(b);
+                    foreach (ushort g in goods) need -= stock[g];
+                }
+            }
+            else need = Production.InputTarget - buildings.PilesAt(i)![k];
+            need -= pending[Slots * i + k];
+            int tile = b.CenterY * _edge + b.CenterX;
+            while (need > 0 && matches < MaxMatchesPerTick)
+            {
+                var (source, good) = NearestSource(buildings, b.Owner, goods, tile, exclude: i);
+                if (source < 0) break;
+                if (!TryCreate(buildings, settlers, idle, b.Owner, good, source, i))
+                {
+                    noCarrier[b.Owner] = true;
+                    break;
+                }
+                need--;
+                matches++;
+            }
+        }
+        int[]? room = null;
+        for (int i = 0; i < all.Count && matches < MaxMatchesPerTick && idle.Count > 0; i++)
+        {
+            // Overflow: every unit left in an output pile goes to the nearest storage with room (output piles in data
+            // order); with none, it stays and the full pile pauses the building.
+            var b = all[i];
+            var p = b.Definition.Production;
+            var piles = buildings.PilesAt(i);
+            if (noCarrier[b.Owner] || IsUnreachable(b.Id) || piles == null || p == null) continue;
+            int tile = b.CenterY * _edge + b.CenterX;
+            for (int o = p.Inputs.Count; o < piles.Length && !noCarrier[b.Owner]; o++)
+                while (piles[o] > 0 && matches < MaxMatchesPerTick)
+                {
+                    room ??= Room(buildings);
+                    int storage = NearestStorage(buildings, b.Owner, good: -1, tile, room);
+                    if (storage < 0) break;
+                    if (!TryCreate(buildings, settlers, idle, b.Owner, p.Outputs[o - p.Inputs.Count], i, storage))
+                    {
+                        noCarrier[b.Owner] = true;
+                        break;
+                    }
+                    room[storage]--;
+                    matches++;
+                }
+        }
     }
+
+    /// <summary>Goods request slot <paramref name="k"/> of a building takes (see <see cref="SlotOf"/>).</summary>
+    private static IReadOnlyList<ushort> RequestGoods(in Building b, int k) =>
+        b.State == BuildingState.ConstructionSite ? (k == 0 ? PlankOnly : StoneOnly)
+        : BuildingRegistry.IsHome(b) ? Households.NeedGoods[k]
+        : b.Definition.Production!.Alternatives[k];
 
     /// <summary>
     /// Reserves one unit of <paramref name="good"/> at the source (stock or output pile; nothing for a worker without a tool,
@@ -621,7 +654,7 @@ public sealed class Logistics
         return s with { JobId = 0, State = SettlerState.Idle, Progress = 0, WaitTicks = 0 };
     }
 
-    /// <summary>Canonical state: next id, every open job, then the unreachable back-offs.</summary>
+    /// <summary>Canonical state: next id, every open job, the unreachable back-offs, then every player's priority list.</summary>
     public void WriteTo(CanonicalWriter w)
     {
         w.WriteInt32(NextId);
@@ -643,6 +676,7 @@ public sealed class Logistics
             w.WriteInt32(id);
             w.WriteInt32(until);
         }
+        foreach (var order in _priority) w.WriteRaw(order);
     }
 
     /// <summary>
@@ -655,7 +689,7 @@ public sealed class Logistics
     /// </summary>
     public static Logistics ReadFrom(CanonicalReader r, int edge, int playerCount, BuildingRegistry buildings, Settlers settlers)
     {
-        var reg = new Logistics(edge);
+        var reg = new Logistics(edge, playerCount);
         int nextId = r.ReadInt32();
         if (nextId < 1) throw new InvalidDataException("Invalid next job id");
         int count = r.ReadInt32();
@@ -693,6 +727,16 @@ public sealed class Logistics
             if (id <= lastBuilding || buildings.IndexOf(id) < 0 || until < 0) throw new InvalidDataException("Invalid unreachable entry");
             lastBuilding = id;
             reg._unreachable.Add((id, until));
+        }
+        foreach (var order in reg._priority)
+        {
+            var seen = new bool[order.Length];
+            for (int g = 0; g < order.Length; g++)
+            {
+                order[g] = r.ReadByte();
+                if (order[g] >= order.Length || seen[order[g]]) throw new InvalidDataException("Invalid transport priority list");
+                seen[order[g]] = true;
+            }
         }
         var workers = new int[buildings.All.Count];
         foreach (var s in settlers.All)

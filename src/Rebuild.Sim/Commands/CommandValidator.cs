@@ -27,6 +27,9 @@ public static class CommandValidator
                 // Complete own buildings only (sites are cancelled); the castle cannot be demolished.
                 return BuildingCommands.TryReadId(c, out int target) && sim.Buildings.TryGet(target, out var d)
                     && d.Owner == c.Slot && d.State == BuildingState.Complete && d.Definition.PlayerPlaceable;
+            case CommandType.SetTransportPriority:
+                return EconomyCommands.TryReadPriority(c, out ushort moved, out byte rank)
+                    && moved < Goods.GoodCatalog.All.Count && rank < Goods.GoodCatalog.All.Count;
             case CommandType.SetToolProductionQuota:
                 return EconomyCommands.TryReadQuota(c, out ushort good, out byte weight)
                     && good < Goods.GoodCatalog.All.Count && ProductionQuotas.IsQuotaGood(good) && weight <= ProductionQuotas.MaxWeight;

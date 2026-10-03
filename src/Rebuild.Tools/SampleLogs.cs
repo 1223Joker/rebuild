@@ -150,6 +150,14 @@ public static class SampleLogs
                     uint round = turn / 40;
                     commands.Add(EconomyCommands.Quota(slot, seq[slot]++, QuotaScriptGoods[round % QuotaScriptGoods.Length], (byte)(round % 12)));
                 }
+                // Every 40 turns a transport priority change: goods in turn, to rank 0 or to the last rank; a good one past the
+                // catalogue is invalid.
+                if (turn % 40 == 25 + slot)
+                {
+                    uint round = turn / 40;
+                    int goods = Rebuild.Sim.Goods.GoodCatalog.All.Count;
+                    commands.Add(EconomyCommands.Priority(slot, seq[slot]++, (ushort)(round % (goods + 1)), (byte)(round % 2 * (goods - 1))));
+                }
             }
             if (turn == (uint)turns * 3 / 4) commands.Add(MetaCommands.ForSlot(CommandType.PlayerLeft, 1, seq[Command.SystemSlot]++));
             var bundle = new TurnBundle(turn, commands);

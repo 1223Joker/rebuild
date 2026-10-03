@@ -27,7 +27,7 @@ public sealed class Simulation
     public const int TicksPerTurn = 2;
 
     private const uint SaveMagic = 0x56415342; // "BSAV" little-endian
-    private const ushort SaveFormatVersion = 20;
+    private const ushort SaveFormatVersion = 21;
 
     private readonly PlayerState[] _players;
     private readonly PlayerCultureTable?[] _cultureTables;
@@ -157,7 +157,7 @@ public sealed class Simulation
             Pcg32.ForStream(setup.MatchSeed, RngStream.Economy),
             Pcg32.ForStream(setup.MatchSeed, RngStream.Combat),
             Pcg32.ForStream(setup.MatchSeed, RngStream.Monsters),
-            rejected: 0, territory, buildings, settlers, new Logistics(map.Edge), new ProductionQuotas(players.Length),
+            rejected: 0, territory, buildings, settlers, new Logistics(map.Edge, players.Length), new ProductionQuotas(players.Length),
             new ProductionStatistics(players.Length, tick: 0));
     }
 
@@ -239,6 +239,10 @@ public sealed class Simulation
                 BuildingCommands.TryReadId(c, out int demolished);
                 Logistics.ReleaseWorker(Buildings, Settlers, demolished);
                 Construction.Demolish(Buildings, Territory, demolished);
+                break;
+            case CommandType.SetTransportPriority:
+                EconomyCommands.TryReadPriority(c, out ushort moved, out byte rank);
+                Logistics.SetPriority(c.Slot, moved, rank);
                 break;
             case CommandType.SetToolProductionQuota:
                 EconomyCommands.TryReadQuota(c, out ushort good, out byte weight);
