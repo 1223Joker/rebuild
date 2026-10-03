@@ -5,7 +5,7 @@
 ## Context
 - The simulation must be deterministic, integer/fixed-point only, single-threaded, engine-independent and run headless (CI, AI tests, custom relay/host tooling). See [ORIGINAL-BRIEF §2](../handoff/ORIGINAL-BRIEF.md).
 - Scale: up to 8 players, 512×512 tiles, thousands of settlers ([USER-ANSWERS](../handoff/USER-ANSWERS.md) Q8) → the sim is CPU-heavy (pathfinding, economy, AI).
-- Targets: Windows, macOS ARM + x64, Linux. Release on Steam (closed source).
+- Targets: Windows, macOS ARM + x64, Linux. (Update 2026-10-03: macOS ARM only, user decision.) Release on Steam (closed source).
 - Solo part-time developer → tooling, testability and refactoring safety matter.
 
 ## Options
@@ -33,6 +33,6 @@
 - + Compile-time determinism guards; `dotnet test` on all 3 OS in CI without Godot.
 - + Same language for sim, networking, AI, relay server, tools.
 - − Requires the Godot .NET build and .NET SDK; C# cannot target web (irrelevant).
-- − Must verify macOS universal (arm64 + x64) .NET export early → spike S1 in [09-roadmap](../09-roadmap.md).
+- − Must verify the macOS arm64 .NET export early → spike S1 in [09-roadmap](../09-roadmap.md). (Update 2026-10-03: Intel macOS/x64 is no longer a target, user decision; no universal build needed.)
 - − Interop cost Sim↔Godot: keep crossings coarse (one snapshot read per frame, no per-entity calls into Godot).
 - If the export spike fails on a platform, fallback is option (D) for the sim only; recorded as a risk.

@@ -15,8 +15,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Windows x64, macOS arm64, macOS x64 (Intel runners until ~Aug 2027), Linux x64 — docs/08-testing.md §4
-        os: [ubuntu-latest, windows-latest, macos-latest, macos-15-intel]
+        # Windows x64, macOS arm64 (Apple Silicon only; Intel macOS dropped, user 2026-10-03), Linux x64 — docs/08-testing.md §4
+        os: [ubuntu-latest, windows-latest, macos-latest]
         config: [Debug, Release]
     steps:
       - uses: actions/checkout@v5

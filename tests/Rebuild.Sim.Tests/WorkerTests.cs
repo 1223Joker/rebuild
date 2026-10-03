@@ -100,7 +100,7 @@ public class WorkerTests
         Assert.Equal(Settlers.DoorOf(ConstructionTests.Get(sim, id), sim.Map, sim.Buildings), worker.Tile);
         Assert.Equal((SettlerState.Idle, 0), (worker.State, worker.JobId));
         Assert.Empty(EmployJobs(sim));
-        Assert.Equal(1, sim.Statistics.TotalConsumed(0, GoodIds.Axe)); // the tool is used up
+        Assert.Equal(0, sim.Statistics.TotalConsumed(0, GoodIds.Axe)); // the worker keeps the tool
         Assert.Equal(axes - 1, CastleStock(sim)[GoodIds.Axe]);
         Run(sim);
         Assert.True(ConstructionTests.Get(sim, id).Cycle > 0, "the cycle starts once the worker is inside");
@@ -148,11 +148,11 @@ public class WorkerTests
         CastleStock(sim)[GoodIds.Saw]++; // as if a toolsmith had delivered one
         ConstructionTests.RunUntilWorking(sim, second);
         Assert.Equal(0, CastleStock(sim)[GoodIds.Saw]);
-        Assert.Equal(2, sim.Statistics.TotalConsumed(0, GoodIds.Saw));
+        Assert.Equal(0, sim.Statistics.TotalConsumed(0, GoodIds.Saw));
     }
 
     [Fact]
-    public void Demolishing_the_workplace_frees_the_worker_as_a_carrier()
+    public void Demolishing_the_workplace_frees_the_worker_who_brings_the_tool_back()
     {
         var sim = Simulation.Create(TwoPlayers());
         int axes = CastleStock(sim)[GoodIds.Axe];
@@ -164,8 +164,17 @@ public class WorkerTests
         var s = sim.Settlers.All[sim.Settlers.IndexOf(worker)];
         Assert.Equal((SettlerKind.Carrier, id), (s.Kind, s.HomeId));
         Assert.DoesNotContain(sim.Settlers.All, x => x.Kind == SettlerKind.Worker);
-        Assert.Equal(axes - 1, CastleStock(sim)[GoodIds.Axe]); // the tool is not refunded (ASSUMPTION)
-        Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
+        var job = sim.Logistics.All.Single(j => j.CarrierId == worker);
+        Assert.Equal((JobKind.Transport, (ushort)GoodIds.Axe, id, 1, JobState.Carrying),
+            (job.Kind, job.Good, job.SourceId, job.DestinationId, job.State));
+        Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash()); // a job from a demolished source loads
+        for (int turns = 0; sim.Logistics.All.Any(j => j.CarrierId == worker); turns++)
+        {
+            Assert.True(turns < 500, "the axe never came back");
+            Run(sim);
+        }
+        Assert.Equal(axes, CastleStock(sim)[GoodIds.Axe]);
+        Assert.Equal(0, sim.Statistics.TotalConsumed(0, GoodIds.Axe));
         // The freed carrier takes transport jobs again.
         Build(sim, BuildingIds.GuardTowerSmall, 2);
         Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
@@ -256,7 +265,8 @@ public class WorkerTests
             (With(17, 5, 2), "A worker neither walks, waits nor carries"),
             (With(6, 1, 4), "Worker of a building that takes none"), // the castle
             (With(6, a, 4, workerOfB: true), "More than one worker for a building"),
-            (With(6, dead, 4), "Work cycle running without its worker"),
+            (With(6, dead, 4), "Worker of a missing building"),
+            (With(4, 0, 1), "Work cycle running without its worker"), // a's worker turned into a carrier
         };
         foreach (var (bytes, message) in cases)
             Assert.Equal(message, Assert.Throws<InvalidDataException>(() => Load(bytes)).Message);

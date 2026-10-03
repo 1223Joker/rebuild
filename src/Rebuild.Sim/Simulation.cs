@@ -232,6 +232,7 @@ public sealed class Simulation
                 break;
             case CommandType.Demolish:
                 BuildingCommands.TryReadId(c, out int demolished);
+                Logistics.ReleaseWorker(Buildings, Settlers, demolished);
                 Construction.Demolish(Buildings, Territory, demolished);
                 break;
             case CommandType.SetToolProductionQuota:

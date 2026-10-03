@@ -6,7 +6,7 @@ Single source of truth for any agent working in this repository. Tool-specific f
 "Rebuild" is a real-time city-building strategy game in the style of *The Settlers 4*: economy simulation with production chains and free-walking carriers, territory, 4 asymmetric cultures and RTS-style warfare with walls and siege. It is built with Godot 4.x (C#) for Windows, macOS and Linux. Multiplayer (LAN first, then Steam) uses deterministic lockstep, and every match is played on a seed-based random map. Modes: PvE, PvP, PvPvE with human, AI and neutral-monster slots in free teams. **Current phase: implementation, milestone M2 Sim economy (M0, M1 done); first goal is the "LAN Alpha" ([docs/09-roadmap.md](docs/09-roadmap.md)).**
 
 ## Non-negotiable constraints (full text: [docs/handoff/ORIGINAL-BRIEF.md](docs/handoff/ORIGINAL-BRIEF.md))
-- Godot 4.x current stable; targets Windows, macOS (ARM + x64), Linux.
+- Godot 4.x current stable; targets Windows, macOS (Apple Silicon/arm64 only — Intel macOS dropped by the user on 2026-10-03), Linux.
 - Deterministic lockstep: only player commands go over the network, never unit state.
 - Simulation: fixed tick, **no floats** (fixed-point/integer only), own seeded RNG, no threads, no iteration over unordered hash containers.
 - Simulation is engine-independent and runs headless; Godot does rendering/input only.

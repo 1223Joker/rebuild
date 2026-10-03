@@ -12,7 +12,8 @@ public enum SettlerKind : byte
     Carrier = 0,
     /// <summary>
     /// Works inside the production building <see cref="Settler.HomeId"/> (a carrier that took the building's tool; standing
-    /// at its door, never walking); comes out as a carrier when the building is demolished.
+    /// at its door, never walking); comes out as a carrier bringing its tool back when the building is demolished
+    /// (<see cref="Logistics.ReleaseWorker"/>).
     /// </summary>
     Worker = 1,
 }
@@ -40,8 +41,8 @@ public readonly record struct Settler(int Id, SettlerKind Kind, byte Owner, int 
 /// on walkable tiles of their owner's territory that no building covers, along A* paths (<see cref="Pathfinder"/>) at
 /// <see cref="Speed"/> sub-tile units per tick; diagonal steps cost 14/10 of a straight step. Settlers never collide;
 /// a settler covered by a newly placed building is put at that building's door. Workers stay inside their workplace
-/// (they do not walk to their resources yet, ASSUMPTION) and come out as carriers, without their tool, when it is
-/// demolished (ASSUMPTION; no building homes them then).
+/// (they do not walk to their resources yet, ASSUMPTION) and come out as carriers taking their tool to a storage when it
+/// is demolished (no building homes them then, ASSUMPTION).
 /// Carriers with a transport job execute it via <see cref="Logistics.Advance"/>; idle carriers without one wander to a
 /// random tile within <see cref="WanderRadius"/> of their home's door (ASSUMPTION placeholder until idle carriers
 /// gather at storages).
@@ -104,6 +105,9 @@ public sealed class Settlers
         }
         return -1;
     }
+
+    /// <summary>Replaces the settler at list index <paramref name="index"/> (same id; systems only).</summary>
+    internal void Replace(int index, in Settler s) => _settlers[index] = s;
 
     /// <summary>Gives the idle carrier at list index <paramref name="index"/> a transport job; it starts on its next step.</summary>
     internal void AssignJob(int index, int jobId) => _settlers[index] = _settlers[index] with { JobId = jobId, WaitTicks = 0 };
@@ -181,12 +185,7 @@ public sealed class Settlers
         {
             var s = _settlers[i];
             var path = _paths[i];
-            if (s.Kind == SettlerKind.Worker)
-            {
-                // Inside its workplace; once that is demolished it comes out as a carrier and rests before wandering.
-                if (buildings.IndexOf(s.HomeId) < 0) _settlers[i] = s with { Kind = SettlerKind.Carrier, WaitTicks = MinIdleTicks };
-                continue;
-            }
+            if (s.Kind == SettlerKind.Worker) continue; // inside its workplace
             int cover = buildings.AtTile(s.Tile);
             if (cover != 0 && buildings.TryGet(cover, out var covering))
             {

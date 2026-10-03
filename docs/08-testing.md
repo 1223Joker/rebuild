@@ -48,10 +48,11 @@ flowchart LR
 | `ubuntu-latest` | x64 | full suite, Godot headless client smoke, exports |
 | `windows-latest` | x64 | full suite |
 | `macos-latest` (Apple Silicon) | arm64 | full suite |
-| `macos-15-intel` | x64 | golden hashes + replays (Intel macOS). GitHub supports Intel macOS runners only until ~Aug 2027 ([GitHub changelog](https://github.blog/changelog/2025-09-19-github-actions-macos-13-runner-image-is-closing-down/)); afterwards run x64 tests under Rosetta 2 on arm64 runners. |
+
+Intel macOS (`macos-15-intel`, x64) is no target and no CI runner since 2026-10-03 (user decision); Windows and Linux still cover x64.
 
 - Godot + .NET setup via [chickensoft-games/setup-godot](https://github.com/chickensoft-games/setup-godot).
-- Cross-OS hash equality: every job uploads the output of `rebuild-tools hashes` (probe, final replay hashes, golden map hashes); a final job downloads all and asserts byte equality across the four runners.
+- Cross-OS hash equality: every job uploads the output of `rebuild-tools hashes` (probe, final replay hashes, golden map hashes); a final job downloads all and asserts byte equality across the three runners.
 - Nightly: property tests (10 000 cases), mapgen 1 000-seed sweep per size, AI soak (e.g. 40 matches), performance benchmarks, exports for all three OS.
 
 ## 5. Replay tests
@@ -60,6 +61,6 @@ flowchart LR
 - Replay compatibility is **per `GameVersion` only**; older replays are re-recorded (by re-running with AI/scripted inputs) or retired when the version bumps.
 
 ## 6. Acceptance gates (definition of done for sim changes)
-- All analyzers clean; unit/property/golden/replay tests green on all four runners.
+- All analyzers clean; unit/property/golden/replay tests green on all three runners.
 - Cross-OS hash comparison job green.
 - Tick-time benchmark not regressed by > 10 % without a note in the PR.

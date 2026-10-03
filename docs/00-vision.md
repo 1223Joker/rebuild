@@ -50,7 +50,7 @@ Milestones and estimates: [09-roadmap](09-roadmap.md).
 | Visibility | Visual fog of war, shared vision between allies — [04-game-modes §1](04-game-modes.md) |
 | Modes | PvE, PvP, PvPvE; free team assignment; slots: human / AI / monsters / open / closed |
 | Multiplayer | LAN (ENet + discovery), internet via Steam; pause, disconnect, reconnect, AI takeover, save/load MP, game speed 1–3× |
-| Platforms | Windows x64, macOS universal (ARM + x64); Linux x64 tested in CI from day one, shipped at release (user, 2026-10-02) |
+| Platforms | Windows x64, macOS arm64 (Apple Silicon only; Intel macOS dropped, user 2026-10-03); Linux x64 tested in CI from day one, shipped at release (user, 2026-10-02) |
 | Art | Kenney CC0 low-poly placeholders behind an asset-mapping layer |
 
 ## Explicit non-goals (MVP)

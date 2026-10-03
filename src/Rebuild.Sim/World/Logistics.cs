@@ -41,8 +41,9 @@ public readonly record struct TransportJob(int Id, byte Owner, int CarrierId, us
 /// worker (inside or on the way) gets the owner's idle carrier nearest to the owner's storage nearest to it that holds its
 /// <see cref="ProductionDefinition.Tool"/> (none held: it waits), or — without a tool — the idle carrier nearest to the
 /// building; the tool leaves the stock at once, and at the door the carrier becomes the building's worker
-/// (<see cref="SettlerKind.Worker"/>; the tool counts as consumed). A worker job whose building vanished or cannot be
-/// reached takes its tool to the nearest storage like a carried unit (no tool: the carrier just stops). Requests: construction sites (missing planks and stone), production
+/// (<see cref="SettlerKind.Worker"/>), who keeps the tool. A worker job whose building vanished or cannot be reached takes
+/// its tool to the nearest storage like a carried unit (no tool: the carrier just stops); so does a worker whose building is
+/// demolished (<see cref="ReleaseWorker"/>). Requests: construction sites (missing planks and stone), production
 /// buildings (input piles refilled to <see cref="Production.InputTarget"/>) and output overflow (every unit left in an
 /// output pile goes to a storage). Offers: storage stocks and output piles. Matching runs every tick after production and
 /// before movement, in three passes over the buildings in id order (older first): site materials (planks, then stone),
@@ -441,8 +442,7 @@ public sealed class Logistics
                 int door = Settlers.DoorOf(target, map, buildings);
                 if (door == s.Tile && job.Kind == JobKind.Employ)
                 {
-                    // The carrier enters as the building's worker; its tool is used up.
-                    if (job.Good != ProductionDefinition.NoTool) statistics.Consume(job.Owner, job.Good);
+                    // The carrier enters as the building's worker and keeps its tool.
                     return Finish(s, j) with { Kind = SettlerKind.Worker, HomeId = target.Id };
                 }
                 if (door == s.Tile)
@@ -463,6 +463,30 @@ public sealed class Logistics
                 if (!Retarget(s, j, buildings)) return Finish(s, j);
                 return s with { WaitTicks = Settlers.MinIdleTicks };
             }
+        }
+    }
+
+    /// <summary>
+    /// Brings the worker of building <paramref name="buildingId"/> out as a carrier before the building is demolished; it
+    /// carries its tool to the owner's storage nearest to it (lost only if the owner has no storage left).
+    /// </summary>
+    internal void ReleaseWorker(BuildingRegistry buildings, Settlers settlers, int buildingId)
+    {
+        if (!buildings.TryGet(buildingId, out var b) || b.Definition.Production is not { } p) return;
+        for (int i = 0; i < settlers.All.Count; i++)
+        {
+            var s = settlers.All[i];
+            if (s.Kind != SettlerKind.Worker || s.HomeId != buildingId) continue;
+            s = s with { Kind = SettlerKind.Carrier, WaitTicks = Settlers.MinIdleTicks };
+            int storage = p.Tool == ProductionDefinition.NoTool ? -1 : NearestStorage(buildings, s.Owner, good: -1, s.Tile);
+            if (storage >= 0)
+            {
+                var job = new TransportJob(NextId++, s.Owner, s.Id, p.Tool, buildingId, buildings.All[storage].Id, JobState.Carrying);
+                _jobs.Add(job);
+                s = s with { JobId = job.Id, WaitTicks = 0 };
+            }
+            settlers.Replace(i, s);
+            return;
         }
     }
 
@@ -541,8 +565,8 @@ public sealed class Logistics
 
     /// <summary>
     /// Reads and validates jobs (ids, owners, goods, building ids, a live source being a storage or a production building
-    /// with that output — a worker job's source a storage holding the tool or, without a tool, its destination with the job
-    /// carrying — a one-to-one link to carriers of the same owner, at most one worker inside or on the way per building and
+    /// with that output — a worker job's live source a storage or, without a tool, its destination with the job carrying;
+    /// its destination is checked when the carrier acts — a one-to-one link to carriers of the same owner, at most one worker inside or on the way per building and
     /// only in complete production buildings, a running cycle only with its worker inside, no site receiving more than its cost and no input
     /// pile more than <see cref="Production.InputTarget"/>, delivered + on the way, no output pile over
     /// <see cref="Production.OutputCap"/> counting reserved units and a running cycle) and the back-offs (ascending ids of live buildings).
@@ -591,8 +615,9 @@ public sealed class Logistics
         var workers = new int[buildings.All.Count];
         foreach (var s in settlers.All)
         {
-            int index = s.Kind == SettlerKind.Worker ? buildings.IndexOf(s.HomeId) : -1;
-            if (index < 0) continue;
+            if (s.Kind != SettlerKind.Worker) continue;
+            int index = buildings.IndexOf(s.HomeId);
+            if (index < 0) throw new InvalidDataException("Worker of a missing building");
             if (buildings.All[index].State != BuildingState.Complete || buildings.All[index].Definition.Production == null)
                 throw new InvalidDataException("Worker of a building that takes none");
             workers[index]++;
