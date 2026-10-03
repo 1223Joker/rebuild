@@ -27,6 +27,7 @@ Single source of truth for any agent working in this repository. Tool-specific f
 - Never refer to "the chat"; write for a reader with zero context.
 - On "HANDOFF": update all handoff files, commit, print a ≤15-line handoff message.
 - Code: build/test with `dotnet test` ([README.md](README.md)); sim code must pass the determinism analyzers (never suppress RB0001–RB0004); golden hashes in `tests/golden/` change only together with a `GameVersion` bump.
+- Saves/command logs: until the full release, old saves and logs need **not** stay loadable — no migration or compatibility code; just bump the save/log format and `GameVersion` so they are rejected cleanly (user, 2026-10-03).
 
 ## Folder structure
 ```

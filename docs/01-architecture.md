@@ -134,6 +134,7 @@ flowchart LR
 - State layout: structure-of-arrays per entity kind, indexed by dense slot, plus `id → slot` lookup (lookup-only dictionary). Iteration always over dense arrays in id order.
 - **Canonical serialization** (explicit field order, little-endian, no padding, no reflection) is used for: save files, state hash (XxHash64), reconnect snapshots, desync dumps.
 - **Visibility** (fog of war) is sim state: per team an `explored` bitset and a `visibleCount` grid (byte per tile), updated incrementally when vision sources change tile (buildings, soldiers, territory edges; carriers inside own territory add nothing new). Deterministic and hashed because the AI reads it.
+- Until the full release, saves and command logs from older versions are simply rejected (format/`GameVersion` check); no migration or backward compatibility is kept (user, 2026-10-03).
 - Savegame = `{GameVersion, MapSpec, SlotTable, Turn, SimState}`; MP save/load described in [02-networking](02-networking.md).
 
 ## 9. Repository folder structure (target)
