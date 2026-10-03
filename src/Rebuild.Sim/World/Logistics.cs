@@ -45,7 +45,8 @@ public readonly record struct TransportJob(int Id, byte Owner, int CarrierId, us
 /// (<see cref="SettlerKind.Worker"/>), who keeps the tool. A worker job whose building vanished or cannot be reached takes
 /// its tool to the nearest storage like a carried unit (no tool: the carrier just stops); so does a worker whose building is
 /// demolished (<see cref="ReleaseWorker"/>). Requests: construction sites (missing planks and stone), production
-/// buildings (input piles refilled to <see cref="Production.InputTarget"/>), homes (pantry piles — food, water and, in autumn and winter, fuel — refilled to
+/// buildings (input piles refilled to <see cref="Production.InputTarget"/>; a heated workplace's fuel pile, in autumn and winter, to
+/// <see cref="Households.PantryTarget"/>), homes (pantry piles — food, water and, in autumn and winter, fuel — refilled to
 /// <see cref="Households.PantryTarget"/>, a storage home's own stock of the need's goods to <see cref="Households.StockTarget"/>,
 /// from other storages; food takes any food good) and output overflow (every unit left in an
 /// output pile goes to a storage with room, see <see cref="BuildingDefinition.StorageCapacity"/>). Offers: storage stocks and output piles. Matching runs every tick after production and
@@ -127,16 +128,23 @@ public sealed class Logistics
 
     /// <summary>
     /// Request slot of <paramref name="good"/> at a building: a site's planks 0 / stone 1, a complete production building's
-    /// input pile index, a home's need (food 0, water 1, fuel 2; a pantry pile, or the stock of a storage home), else -1 (other
-    /// storages and goods the building does not request).
+    /// input pile index or, at a heated workplace, its fuel after the inputs (pile <see cref="PileOf"/>), a home's need (food 0,
+    /// water 1, fuel 2; a pantry pile, or the stock of a storage home), else -1 (other storages and goods the building does not request).
     /// </summary>
     private static int SlotOf(in Building b, int good)
     {
         if (b.State == BuildingState.ConstructionSite) return good == GoodIds.Plank ? 0 : good == GoodIds.Stone ? 1 : -1;
         if (BuildingRegistry.IsHome(b))
             return Households.NeedOf(good);
-        return b.Definition.Production?.InputIndexOf(good) ?? -1;
+        var p = b.Definition.Production;
+        if (p == null) return -1;
+        int k = p.InputIndexOf(good);
+        return k >= 0 || !Households.IsHeatedWorkplace(b) || Households.NeedOf(good) != Households.Heat ? k : p.Inputs.Count;
     }
+
+    /// <summary>Pile of request slot <paramref name="slot"/> at a complete non-storage building (a workplace's fuel slot → its fuel pile).</summary>
+    private static int PileOf(in Building b, int slot) =>
+        b.Definition.Production is { } p && slot == p.Inputs.Count ? Households.FuelPile(p) : slot;
 
     /// <summary>Pile index of <paramref name="good"/>'s output pile at a complete production building, or -1.</summary>
     private static int OutputPileOf(in Building b, int good)
@@ -192,7 +200,7 @@ public sealed class Logistics
         return staffed;
     }
 
-    /// <summary>Request slots per building in <see cref="Pending"/> (a home's needs; sites and production need at most 2).</summary>
+    /// <summary>Request slots per building in <see cref="Pending"/> (a home's needs; sites 2, production at most 2 inputs + fuel).</summary>
     private const int Slots = Households.NeedCount;
 
     /// <summary>Units on their way to each request slot, by building list index (<see cref="Slots"/> per building, see <see cref="SlotOf"/>).</summary>
@@ -296,7 +304,7 @@ public sealed class Logistics
                     // order); with none, it stays and the full pile pauses the building.
                     var piles = buildings.PilesAt(i);
                     if (piles == null || p == null) continue;
-                    for (int o = p.Inputs.Count; o < piles.Length && !noCarrier[b.Owner]; o++)
+                    for (int o = p.Inputs.Count; o < Households.FuelPile(p) && !noCarrier[b.Owner]; o++)
                         while (piles[o] > 0 && matches < MaxMatchesPerTick)
                         {
                             room ??= Room(buildings);
@@ -315,7 +323,8 @@ public sealed class Logistics
                 bool home = BuildingRegistry.IsHome(b);
                 int slots = pass == 0
                     ? (b.State == BuildingState.ConstructionSite ? 2 : 0)
-                    : home ? Households.NeedCount : (b.State == BuildingState.Complete && p != null ? p.Inputs.Count : 0);
+                    : home ? Households.NeedCount
+                    : b.State == BuildingState.Complete && p != null ? p.Inputs.Count + (Households.IsHeatedWorkplace(b) ? 1 : 0) : 0;
                 for (int k = 0; k < slots && !noCarrier[b.Owner]; k++)
                 {
                     IReadOnlyList<ushort> goods;
@@ -338,9 +347,16 @@ public sealed class Logistics
                             foreach (ushort g in goods) need -= stock[g];
                         }
                     }
+                    else if (k == p!.Inputs.Count)
+                    {
+                        // A heated workplace's fuel pile, stockpiled from autumn on like a pantry's.
+                        if (season < Season.Autumn) continue;
+                        goods = Households.FuelGoods;
+                        need = Households.PantryTarget - buildings.PilesAt(i)![Households.FuelPile(p)];
+                    }
                     else
                     {
-                        goods = p!.Alternatives[k];
+                        goods = p.Alternatives[k];
                         need = Production.InputTarget - buildings.PilesAt(i)![k];
                     }
                     need -= pending[Slots * i + k];
@@ -522,7 +538,7 @@ public sealed class Logistics
                 {
                     var stock = buildings.StockAt(dest);
                     if (stock != null) stock[job.Good]++;
-                    else if (target.State == BuildingState.Complete) buildings.PilesAt(dest)![SlotOf(target, job.Good)]++;
+                    else if (target.State == BuildingState.Complete) buildings.PilesAt(dest)![PileOf(target, SlotOf(target, job.Good))]++;
                     else if (job.Good == GoodIds.Plank) buildings.Update(dest, target with { DeliveredPlanks = target.DeliveredPlanks + 1 });
                     else buildings.Update(dest, target with { DeliveredStone = target.DeliveredStone + 1 });
                     if (stock == null) statistics.Consume(job.Owner, job.Good); // handed over to an input pile or a site
@@ -733,6 +749,8 @@ public sealed class Logistics
             for (int k = 0; k < p.Inputs.Count; k++)
                 if (piles[k] + pending[Slots * i + k] > Production.InputTarget)
                     throw new InvalidDataException("More input on the way than a production building takes");
+            if (Households.IsHeatedWorkplace(b) && piles[Households.FuelPile(p)] + pending[Slots * i + p.Inputs.Count] > Households.PantryTarget)
+                throw new InvalidDataException("More fuel on the way than a workplace takes");
             if (Production.OutputUnits(piles, p) + reserved[i] + (b.Cycle > 0 ? 1 : 0) > Production.OutputCap)
                 throw new InvalidDataException("Output pile over capacity");
         }

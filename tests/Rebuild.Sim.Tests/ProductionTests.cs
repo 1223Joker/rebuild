@@ -42,7 +42,7 @@ public class ProductionTests
         return n;
     }
 
-    private static int Place(Simulation sim, byte slot, ushort type, ushort seq, System.Func<int, int, bool> accept)
+    internal static int Place(Simulation sim, byte slot, ushort type, ushort seq, System.Func<int, int, bool> accept)
     {
         int id = TryPlace(sim, slot, type, seq, accept);
         return id > 0 ? id : throw new Xunit.Sdk.XunitException($"No spot for {BuildingCatalog.All[type].Id}");
@@ -112,7 +112,7 @@ public class ProductionTests
         var sim = Simulation.Create(TwoPlayers());
         int id = Woodcutter(sim, trees: 12);
         var cutter = ConstructionTests.Get(sim, id);
-        Assert.Equal(new[] { 0 }, sim.Buildings.PilesOf(id));
+        Assert.Equal(new[] { 0, 0 }, sim.Buildings.PilesOf(id));
         int trees = ObjectsAround(sim, 0, BuildingIds.Woodcutter, cutter.X, cutter.Y);
         int castle = CastleIndex(sim);
         Assert.Equal(0, sim.Buildings.StockAt(castle)![GoodIds.Log]);
@@ -157,7 +157,7 @@ public class ProductionTests
         // Two logs reached the castle; the rest filled the pile, then the woodcutter paused.
         Assert.Equal(capacity, stock.Sum());
         Assert.Equal(2, stock[GoodIds.Log]);
-        Assert.Equal(new[] { Production.OutputCap }, sim.Buildings.PilesOf(id));
+        Assert.Equal(new[] { Production.OutputCap, 0 }, sim.Buildings.PilesOf(id));
         Assert.Equal(0, ConstructionTests.Get(sim, id).Cycle);
         Assert.DoesNotContain(sim.Logistics.All, j => j.Kind == JobKind.Transport);
         // Room in storage again: the overflow resumes and the woodcutter works on.
@@ -241,10 +241,10 @@ public class ProductionTests
         sim.Buildings.PilesAt(sim.Buildings.IndexOf(id))![0] = Production.OutputCap - 1;
         int cycle = ConstructionTests.Get(sim, id).Definition.Production!.CycleTicks;
         RunTicks(sim, cycle + 2);
-        Assert.Equal(new[] { Production.OutputCap }, sim.Buildings.PilesOf(id));
+        Assert.Equal(new[] { Production.OutputCap, 0 }, sim.Buildings.PilesOf(id));
         int changes = sim.MapChanges.Tiles.Count;
         RunTicks(sim, 3 * cycle);
-        Assert.Equal(new[] { Production.OutputCap }, sim.Buildings.PilesOf(id));
+        Assert.Equal(new[] { Production.OutputCap, 0 }, sim.Buildings.PilesOf(id));
         Assert.Equal(0, ConstructionTests.Get(sim, id).Cycle);
         Assert.Equal(changes, sim.MapChanges.Tiles.Count);
         Assert.Empty(sim.Logistics.All);
@@ -257,7 +257,7 @@ public class ProductionTests
         int id = Place(sim, 0, BuildingIds.Woodcutter, 0, (x, y) => ObjectsAround(sim, 0, BuildingIds.Woodcutter, x, y) == 0);
         ConstructionTests.RunUntilComplete(sim, id);
         RunTicks(sim, 400);
-        Assert.Equal(new[] { 0 }, sim.Buildings.PilesOf(id));
+        Assert.Equal(new[] { 0, 0 }, sim.Buildings.PilesOf(id));
         Assert.Equal(0, ConstructionTests.Get(sim, id).Cycle);
         Assert.Empty(sim.MapChanges.Tiles);
     }
@@ -712,7 +712,7 @@ public class ProductionTests
                     if (n != t) Assert.NotEqual((byte)MapObject.Tree, sim.Map.Object[n]);
                 }
         }
-        Assert.Equal(new[] { 0 }, sim.Buildings.PilesOf(id)); // no output pile to carry away
+        Assert.Equal(new[] { 0, 0 }, sim.Buildings.PilesOf(id)); // no output pile to carry away (the second pile is fuel)
         Assert.DoesNotContain(sim.Logistics.All, j => j.SourceId == id);
         // Planted trees survive save and load and the runs stay identical.
         var loaded = Simulation.Load(sim.Save());
