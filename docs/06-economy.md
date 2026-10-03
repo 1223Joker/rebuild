@@ -9,7 +9,7 @@ Reference for the genre's rules: *The Settlers IV* manual — carriers "automati
 |---|---|---|---|---|---|
 | Core | Castle | L | — | — | start building; storage; territory r=16; houses soldiers |
 | Core | Storehouse | M | — | — | storage hub, reduces carry distances |
-| Core | Residence | S | — | → carriers | +1 carrier / 60 s up to +10 per residence |
+| Core | Residence | S | — | → carriers | +1 carrier / 60 s up to +10 per residence; 10 beds; consumes food + water (+ fuel in winter) like every home ([12](12-needs-seasons-weather.md)) |
 | Construction | Woodcutter | S | woodcutter (axe) | tree → log | work radius 8 |
 | Construction | Forester | S | forester (shovel) | → plants tree | |
 | Construction | Sawmill | M | sawyer (saw) | log → plank | |
@@ -40,7 +40,7 @@ flowchart LR
   tree((Tree)) --> WC[Woodcutter] -->|log| SM[Sawmill] -->|plank| CON[Construction sites]
   FO[Forester] --> tree
   rock((Rock)) --> SC[Stonecutter] -->|stone| CON
-  fishw((Water)) --> FI[Fisher] -->|fish| FOOD{{Mine food}}
+  fishw((Water)) --> FI[Fisher] -->|fish| FOOD{{Food: homes + mines}}
   game((Game)) --> HU[Hunter] -->|meat| FOOD
   FA[Farm] -->|grain| MI[Mill] -->|flour| BA[Bakery]
   WW[Waterworks] -->|water| BA
@@ -49,6 +49,10 @@ flowchart LR
   WW -->|water| PF
   PF -->|pig| SH[Slaughterhouse] -->|meat| FOOD
   FOOD --> CM[Coal mine] & IM[Iron mine] & GM[Gold mine]
+  FOOD --> HOME[Homes: every settler eats]
+  WW -->|water| HOME
+  WC -->|log fuel| HOME
+  CM -->|coal fuel| HOME
   IM -->|iron ore| IS[Iron smelter]
   CM -->|coal| IS & GS[Gold smelter] & WS[Weaponsmith]
   GM -->|gold ore| GS
@@ -73,7 +77,7 @@ Goods (21 shared): log, plank, stone, fish, meat, grain, flour, water, bread, pi
 
 As built (M2 step 4, `src/Rebuild.Sim/World/Settlers.cs`, runs after construction every tick): carriers are settler entities (id, owner, home building, tile, idle/walking, sub-tile progress, remaining path). `"carriers"` in [data/buildings.json](../data/buildings.json) is how many carriers a complete building keeps (castle 30, residence 10, ASSUMPTION): every 600 ticks (60 s) each such building homing fewer spawns one at its door (the margin tile below the bottom-centre of its footprint, else the first free walkable margin tile; no spawn without one); the start castle starts with all 30. Carriers of a demolished home stay alive and no longer count anywhere (ASSUMPTION). Settlers walk only on walkable tiles of their own territory that no building covers (map objects do not block yet); a settler covered by a newly placed building is put at that building's door; a walker whose next tile becomes blocked stops and plans again 2 s later. Carriers with a transport job carry goods (§4); idle carriers without one wait 2–6 s (Economy RNG) and then wander to a random tile within 6 tiles of their home's door — a placeholder that exercises pathing and movement.
 
-Population cap: carriers ≤ residence capacity. Initial stock: castle with tools, planks, stone, food, 30 carriers, 10 soldiers (Normal start resources).
+**Needs (user, 2026-10-03; [12-needs-seasons-weather](12-needs-seasons-weather.md), [ADR 0009](decisions/0009-needs-seasons-weather.md) proposed):** every settler — not only miners — has a home bed and needs food and water; every building burns a little log or coal in winter; shortages slow work, stop spawning and finally make settlers leave; amounts differ per culture. Population cap: sum of beds (supersedes "carriers ≤ residence capacity"). Initial stock: castle with tools, planks, stone, food, 30 carriers, 10 soldiers (Normal start resources).
 
 ## 4. Logistics (S4-style free walking)
 No roads. Goods lie at output piles, storehouses or construction sites. Carriers walk freely **inside their own territory** (allied territory: ASSUMPTION allowed, see [04-game-modes](04-game-modes.md)).
@@ -103,7 +107,7 @@ Construction: site placed → digger levels terrain → builder works while mate
 
 As built (M2 step 3, `src/Rebuild.Sim/World/Construction.cs`, runs first in every tick): castle and storehouse (`"storage": true` in buildings.json) hold a stock per good once complete; the start castle starts with the goods' start stock. Since M2 step 5 carriers deliver the materials (see above; the step-3 placeholder of 1 unit/site/s straight from storage, planks strictly before stone, is gone); builders and diggers do not exist yet. Each delivered unit allows 20 build ticks (2 s, ASSUMPTION); when the full cost is worked in, the building is complete, a military building adds its territory claim (r from data) and a storehouse gets an empty stock. `CancelConstruction` returns the delivered materials to the owner's lowest-id storage building. `Demolish(id)` (own complete building, not the castle) removes the building, its stock and its claim (tiles fall to older covering claims); nothing is refunded and buildings left outside the territory stay until capture rules exist (M4). All ASSUMPTIONS, to be replaced by logistics requests in the next steps.
 
-Production: building cycles `wait inputs → work (N ticks) → place output in pile`; pile cap 8 → building pauses when full. Mines consume one food per cycle; deposits deplete.
+Production: building cycles `wait inputs → work (N ticks) → place output in pile`; pile cap 8 → building pauses when full. Mines consume one food per cycle as a work ration on top of their workers' household needs ([12 §1](12-needs-seasons-weather.md)); deposits deplete. Seasons change yields (no farm output in winter, harvest +25 % in autumn, [12 §2](12-needs-seasons-weather.md)).
 
 As built (M2 step 6, `src/Rebuild.Sim/World/Production.cs`, runs every tick after construction and before logistics matching): `"production"` in [data/buildings.json](../data/buildings.json) gives a building optional inputs (`{good: amount}`, at most 2), an optional harvest (`tree`/`stone` object within `radius` tiles of the building centre on own territory), one output good and the cycle length in ticks — so far woodcutter (tree → log, r = 8, 15 s), sawmill (1 log → 1 plank, 6 s) and stonecutter (stone → stone, r = 8, 15 s), all ASSUMPTIONS. A complete production building owns one input pile per input and an output pile. A cycle starts when every input pile holds its amount (taken at the start), a harvest object is in reach, and the output pile has room (output pile + units reserved from it + this cycle's unit ≤ 8); after the cycle the nearest harvest object (squared distance, ties: lower tile index) loses one unit — a tree disappears, a stone outcrop loses one unit of its amount and disappears with the last — and one unit goes into the output pile (nothing if the object went meanwhile and none is left). Workers do not exist yet: a complete building works on its own (ASSUMPTION until specialists). Harvested tiles are a new sim-state layer (`World/MapChanges`: tile, object, amount; applied to the regenerated map on load; a freed tile becomes buildable). Logistics (§4) now serves three request kinds per tick, each pass over the buildings in id order: site materials, production inputs (refill each input pile to 4 counting units on the way) and overflow (every unit left in an output pile goes to the nearest storage). Offers are storage stocks and output piles; a request takes the nearest offer by sector distance other than the requester itself. Forester (planting), mines with depletion, smiths with quotas, tools as worker requirements and production statistics follow in the next steps.
 
@@ -115,7 +119,7 @@ As built (M2 step 9): the forester plants trees. Its production in [data/buildin
 
 As built (M2 step 10): toolsmith and weaponsmith produce. A production may list `"outputs"` instead of `"output"` in [data/buildings.json](../data/buildings.json) — toolsmith `{ "inputs": { "iron": 1, "plank": 1 }, "outputs": [axe, saw, pickaxe, shovel, hammer, scythe, fishing_rod, hunting_bow, cleaver, bucket], "ticks": 90 }`, weaponsmith `{ "inputs": { "iron": 1, "coal": 1 }, "outputs": [sword, spear, bow], "ticks": 120 }` (ASSUMPTIONS; the generator rejects `outputs` with fewer than 2 or more than 16 goods, duplicates, or together with `output`/`plant`). Such a building has one output pile per output good (`ProductionDefinition.Outputs`, `HasChoice`); the cap of 8 applies to all its output piles together, and overflow carries each pile's good to storage. Which good a cycle makes is the owner's choice: `World/ProductionQuotas` keeps, per player, a weight 0..10 for every good that is some building's output choice (default 1 = equal shares, ASSUMPTION) and a credit per good. The new command `SetToolProductionQuota` (payload u16 good, u8 weight; rejected for goods without quota, weights > 10 and wrong payloads) sets a weight for tools and weapons alike and resets that player's credits. When every other start condition holds, the cycle picks its output by smooth weighted round robin among the outputs with weight > 0 (each credit grows by its weight, the largest credit wins — ties: data order — and loses the total weight), so each good gets its weight's share of cycles, evenly interleaved; with every weight 0 the smith idles with its inputs waiting. The running cycle keeps its pick in `Building.Choice`. Save format 9 (`Choice` per building, weights and credits per player; load checks weights ≤ 10, credit 0 at weight 0, credits in range and balanced per smith); `GameVersion` 0.12.0. Production statistics follow.
 
-Statistics: per player, per good, ring buffer of production/consumption per minute (used by UI and AI, [05-ai](05-ai.md)).
+Statistics: per player, per good, ring buffer of production/consumption per minute (consumption includes household food, water and fuel) (used by UI and AI, [05-ai](05-ai.md)).
 
 ## 5. Territory & military
 - Each military building claims a radius (castle 16, large tower 12, small tower 8 tiles). Ownership per tile; on overlap the older claim keeps the tile (S4/S2 convention). Recomputed incrementally only around changed buildings. As built (M2 step 1, `src/Rebuild.Sim/World/Territory.cs`): disc `dx²+dy² ≤ r²`, claim age = monotonically growing claim id, tiles of a removed claim go to the oldest remaining covering claim; the owner grid is hashed every turn and a save must rebuild to the identical grid.

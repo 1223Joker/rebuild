@@ -21,6 +21,7 @@ The user approved these cultures as **working concepts** (2026-10-02): names and
 | Unique goods | — | ashlar (cut stone) | longbow | horse |
 | Unique buildings | Granary, Market hall | Masonry, Stone forge | Bowyer, Herbalist | Stud farm, Saddlery |
 | Unique units | Militia, Pikeman | Shieldbearer | Longbowman, Ranger | Light rider, Horse archer |
+| Needs ([12 §4](12-needs-seasons-weather.md)) | water 75 %, food variety bonus | food 125 %, heating 50 %, coal = 3 heat | heating 150 %, log = 2 heat, berries | water 125 %, yurts, kumis + dung byproducts |
 | Playstyle | economy, numbers | turtle, siege-proof fortress | early pressure, skirmish | raids, map control |
 | First LAN build | **yes (only culture)** | later | later | later |
 
@@ -70,8 +71,11 @@ Each hook is implemented once in the sim and switched on per culture by data ([A
 | `mounted_units` | Riders | Mounted class, charge bonus, horse upkeep |
 | `upkeep` | Riders | per-minute consumption by a building/unit type |
 | `spear_without_iron` | Rivermen | Militia recipe uses planks |
+| `food_value` / `fuel_value` | all | per-good food and heat value in culture data (e.g. Highlanders coal = 3 heat, Riders meat = 1.5 food) — [12 §4](12-needs-seasons-weather.md) |
+| `byproduct` | Riders | Stud farm also yields kumis (food + water) and dung (fuel) |
+| `variety_bonus` | Rivermen | +10 % work for homes that ate ≥ 2 food kinds in 5 min |
 
-All other differences are plain numeric modifiers.
+All other differences are plain numeric modifiers (incl. need rates, housing beds/costs and weather resistances, [12 §4](12-needs-seasons-weather.md)).
 
 ## 5. Balance process
 - Every matchup (4 mirror + 6 cross) is run as headless AI-vs-AI soak once the AI exists (milestone M13 in [09-roadmap](09-roadmap.md)); target: no culture wins > 60 % of a cross matchup at equal AI difficulty ([08-testing](08-testing.md)).

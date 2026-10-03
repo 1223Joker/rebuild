@@ -23,7 +23,8 @@ flowchart LR
   end
   subgraph B["Phase B — Cultures & war"]
     M6[M6 Fortifications] --> M7[M7 Siege & base roster]
-    M7 --> M8[M8 Highlanders]
+    M7 --> M7b[M7b Weather events]
+    M7b --> M8[M8 Highlanders]
     M8 --> M9[M9 Woodfolk]
     M9 --> M10[M10 Riders]
     M10 --> M11[M11 Balance pass 1]
@@ -58,13 +59,14 @@ flowchart LR
 | **Phase A — LAN Alpha** | | | | |
 | M0 | Foundations | repo layout ([01-architecture §9](01-architecture.md)); CI (Windows, macOS arm64, macOS Intel, Linux); analyzers; `Fix`, `Pcg32`, XxHash, canonical serializer; command & `.rblog` format; culture data loader skeleton ([ADR 0007](decisions/0007-culture-system.md)); `Rebuild.Tools` skeleton | CI green on 4 runners; cross-OS hash job compares a 1 M-step RNG/`Fix` sequence; `Fix` property tests 10 000 cases; adding `float` to Sim fails the build | 4.5 w |
 | M1 | Map generation | full pipeline ([03-mapgen](03-mapgen.md)); validation F1–F11; retries; share code; `mapgen` CLI with PNG preview | 24 golden hashes identical on 4 runners; XL attempt ≤ 1.5 s, p99 ≤ 4 s; first-attempt pass ≥ 90 % over 1 000 seeds/size | 6 w |
-| M2 | Sim economy (headless) | tiles, territory, 24 shared buildings, construction, production, logistics, settlers, tools, A* + HPA*, stats; culture modifiers applied from data (Rivermen) | scripted build order reaches first sword by game minute 30; 5 000 settlers ≤ 20 ms/tick; save/load equivalence green; 2 golden replays | 10.5 w |
+| M2 | Sim economy (headless) | tiles, territory, 24 shared buildings, construction, production, logistics, settlers, tools, A* + HPA*, stats; **population needs** (beds, food + water pantries, shortage states), **calendar & seasons, winter heating** with log/coal ([12](12-needs-seasons-weather.md)); culture modifiers applied from data (Rivermen) | scripted build order reaches first sword by game minute 30 and survives two winters without a Crisis home; 5 000 settlers ≤ 20 ms/tick; save/load equivalence green; 2 golden replays | 13.5 w |
 | M3 | Godot client, single-player | terrain chunks, MultiMesh units, interpolation, camera, build menu, HUD, stats, Kenney asset mapping, SP via `LoopbackTransport` | 30-min SP sandbox playable; 60 FPS @1080p on MacBook M5 and Windows PC; client cannot write sim state (architecture test) | 8 w |
 | M4 | Military core | selection & control groups, `Move/AttackMove/Attack/Stop/Hold/Stance/Garrison/Train` commands, Swordsman/Spearman/Archer, damage table, projectiles, tile occupancy, flow-field group moves, capture, ranks, Conquest victory, fog of war ([11-military](11-military.md)) | scripted 1v1 battle and conquest give identical results on 4 runners; 6 400 soldiers in combat ≤ 10 ms/tick; unexplored tiles render black, allied vision shared | 10 w |
 | M5 | **LAN multiplayer → LAN Alpha** | lockstep host-sealed turns, ENet transport, LAN discovery, lobby (slots/teams/culture/map preview/seed share/save map), map-hash check, desync detection + dumps, pause, game speed | MacBook M5 (arm64) ↔ Windows PC (x64) play 60 min PvP without desync; with 150 ms latency + 5 % loss command latency ≤ 600 ms, no stall > 1 s; injected desync detected in ≤ 1 turn with dumps | 6 w |
 | **Phase B — Cultures & war** | | | | |
 | M6 | Fortifications | palisade, stone wall, gate, wall tower, `BuildWall/BuildGate/SetGateLocked`, gate-filtered HPA*, repair, rubble, placement validation | wall cuts off enemy path but not own (unit tests); a wall change updates pathing in ≤ 2 ms; golden replay with a siege | 7 w |
 | M7 | Siege & base roster | battering ram, catapult (min range, miss), siege targeting | ram/catapult destroy a stone wall segment in the expected number of hits (table test); siege golden replay | 4 w |
+| M7b | Weather & season events | `Weather` RNG stream, schedule + 60 s forecast, 9 events + 2 positive ones, weather truce (Blizzard, Thunderstorm), lightning, fire + bucket chains, floods/silt, toppled trees, frozen water, lobby option Off/Mild/Harsh ([12 §3](12-needs-seasons-weather.md)) | truce rejects `Attack` and applies 0 damage (unit tests); every player gets the same number of lightning strikes per storm (1 000-seed test); golden replay with Weather = Harsh identical on 4 runners | 4 w |
 | M8 | Culture 2: Highlanders | masonry/ashlar, stone forge, Shieldbearer, wall bonuses, hook `material_requirement_override` | scripted benchmarks within ±15 % of baseline ([10-cultures §5](10-cultures.md)); LAN playtest Rivermen vs Highlanders | 5 w |
 | M9 | Culture 3: Woodfolk | bowyer, herbalist, Longbowman, Ranger, palisade bonuses, `aura_bonus` hook | as M8, plus 3-culture LAN playtest | 5 w |
 | M10 | Culture 4: Riders | stud farm, saddlery, Light rider, Horse archer, `mounted_units` + `upkeep` hooks, cavalry movement | as M8; mounted units keep the 10 ms combat budget | 6 w |
@@ -82,13 +84,13 @@ flowchart LR
 ## 4. Totals
 | Phase | Weeks (12 h/w) | Cumulative | ≈ Calendar |
 |---|---|---|---|
-| A — LAN Alpha (incl. spikes) | 52 | 52 | ~12 months |
-| B — Cultures & war | 30 | 82 | ~19 months |
-| C — Steam | 4 | 86 | ~20 months |
-| D — AI & monsters | 15 | 101 | ~23 months |
-| E — Release | 13 | 114 | ~26 months |
+| A — LAN Alpha (incl. spikes) | 55 | 55 | ~12.5 months |
+| B — Cultures & war | 34 | 89 | ~20.5 months |
+| C — Steam | 4 | 93 | ~21.5 months |
+| D — AI & monsters | 15 | 108 | ~25 months |
+| E — Release | 13 | 121 | ~28 months |
 
-**Total MVP ≈ 114 weeks ≈ 1 370 h ≈ 26 months at 12 h/week; with 25 % contingency ≈ 33 months.** The scope grew from the earlier 73 weeks because of 4 cultures, direct control, 12 unit types, fortifications and siege ([USER-ANSWERS](handoff/USER-ANSWERS.md), 2026-10-02). Scope levers if needed: release with 2 cultures and add 2 as updates (−11 w), drop horse archer and ranger (−2 w), AI with 2 difficulties (−2 w).
+**Total MVP ≈ 121 weeks ≈ 1 450 h ≈ 28 months at 12 h/week; with 25 % contingency ≈ 35 months.** The scope grew from the earlier 73 weeks because of 4 cultures, direct control, 12 unit types, fortifications and siege ([USER-ANSWERS](handoff/USER-ANSWERS.md), 2026-10-02), and by 7 w for population needs, seasons and weather events (user, 2026-10-03; [ADR 0009](decisions/0009-needs-seasons-weather.md)). Scope levers if needed: weather events after release (−4 w), release with 2 cultures and add 2 as updates (−11 w), drop horse archer and ranger (−2 w), AI with 2 difficulties (−2 w).
 
 ## 5. Post-MVP backlog
 Custom relay server (`RelayTransport` + `Rebuild.Relay`, ~3 w, [ADR 0004](decisions/0004-internet-transport.md)); host migration; roads; more cultures; spectator & replay viewer; map editor; ships.

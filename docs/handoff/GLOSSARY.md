@@ -20,8 +20,11 @@
 | Fix | Q48.16 fixed-point number stored in a 64-bit integer ([ADR 0002](../decisions/0002-fixed-point-format.md)). |
 | Fog of war | Visual hiding of unexplored/unseen tiles per team; visual only, since lockstep clients hold the full state. |
 | Flow field | Per-tile direction grid toward a target; lets many units share one path computation. |
+| Forecast | 60 s advance notice of a weather event, identical for all players and the AI. |
+| Fuel | Good burned for heating in winter (baseline log = 1 heat, coal = 2; culture-specific). |
 | Gate | Wall segment passable for owner and allies, blocking enemies. |
 | Golden hash | Expected hash checked into the repo (map or replay); CI fails if any OS produces a different value. |
+| Home / bed | Every settler lives in a home building with a free bed; beds cap the population. |
 | HPA* | Hierarchical Path-Finding A*: plans on a cluster graph, then refines locally. |
 | Host | Lobby creator; runs the sim like everyone, plus AI, turn sealing and hash comparison. |
 | Input delay (`D`) | Number of turns between sealing a command and executing it; adaptive 1–5. |
@@ -32,13 +35,16 @@
 | `MapHash` | XxHash64 of the canonical map data; compared in the lobby. |
 | Meta command | Command issued by the host (slot 255) such as `Pause`, `SetSpeed`, `AiTakeover`. |
 | MultiMesh | Godot GPU instancing node; draws many copies of one mesh in one draw call. |
+| Pantry (need piles) | Food, water and fuel piles of a home building, refilled by logistics. |
 | Palisade | Cheap wooden wall, weaker than stone. |
 | PCG32 | Permuted congruential generator; the sim's RNG. |
 | Region | Connected component of walkable land; used for reachability checks. |
 | Relay | Server forwarding packets between peers that cannot connect directly (Steam SDR or custom). |
 | SDR | Steam Datagram Relay; Valve's free relay network for Steam games. |
 | Sector | 16×16-tile block used to find nearby offers/carriers quickly. |
+| Season | Calendar quarter (spring, summer, autumn, winter) derived from the tick; changes yields and heating. |
 | Settler | Any worker unit (carrier, builder, digger, specialist, soldier). |
+| Shortage state | Supplied / Short / Crisis per home and need; Short slows work, Crisis stops it and makes settlers leave. |
 | Share code | Base32 string encoding a `MapSpec`, copyable in the lobby. |
 | Sim | `Rebuild.Sim`: the deterministic, engine-independent game simulation library. |
 | Siege unit | Battering ram or catapult; strong against structures. |
@@ -53,3 +59,5 @@
 | Visibility | Deterministic per-team sim data (`explored` bits, `visibleCount` grid) driving fog rendering and AI perception. |
 | Wall tower | Tower on a wall line garrisoned by archer-type units. |
 | Wave | Group of monsters spawned by a lair at scheduled times with growing strength. |
+| Weather event | Scheduled, forecast map-wide event (blizzard, thunderstorm, flood, …) rolled from the `Weather` RNG stream. |
+| Weather truce | Blizzard or thunderstorm: no damage, attack commands rejected, soldiers shelter. |

@@ -14,3 +14,4 @@ File name: `NNNN-kebab-title.md`. Never rewrite an approved ADR; supersede it wi
 | [0006](0006-sim-core-conventions.md) | Simulation core conventions: tick rate, grid, RNG, state hash | approved |
 | [0007](0007-culture-system.md) | Culture system: data-driven cultures on a shared core | approved |
 | [0008](0008-combat-model.md) | Combat model: direct control, typed units, walls and siege | approved |
+| [0009](0009-needs-seasons-weather.md) | Population needs, seasons and weather events | proposed |

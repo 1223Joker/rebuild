@@ -60,6 +60,8 @@ The lobby shows the mode as a label; there is no separate mode switch.
 | Monster density | from `MapSpec` ([03-mapgen §2](03-mapgen.md)) | — |
 | Monster grace period | 10 / 15 / 20 min before first wave | 15 min |
 | Game speed | 1× / 2× / 3× (host) | 1× |
+| Seasons | Off / Short 4 min / Normal 6 min / Long 9 min per season ([12 §2](12-needs-seasons-weather.md)) | Normal |
+| Weather | Off / Mild / Harsh ([12 §3](12-needs-seasons-weather.md)); Off for competitive play | Mild |
 
 ## 4. Victory & defeat
 | Condition | Rule |

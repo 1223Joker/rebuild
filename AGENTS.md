@@ -33,7 +33,7 @@ Single source of truth for any agent working in this repository. Tool-specific f
 AGENTS.md                 entry point (this file)
 CLAUDE.md                 pointer to AGENTS.md
 docs/
-  00-vision.md … 11-military.md  planning deliverables (10 cultures, 11 military)
+  00-vision.md … 12-needs-seasons-weather.md  planning deliverables (10 cultures, 11 military, 12 needs/seasons/weather)
   open-questions.md        decisions the user still has to make
   decisions/               ADRs
   handoff/                 ORIGINAL-BRIEF, STATUS, USER-ANSWERS, DECISIONS-LOG, GLOSSARY, RESEARCH-NOTES
@@ -46,4 +46,4 @@ Code: `src/` (Rebuild.Sim incl. MapGen, Rebuild.Analyzers, Rebuild.Tools), `data
 3. [docs/handoff/ORIGINAL-BRIEF.md](docs/handoff/ORIGINAL-BRIEF.md) — the full brief and process.
 4. [docs/handoff/DECISIONS-LOG.md](docs/handoff/DECISIONS-LOG.md) and `docs/decisions/` — what is decided/proposed.
 5. [docs/open-questions.md](docs/open-questions.md) — everything still waiting for the user.
-6. The planning documents `docs/00-vision.md` … `docs/11-military.md` (linked from STATUS.md); [docs/handoff/GLOSSARY.md](docs/handoff/GLOSSARY.md) for terms; [docs/handoff/RESEARCH-NOTES.md](docs/handoff/RESEARCH-NOTES.md) for sources.
+6. The planning documents `docs/00-vision.md` … `docs/12-needs-seasons-weather.md` (linked from STATUS.md); [docs/handoff/GLOSSARY.md](docs/handoff/GLOSSARY.md) for terms; [docs/handoff/RESEARCH-NOTES.md](docs/handoff/RESEARCH-NOTES.md) for sources.

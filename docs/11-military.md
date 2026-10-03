@@ -73,6 +73,8 @@ Rules:
 Castle (garrison 10), large guard tower (6), small guard tower (3) as in [06-economy §5](06-economy.md). A building is captured when its garrison is defeated and a melee unit of the attacker enters it; ranged and siege units cannot capture. Siege may also destroy a building (no capture, territory becomes free).
 
 ## 6. Combat resolution (per tick, deterministic)
+Weather ([12 §3](12-needs-seasons-weather.md)): during a **weather truce** (Blizzard, Thunderstorm) no damage is applied, attack/siege commands are rejected (`WeatherTruce`) and soldiers outside own/allied territory shelter; Great gale disables ranged attacks and siege engines, Hailstorm allows melee only, Thick fog cuts vision and archer range, Deep frost makes frozen water walkable.
+
 1. Units in `Engaging` state iterate in entity-id order.
 2. Target acquisition every 5 ticks via sector-grid scan ([ADR 0008](decisions/0008-combat-model.md)); priority by stance → nearest by squared distance → lowest id.
 3. Melee: attack when adjacent and cooldown 0. Ranged: spawn a pending hit with `arrivalTick = now + distance·4/projectileSpeed`; at arrival roll miss chance (`Combat` RNG) and apply damage if the target still exists.

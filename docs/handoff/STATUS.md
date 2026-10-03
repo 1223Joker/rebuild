@@ -1,6 +1,6 @@
 # STATUS
 
-**Last updated:** 2026-10-03 — M0 done; **M1 Map generation first pass done**; **M2 step 1 (map in the sim, start assignment, territory) done**; **M2 step 2 (building data, start castle entity, PlaceBuilding/CancelConstruction) done**; **M2 step 3 (goods, castle stock, construction, Demolish) done**; **M2 step 4 (carriers, A* pathfinding, movement) done**; **M2 step 5 (logistics: transport jobs for construction materials) done**; **M2 step 6 (production: woodcutter, sawmill, stonecutter; piles, cycles, harvesting, input requests, overflow) done**; **M2 step 7 (food chain and smelters: fisher, hunter, farm, waterworks, mill, bakery, pig farm, slaughterhouse, iron/gold smelter) done**; **M2 step 8 (mines: food alternatives, ore deposits with depletion) done**; **M2 step 9 (forester planting trees) done**; **M2 step 10 (toolsmith/weaponsmith with quotas) done** (2026-10-03). M1: full pipeline, F1–F11 validation with retries, share codes, `mapgen` CLI with PNG preview, 24 golden map hashes, nightly 1 000-seed workflow; 96 tests.
+**Last updated:** 2026-10-03 — M0 done; **M1 Map generation first pass done**; **M2 step 1 (map in the sim, start assignment, territory) done**; **M2 step 2 (building data, start castle entity, PlaceBuilding/CancelConstruction) done**; **M2 step 3 (goods, castle stock, construction, Demolish) done**; **M2 step 4 (carriers, A* pathfinding, movement) done**; **M2 step 5 (logistics: transport jobs for construction materials) done**; **M2 step 6 (production: woodcutter, sawmill, stonecutter; piles, cycles, harvesting, input requests, overflow) done**; **M2 step 7 (food chain and smelters: fisher, hunter, farm, waterworks, mill, bakery, pig farm, slaughterhouse, iron/gold smelter) done**; **M2 step 8 (mines: food alternatives, ore deposits with depletion) done**; **M2 step 9 (forester planting trees) done**; **M2 step 10 (toolsmith/weaponsmith with quotas) done** (2026-10-03); **needs/seasons/weather designed** (2026-10-03, ADR 0009 proposed). M1: full pipeline, F1–F11 validation with retries, share codes, `mapgen` CLI with PNG preview, 24 golden map hashes, nightly 1 000-seed workflow; 96 tests.
 
 ## Current phase / step
 **Implementation, milestone M2 Sim economy (headless)** ([09-roadmap](../09-roadmap.md)) — steps 1 (map in the sim + territory), 2 (building data + placement), 3 (goods + construction), 4 (carriers + A*), 5 (logistics for construction), 6 (first production buildings), 7 (food chain + smelters), 8 (mines), 9 (forester) and 10 (smiths with quotas) done; M0 Foundations and M1 Map generation complete. The user permitted coding on 2026-10-02 and chose "M0 directly, S1 folded in": S1's sim half is covered by M0; S1's Godot .NET export check moves to the start of M3. Process steps: [ORIGINAL-BRIEF.md §6](ORIGINAL-BRIEF.md).
@@ -27,6 +27,7 @@
 | [09-roadmap.md](../09-roadmap.md) | done (restructured into phases A–E) |
 | [10-cultures.md](../10-cultures.md) | done (new) |
 | [11-military.md](../11-military.md) | done (new) |
+| [12-needs-seasons-weather.md](../12-needs-seasons-weather.md) + [ADR 0009](../decisions/0009-needs-seasons-weather.md) | done 2026-10-03 (design; ADR proposed, open question H9) |
 | [open-questions.md](../open-questions.md) | done (living) |
 | [GLOSSARY.md](GLOSSARY.md) | done (living) |
 | [DECISIONS-LOG.md](DECISIONS-LOG.md) | living |
@@ -165,6 +166,8 @@
 | Code review (`/code-review`, medium): 1 finding fixed — a save with unbalanced quota credits loaded and broke the next save/load round trip (balance check + regression case added) | done |
 | Tests / CI | 187 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112 + .NET 8 runtime); float-ban, golden-version and hash comparison pass locally; **CI run 37105619781 green** on `main` (0a28fb0): 4 runners × Debug/Release, `cross-os-hashes` (both new replay hashes identical everywhere) and `golden-version` pass | done |
 
+- Design round 2026-10-03 (user request): population needs (every settler needs a bed, food, water; winter heating with log/coal; culture differences) and seasons/weather events (blizzard/thunderstorm truces, lightning, fire, floods, …) → [12-needs-seasons-weather](../12-needs-seasons-weather.md), [ADR 0009](../decisions/0009-needs-seasons-weather.md) (proposed, H9), roadmap M2 +3 w and new M7b (+4 w, total ≈ 121 w). No code changed yet.
+
 ## In progress
 - Nothing.
 
@@ -172,7 +175,7 @@
 1. Keep CI green (`gh run list -R 1223Joker/rebuild`).
 2. M1 polish: tune `Dmin`, `Rf`, `Lmin` and the ASSUMPTION thresholds (F5/F6 minimums, fertile share, lair counts) when gameplay exists (spike S4 is done as part of M1; all spikes are allowed, user 2026-10-02).
 3. Run spike **S5** (headless logistics + HPA* + combat scale, [09-roadmap §2](../09-roadmap.md)) alongside the start of M2, so the 20 ms/tick budget is checked before the economy design hardens.
-4. Continue **M2 Sim economy (headless)** ([06-economy](../06-economy.md)): next step = **production statistics** (per player, per good, per-minute ring buffer of production/consumption, [06-economy §4](../06-economy.md)), then workers/specialists with tools, builders/diggers, player transport priorities, terrain costs + HPA*.
+4. Continue **M2 Sim economy (headless)** ([06-economy](../06-economy.md)): next step = **production statistics** (per player, per good, per-minute ring buffer of production/consumption, [06-economy §4](../06-economy.md)), then workers/specialists with tools, **housing + household needs (beds, food/water pantries, shortage states) and calendar/seasons with winter heating** ([12-needs-seasons-weather](../12-needs-seasons-weather.md), user request 2026-10-03; mines keep their work ration), builders/diggers, player transport priorities, terrain costs + HPA*.
 5. Before M3: run S1's Godot part — install the Godot **.NET** edition (the installed `/Applications/Godot.app` 4.7.2 is the standard build without C#) and export a test project for macOS and Windows — and spike S2 (rendering scale). Before M5: spike S3 (ENet transport).
 
 ## Blockers / waiting for user approval

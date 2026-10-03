@@ -27,8 +27,8 @@ Session length target: 45–90 min for a 4-player match on a medium map. ASSUMPT
 ## Release phases (user priority, 2026-10-02: "first of all its important to have a working version with lan support, after that comes steam and so on")
 | Phase | Content | Details |
 |---|---|---|
-| **A — LAN Alpha** | 1 culture (Rivermen), economy, 3 warrior types with direct control, territory, fog, LAN multiplayer PvP | first playable goal |
-| B — Cultures & war | 4 cultures, full unit roster, walls, gates, wall towers, palisades, siege | [10-cultures](10-cultures.md), [11-military](11-military.md) |
+| **A — LAN Alpha** | 1 culture (Rivermen), economy incl. population needs and seasons, 3 warrior types with direct control, territory, fog, LAN multiplayer PvP | first playable goal |
+| B — Cultures & war | 4 cultures, full unit roster, walls, gates, wall towers, palisades, siege, weather events | [10-cultures](10-cultures.md), [11-military](11-military.md) |
 | C — Steam online | Steam internet play | user: "Cultures & walls first" (2026-10-02) |
 | D — AI & monsters | AI players, monster waves, PvE/PvPvE | |
 | E — Release | reconnect, MP save/load, polish, Linux build | |
@@ -41,6 +41,8 @@ Milestones and estimates: [09-roadmap](09-roadmap.md).
 | Economy | 24 shared buildings, 4 chains (construction, food, metal/tools, weapons) — see [06-economy](06-economy.md) |
 | Cultures | 4 cultures with different costs, unique buildings/goods/units, strengths and weaknesses — [10-cultures](10-cultures.md) |
 | Logistics | S4-style free-walking carriers, storehouses, build/transport priorities |
+| Population needs | Every settler needs a bed, food and water; every building needs fuel (log/coal) in winter; differs per culture — [12-needs-seasons-weather](12-needs-seasons-weather.md) |
+| Seasons & weather | Four seasons; weather events with forecast (blizzard and thunderstorm truces, lightning, fire, floods, gales, drought, fog, hail, frost); lobby option Off/Mild/Harsh — [12-needs-seasons-weather](12-needs-seasons-weather.md) |
 | Settlers | Residences produce settlers; professions require tools |
 | Military | Direct unit control; 12 unit types (5 shared + 7 culture-specific), 3 ranks; castle, 2 tower sizes; palisades, stone walls, gates, wall towers; battering ram, catapult — [11-military](11-military.md) |
 | Opponents | Host-side AI (easy/normal/hard) acting via commands — [05-ai](05-ai.md) |
