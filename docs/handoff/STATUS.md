@@ -193,7 +193,7 @@
 | Save format 12 (setup carries the season length; complete-building cycle bound = longest season cycle; load rejects a running cycle at or past the length of the season of the last tick); `GameVersion` 0.16.0; both golden replays regenerated — only the log header changed, replay hashes unchanged (both replays end in the first spring) | done |
 | Not yet: winter walking −20 %, housing, pantries, shortage states, heating (next steps) | open |
 | Code review (`/code-review`, medium) | no findings |
-| Tests / CI | 207 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112 + .NET 8 runtime; new `SeasonTests`: calendar, data, setup/save round trip, a farm and fisher through a Short-season year, load rejection); float-ban and golden-version checks pass locally; CI: see below | done |
+| Tests / CI | 207 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112 + .NET 8 runtime; new `SeasonTests`: calendar, data, setup/save round trip, a farm and fisher through a Short-season year, load rejection); float-ban and golden-version checks pass locally; **CI run 37115210539 green** on `main` (9ccc56c): 3 runners × Debug/Release, `cross-os-hashes` and `golden-version` pass | done |
 
 - Design round 2026-10-03 (user request): population needs (every settler needs a bed, food, water; winter heating with log/coal; culture differences) and seasons/weather events (blizzard/thunderstorm: shelter or die, lightning, fire, floods, …) → [12-needs-seasons-weather](../12-needs-seasons-weather.md), [ADR 0009](../decisions/0009-needs-seasons-weather.md) (proposed, H9), roadmap M2 +3 w and new M7b (+4 w, total ≈ 121 w). No code changed yet.
 
@@ -209,7 +209,7 @@
 6. Before M3: run S1's Godot part — install the Godot **.NET** edition (the installed `/Applications/Godot.app` 4.7.2 is the standard build without C#) and export a test project for macOS and Windows — and spike S2 (rendering scale). Before M5: spike S3 (ENet transport).
 
 ## Blockers / waiting for user approval
-- None. Old remote branches: on 2026-10-03 (M2 step 12) the remote held only `main` and this step's `claude/amazing-hopper-ttuac1` (fully merged into `main`); the earlier `claude/amazing-hopper-*` branches are gone. Deleting `claude/amazing-hopper-ttuac1` was attempted after the push; if it is still listed, delete it in the GitHub UI.
+- None. Old remote branches: on 2026-10-03 (M2 step 13) this step's branch `claude/amazing-hopper-btzuh2` was fully merged into `main` and deleted after the push; if it is still listed, delete it in the GitHub UI.
 
 ## Dead ends (tried or rejected, and why)
 - Using Godot `FastNoiseLite` for the shared map: floats, not cross-platform deterministic → rejected ([ADR 0003](../decisions/0003-mapgen-determinism.md)); allowed for client cosmetics only.
