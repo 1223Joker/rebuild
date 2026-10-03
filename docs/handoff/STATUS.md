@@ -152,7 +152,7 @@
 | `Production.FindPlantSite`: nearest free tile within r 6 on own territory — buildable land without resource, not on/next to a building footprint, no tree among its 8 neighbours; forester cycle 12 s plants one full-grown tree (`MapChanges.Plant`), idles when no tile is free (all ASSUMPTIONS) | done |
 | Load validation: planted (or planted-and-felled) trees accepted on tiles without resource that are buildable once cleared and whose generated object was none/tree/stone/game; a forester's output pile must be empty; save layout unchanged (format 8); `GameVersion` 0.11.0; both golden replays regenerated (`m0-meta` hash unchanged), `m2-build.rblog` now also places foresters (a tree gets planted) | done |
 | Code review (`/code-review`, medium): 2 findings fixed — a save could give a forester a non-empty output pile (would carry the non-good `NoOutput`), and a planted tree on a slope too steep to plant on loaded (regression cases added) | done |
-| Tests / CI | 180 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112 + .NET 8 runtime); float-ban and golden-version checks pass locally; CI: see below | pending |
+| Tests / CI | 180 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112 + .NET 8 runtime); float-ban and golden-version checks pass locally; **CI run 37101970567 green** on `main` (ccc9381): 4 runners × Debug/Release, `cross-os-hashes` (new build replay hash identical everywhere) and `golden-version` pass | done |
 
 ## In progress
 - Nothing.
@@ -165,7 +165,7 @@
 5. Before M3: run S1's Godot part — install the Godot **.NET** edition (the installed `/Applications/Godot.app` 4.7.2 is the standard build without C#) and export a test project for macOS and Windows — and spike S2 (rendering scale). Before M5: spike S3 (ENet transport).
 
 ## Blockers / waiting for user approval
-- Deleting old remote branches (`claude/amazing-hopper-tq38xc`, `claude/amazing-hopper-s87jxe`, `claude/amazing-hopper-p2ghnv`, `claude/amazing-hopper-zablrl`, `claude/amazing-hopper-wcv8g0`, and any other merged `claude/amazing-hopper-*` branch still listed, all fully merged into `main`) is not possible from the cloud session (git proxy HTTP 403 earlier; on 2026-10-03 the session's permission policy blocked the delete again, twice); delete them in the GitHub UI.
+- Deleting old remote branches (`claude/amazing-hopper-tq38xc`, `claude/amazing-hopper-s87jxe`, `claude/amazing-hopper-p2ghnv`, `claude/amazing-hopper-zablrl`, `claude/amazing-hopper-wcv8g0`, `claude/amazing-hopper-jtagzl`, `claude/amazing-hopper-w5qo6z`, and any other merged `claude/amazing-hopper-*` branch still listed, all fully merged into `main`) is not possible from the cloud session (git proxy HTTP 403 earlier; on 2026-10-03 the session's permission policy blocked the delete again, three times); delete them in the GitHub UI.
 
 ## Dead ends (tried or rejected, and why)
 - Using Godot `FastNoiseLite` for the shared map: floats, not cross-platform deterministic → rejected ([ADR 0003](../decisions/0003-mapgen-determinism.md)); allowed for client cosmetics only.
