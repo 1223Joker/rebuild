@@ -144,7 +144,7 @@
 | `HarvestSource` coal / iron_ore / gold_ore = ore deposit (resource on a mountain tile without object); coal, iron and gold mine (S, mountain): 1 food → 1 coal / iron ore (15 s) / gold ore (20 s), deposit within r 3 loses one unit per cycle, an exhausted mine idles (all ASSUMPTIONS) | done |
 | `World/MapChanges` accepts dug-out/reduced deposits on load (save layout unchanged, format 8); `GameVersion` 0.10.0; both golden replays regenerated (`m0-meta` hash unchanged), `m2-build.rblog` now also places coal/iron/gold mines with their deposit in reach | done |
 | Code review (`/code-review`, medium) | no findings |
-| Tests / CI | 175 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112 + .NET 8 runtime); float-ban and golden-version checks pass locally; CI: see below | done |
+| Tests / CI | 175 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112 + .NET 8 runtime); float-ban and golden-version checks pass locally; **CI run 37098731514 green** on `main` (0a77c94): 4 runners × Debug/Release, `cross-os-hashes` (new build replay hash identical everywhere) and `golden-version` pass | done |
 
 ## In progress
 - Nothing.
