@@ -24,6 +24,46 @@ public class HouseholdTests
     private static int CastleCarriers(Simulation sim) =>
         sim.Settlers.All.Count(s => s.Kind == SettlerKind.Carrier && s.HomeId == sim.Buildings.All[0].Id);
 
+    /// <summary>Places a building of player 0 on the first free spot near its castle and runs until it is complete.</summary>
+    private static int Build(Simulation sim, ushort type)
+    {
+        var s0 = sim.StartOf(0)!.Value;
+        (int X, int Y) spot = (-1, -1);
+        for (int y = s0.Y - 14; y <= s0.Y + 14 && spot.X < 0; y++)
+            for (int x = s0.X - 14; x <= s0.X + 14 && spot.X < 0; x++)
+                if (BuildingPlacement.Check(sim.Map, sim.Territory, sim.Buildings, 0, type, x, y) == PlacementResult.Ok)
+                    spot = (x, y);
+        ConstructionTests.Run(sim, BuildingCommands.Place(0, 0, type, spot.X, spot.Y));
+        int id = sim.Buildings.All.Last().Id;
+        ConstructionTests.RunUntilComplete(sim, id);
+        return id;
+    }
+
+    [Fact]
+    public void The_castle_fetches_food_and_water_from_a_storehouse()
+    {
+        var sim = Simulation.Create(TwoPlayers());
+        int storehouse = Build(sim, BuildingIds.Storehouse);
+        var castle = sim.Buildings.StockAt(0)!;
+        var store = sim.Buildings.StockAt(sim.Buildings.IndexOf(storehouse))!;
+        // All food and water is in the storehouse: the castle fetches up to its target of each need (30 beds / 4 = 7).
+        Assert.Equal(7, Households.StockTarget(sim.Buildings.All[0]));
+        foreach (ushort g in Households.FoodGoods.Concat(Households.WaterGoods))
+        {
+            store[g] += castle[g] + 20;
+            castle[g] = 0;
+        }
+        RunTicks(sim, 600);
+        Assert.Equal(NeedState.Supplied, Households.StateAt(sim.Buildings, 0));
+        int food = Households.FoodGoods.Sum(g => castle[g]);
+        Assert.InRange(food, 1, 7);
+        Assert.InRange(castle[GoodIds.Water], 1, 7);
+        Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
+        // It stays supplied while the storehouse has some: 3 600 ticks eat 18 food and 22 water.
+        RunTicks(sim, 3600);
+        Assert.Equal(NeedState.Supplied, Households.StateAt(sim.Buildings, 0));
+    }
+
     [Fact]
     public void The_castle_eats_and_drinks_from_its_stock()
     {
@@ -77,15 +117,7 @@ public class HouseholdTests
     {
         var sim = Simulation.Create(TwoPlayers());
         sim.Buildings.StockAt(0)![GoodIds.Water] += 100; // enough for the castle for the whole test
-        var s0 = sim.StartOf(0)!.Value;
-        (int X, int Y) spot = (-1, -1);
-        for (int y = s0.Y - 14; y <= s0.Y + 14 && spot.X < 0; y++)
-            for (int x = s0.X - 14; x <= s0.X + 14 && spot.X < 0; x++)
-                if (BuildingPlacement.Check(sim.Map, sim.Territory, sim.Buildings, 0, BuildingIds.Residence, x, y) == PlacementResult.Ok)
-                    spot = (x, y);
-        ConstructionTests.Run(sim, BuildingCommands.Place(0, 0, BuildingIds.Residence, spot.X, spot.Y));
-        int residence = sim.Buildings.All.Last().Id;
-        ConstructionTests.RunUntilComplete(sim, residence);
+        int residence = Build(sim, BuildingIds.Residence);
         Assert.Equal(new[] { 0, 0 }, sim.Buildings.PilesOf(residence));
         Assert.Equal(new int[Households.CounterCount], sim.Buildings.NeedsOf(residence));
         long eaten = sim.Statistics.TotalConsumed(0, GoodIds.Water);

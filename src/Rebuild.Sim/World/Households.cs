@@ -23,7 +23,7 @@ public enum NeedState : byte
 /// home, not per settler: every tick each need's due counter grows by the occupant count, and once it reaches the need's
 /// period (<see cref="FoodTicks"/>, <see cref="WaterTicks"/> per settler) one unit is eaten — from the home's own stock if it
 /// is a storage (the castle: the food good it holds most of, ties data order), else from its pantry pile, which
-/// <see cref="Logistics"/> refills to <see cref="PantryTarget"/>. An unpaid unit stays due (no backlog: the counter stops at
+/// <see cref="Logistics"/> refills to <see cref="PantryTarget"/> (a storage home's stock: to <see cref="StockTarget"/>, from other storages). An unpaid unit stays due (no backlog: the counter stops at
 /// the period) and its unpaid ticks count up until a unit is eaten; they set the <see cref="NeedState"/>, the worse need wins.
 /// Units eaten from a stock count as consumed (<see cref="ProductionStatistics"/>); pantry units counted at hand-over.
 /// </summary>
@@ -35,6 +35,11 @@ public static class Households
     public const int WaterTicks = 4800;
     /// <summary>Units a pantry pile is refilled to (ponytail: fixed; docs say max(2, occupants / 4), equal for 10 beds).</summary>
     public const int PantryTarget = 2;
+    /// <summary>
+    /// Units of each need logistics keeps in a storage home's stock, fetched from other storages: max(<see cref="PantryTarget"/>,
+    /// beds / 4) (docs §1.3 with beds for occupants; castle 7).
+    /// </summary>
+    public static int StockTarget(in Building b) => System.Math.Max(PantryTarget, b.Definition.Beds / 4);
     /// <summary>Unpaid ticks until Short, per need (food 60 s, water 30 s).</summary>
     public static readonly int[] ShortTicks = { 600, 300 };
     /// <summary>Further unpaid ticks until Crisis, per need (food 180 s, water 120 s).</summary>
