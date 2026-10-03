@@ -23,7 +23,7 @@ public enum BuildingTerrain : byte
 public sealed class BuildingDefinition
 {
     public BuildingDefinition(int index, string id, string name, BuildingSize size, BuildingTerrain terrain,
-        int territoryRadius, int costPlanks, int costStone, bool playerPlaceable, bool isStorage)
+        int territoryRadius, int costPlanks, int costStone, bool playerPlaceable, bool isStorage, int carriers)
     {
         Index = index;
         Id = id;
@@ -35,6 +35,7 @@ public sealed class BuildingDefinition
         CostStone = costStone;
         PlayerPlaceable = playerPlaceable;
         IsStorage = isStorage;
+        Carriers = carriers;
     }
 
     /// <summary>Type index = position in data/buildings.json (used in commands and saves).</summary>
@@ -51,6 +52,11 @@ public sealed class BuildingDefinition
     public bool PlayerPlaceable { get; }
     /// <summary>Holds a goods stock once complete (castle, storehouse).</summary>
     public bool IsStorage { get; }
+    /// <summary>
+    /// Carriers homed at the complete building (castle 30, residence 10): one more spawns every
+    /// <see cref="World.Settlers.SpawnIntervalTicks"/> while fewer live; the start castle starts full (docs/06-economy.md §3).
+    /// </summary>
+    public int Carriers { get; }
     /// <summary>Plank + stone units a construction site needs.</summary>
     public int CostTotal => CostPlanks + CostStone;
 

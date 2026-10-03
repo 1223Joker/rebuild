@@ -71,6 +71,8 @@ Goods (21 shared): log, plank, stone, fish, meat, grain, flour, water, bread, pi
 | Specialist | carrier + tool when a finished building needs a worker | bound to its building; walks to resources in work radius |
 | Soldier | barracks: carrier + sword | garrisons, attacks, defends |
 
+As built (M2 step 4, `src/Rebuild.Sim/World/Settlers.cs`, runs after construction every tick): carriers are settler entities (id, owner, home building, tile, idle/walking, sub-tile progress, remaining path). `"carriers"` in [data/buildings.json](../data/buildings.json) is how many carriers a complete building keeps (castle 30, residence 10, ASSUMPTION): every 600 ticks (60 s) each such building homing fewer spawns one at its door (the margin tile below the bottom-centre of its footprint, else the first free walkable margin tile; no spawn without one); the start castle starts with all 30. Carriers of a demolished home stay alive and no longer count anywhere (ASSUMPTION). Settlers walk only on walkable tiles of their own territory that no building covers (map objects do not block yet); a settler covered by a newly placed building is put at that building's door; a walker whose next tile becomes blocked stops and plans again 2 s later. Until logistics exists, idle carriers wait 2–6 s (Economy RNG) and then wander to a random tile within 6 tiles of their home's door — a placeholder that exercises pathing and movement.
+
 Population cap: carriers ≤ residence capacity. Initial stock: castle with tools, planks, stone, food, 30 carriers, 10 soldiers (Normal start resources).
 
 ## 4. Logistics (S4-style free walking)
@@ -126,6 +128,7 @@ Scaling rules:
 - Paths must be a pure function of `(grid version, start, goal)`. A **path cache** keyed by `(startCluster, goalCluster)` stores abstract routes; invalidation by per-cluster version counters when buildings/objects change. Cache hits change only speed, never results.
 - Blocking changes (new building, tree felled) update only the affected cluster's entrances and intra-cluster edges.
 - Movement: entity moves along tile waypoints in sub-tile units (1 tile = 256) at integer speed per tick; diagonal steps take 14/10 longer. Client interpolates.
+- As built (M2 step 4, `src/Rebuild.Sim/World/Pathfinder.cs`): plain A* (no HPA* yet) with uniform terrain cost, no corner cutting (a diagonal step needs both orthogonal neighbours passable), the start tile exempt from passability, a 2 048-expansion limit per search and a 60 000-expansion budget per tick shared by all settlers in id order (the rest retry next tick). Movement: 64 sub-tile units per tick (2.5 tiles/s, ASSUMPTION), straight step 256, diagonal 358. Tested against a brute-force Dijkstra on random grids.
 - Target: 5 000 settlers, average ≤ 60 new path requests/s, pathfinding ≤ 5 ms per tick average on the reference machine (part of the 20 ms sim budget, [01-architecture §3](01-architecture.md)).
 
 ## 7. Out of scope for MVP

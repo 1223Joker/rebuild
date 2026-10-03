@@ -21,7 +21,7 @@ namespace Rebuild.Analyzers
         private static readonly DiagnosticDescriptor BadData = new DiagnosticDescriptor(
             "RB0101", "Invalid building data", "{0}: {1}", "Data", DiagnosticSeverity.Error, isEnabledByDefault: true);
 
-        /// <summary>Upper bound of radius and cost values (they are serialized as one byte).</summary>
+        /// <summary>Upper bound of radius, cost and carrier values (they are serialized as one byte).</summary>
         private const long MaxSmallValue = 255;
 
         public void Initialize(IncrementalGeneratorInitializationContext context)
@@ -51,6 +51,7 @@ namespace Rebuild.Analyzers
             public long Stone;
             public bool PlayerPlaceable = true;
             public bool Storage;
+            public long Carriers;
         }
 
         private static void Emit(SourceProductionContext ctx, ImmutableArray<FileData> files)
@@ -101,7 +102,8 @@ namespace Rebuild.Analyzers
                   .Append(b.Planks.ToString(CultureInfo.InvariantCulture)).Append(", ")
                   .Append(b.Stone.ToString(CultureInfo.InvariantCulture)).Append(", ")
                   .Append(b.PlayerPlaceable ? "true" : "false").Append(", ")
-                  .Append(b.Storage ? "true" : "false").AppendLine("),");
+                  .Append(b.Storage ? "true" : "false").Append(", ")
+                  .Append(b.Carriers.ToString(CultureInfo.InvariantCulture)).AppendLine("),");
             }
             sb.AppendLine("    };");
             sb.AppendLine("}");
@@ -180,6 +182,7 @@ namespace Rebuild.Analyzers
                         break;
                     case "player_placeable": b.PlayerPlaceable = (bool)kv.Value!; break;
                     case "storage": b.Storage = (bool)kv.Value!; break;
+                    case "carriers": b.Carriers = Small(kv); break;
                     default: throw new FormatException("unknown field '" + kv.Key + "'");
                 }
             }

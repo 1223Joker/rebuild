@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-10-03 — M0 done; **M1 Map generation first pass done**; **M2 step 1 (map in the sim, start assignment, territory) done**; **M2 step 2 (building data, start castle entity, PlaceBuilding/CancelConstruction) done**; **M2 step 3 (goods, castle stock, construction, Demolish) done** (2026-10-03). M1: full pipeline, F1–F11 validation with retries, share codes, `mapgen` CLI with PNG preview, 24 golden map hashes, nightly 1 000-seed workflow; 96 tests.
+**Last updated:** 2026-10-03 — M0 done; **M1 Map generation first pass done**; **M2 step 1 (map in the sim, start assignment, territory) done**; **M2 step 2 (building data, start castle entity, PlaceBuilding/CancelConstruction) done**; **M2 step 3 (goods, castle stock, construction, Demolish) done**; **M2 step 4 (carriers, A* pathfinding, movement) done** (2026-10-03). M1: full pipeline, F1–F11 validation with retries, share codes, `mapgen` CLI with PNG preview, 24 golden map hashes, nightly 1 000-seed workflow; 96 tests.
 
 ## Current phase / step
-**Implementation, milestone M2 Sim economy (headless)** ([09-roadmap](../09-roadmap.md)) — steps 1 (map in the sim + territory), 2 (building data + placement) and 3 (goods + construction) done; M0 Foundations and M1 Map generation complete. The user permitted coding on 2026-10-02 and chose "M0 directly, S1 folded in": S1's sim half is covered by M0; S1's Godot .NET export check moves to the start of M3. Process steps: [ORIGINAL-BRIEF.md §6](ORIGINAL-BRIEF.md).
+**Implementation, milestone M2 Sim economy (headless)** ([09-roadmap](../09-roadmap.md)) — steps 1 (map in the sim + territory), 2 (building data + placement), 3 (goods + construction) and 4 (carriers + A*) done; M0 Foundations and M1 Map generation complete. The user permitted coding on 2026-10-02 and chose "M0 directly, S1 folded in": S1's sim half is covered by M0; S1's Godot .NET export check moves to the start of M3. Process steps: [ORIGINAL-BRIEF.md §6](ORIGINAL-BRIEF.md).
 
 ## Done
 - Step 0: git repo, [AGENTS.md](../../AGENTS.md), [CLAUDE.md](../../CLAUDE.md) (pointer), [ORIGINAL-BRIEF.md](ORIGINAL-BRIEF.md), this file.
@@ -100,6 +100,15 @@
 | Code review (`/code-review`, medium) | no findings |
 | Tests / CI | 137 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112); float-ban, golden-version and hash comparison scripts pass locally; **CI run 37080692692 green** on `main` (c40b5cd): 4 runners × Debug/Release, `cross-os-hashes` (both new replay hashes identical everywhere) and `golden-version` pass |
 
+| M2 step 4 — carriers, A* pathfinding, movement (2026-10-03) | State |
+|---|---|
+| `"carriers"` in `data/buildings.json` (castle 30, residence 10; ASSUMPTION) → `BuildingDefinition.Carriers`; a complete building keeps that many carriers, refilled 1 per 60 s at its door; the start castle starts full | done |
+| `World/Pathfinder`: A* on the tile grid, 8 neighbours, costs 10/14, no corner cutting, heap tie-break `(f, h, tile)`, expansion limit per search (2 048) and per tick (60 000) | done; cost equals a brute-force Dijkstra on 200 random grids |
+| `World/Settlers` (second system in `StepTick`): settler entities (owner, home, tile, idle/walking, sub-tile progress, path); walk only on walkable, building-free tiles of own territory at 2.5 tiles/s (diagonal 14/10); blocked walkers stop and re-plan; settlers covered by a new building are put at its door; idle carriers wander within 6 tiles of their home door (placeholder until logistics) | done |
+| Save format 5 (settlers + paths, load validates ids, owners, homes, tiles, path chains, state/progress); `GameVersion` 0.6.0; both golden replays regenerated | done |
+| Code review (`/code-review`, medium): 2 findings fixed — a carrier covered by a newly placed building, or spawned at the footprint centre when no door tile was free, was stuck forever | done |
+| Tests / CI | 148 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112); float-ban, golden-version and hash comparison pass locally; CI: see below |
+
 ## In progress
 - Nothing.
 
@@ -107,7 +116,7 @@
 1. Keep CI green (`gh run list -R 1223Joker/rebuild`).
 2. M1 polish: tune `Dmin`, `Rf`, `Lmin` and the ASSUMPTION thresholds (F5/F6 minimums, fertile share, lair counts) when gameplay exists (spike S4 is done as part of M1; all spikes are allowed, user 2026-10-02).
 3. Run spike **S5** (headless logistics + HPA* + combat scale, [09-roadmap §2](../09-roadmap.md)) alongside the start of M2, so the 20 ms/tick budget is checked before the economy design hardens.
-4. Continue **M2 Sim economy (headless)** ([06-economy](../06-economy.md)): next step = **settlers + carriers** (castle spawns 30 carriers, residences add more) with **A\* on the tile grid**, then **logistics** (request/offer matching, transport jobs) replacing the placeholder construction supply, then builders/diggers, production buildings, HPA*.
+4. Continue **M2 Sim economy (headless)** ([06-economy](../06-economy.md)): next step = **logistics** (offers/requests, sector-distance matching, `TransportJob`s carried by the idle carriers) replacing the placeholder construction supply and the carriers' wandering, then builders/diggers, production buildings, terrain costs + HPA*.
 5. Before M3: run S1's Godot part — install the Godot **.NET** edition (the installed `/Applications/Godot.app` 4.7.2 is the standard build without C#) and export a test project for macOS and Windows — and spike S2 (rendering scale). Before M5: spike S3 (ENet transport).
 
 ## Blockers / waiting for user approval

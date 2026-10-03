@@ -14,8 +14,8 @@ namespace Rebuild.Sim;
 
 /// <summary>
 /// The deterministic simulation: <c>State(n+1) = Step(State(n), Commands(n))</c> (docs/01-architecture.md §1).
-/// Single-threaded, integer-only. Holds match/player state, RNG streams, the generated map, territory and
-/// buildings; game systems are added from M2 on and must write their state in <see cref="WriteState"/>. The map is
+/// Single-threaded, integer-only. Holds match/player state, RNG streams, the generated map, territory,
+/// buildings and settlers; game systems are added from M2 on and must write their state in <see cref="WriteState"/>. The map is
 /// regenerated from <see cref="MatchSetup.Map"/> on create and load (only its hash is saved); systems that
 /// mutate map layers must serialize those layers themselves.
 /// </summary>
@@ -27,11 +27,12 @@ public sealed class Simulation
     public const int TicksPerTurn = 2;
 
     private const uint SaveMagic = 0x56415342; // "BSAV" little-endian
-    private const ushort SaveFormatVersion = 4;
+    private const ushort SaveFormatVersion = 5;
 
     private readonly PlayerState[] _players;
     private readonly PlayerCultureTable?[] _cultureTables;
     private readonly int[] _startOfSlot;
+    private readonly Pathfinder _pathfinder;
 
     public MatchSetup Setup { get; }
     public int Tick { get; private set; }
@@ -52,15 +53,18 @@ public sealed class Simulation
     public ulong MapHash { get; }
     public Territory Territory { get; }
     public BuildingRegistry Buildings { get; }
+    public Settlers Settlers { get; }
 
     private Simulation(MatchSetup setup, MapData map, int tick, PlayerState[] players, Pcg32 economy, Pcg32 combat, Pcg32 monsters,
-        int rejected, Territory territory, BuildingRegistry buildings)
+        int rejected, Territory territory, BuildingRegistry buildings, Settlers settlers)
     {
         Setup = setup;
         Map = map;
         MapHash = map.ComputeHash();
         Territory = territory;
         Buildings = buildings;
+        Settlers = settlers;
+        _pathfinder = new Pathfinder(map.Edge);
         _startOfSlot = StartAssignment.Assign(setup);
         Tick = tick;
         _players = players;
@@ -76,8 +80,8 @@ public sealed class Simulation
 
     /// <summary>
     /// Starts a new match: generates the map, resolves random cultures with the Setup RNG stream and places the
-    /// complete start castle (centred on the start, with its territory claim and the start stock of every good) of every
-    /// Human/AI slot in slot order. Throws <see cref="System.ArgumentException"/>
+    /// complete start castle (centred on the start, with its territory claim, the start stock of every good and its full
+    /// set of carriers at its door) of every Human/AI slot in slot order. Throws <see cref="System.ArgumentException"/>
     /// if the setup does not fit its map spec or no valid map exists for the spec.
     /// </summary>
     public static Simulation Create(MatchSetup setup)
@@ -112,6 +116,7 @@ public sealed class Simulation
         }
         var territory = new Territory(map.Edge);
         var buildings = new BuildingRegistry(map.Edge);
+        var settlers = new Settlers(map.Edge);
         var castle = BuildingCatalog.All[BuildingIds.Castle];
         var starts = StartAssignment.Assign(setup);
         for (int i = 0; i < starts.Length; i++)
@@ -127,11 +132,17 @@ public sealed class Simulation
             var stock = buildings.StockAt(buildings.IndexOf(id))!;
             foreach (var good in GoodCatalog.All) stock[good.Index] = good.StartStock;
         }
+        foreach (var b in buildings.All)
+        {
+            int door = Settlers.DoorOf(b, map, buildings);
+            if (door < 0) continue; // no free tile around the castle (not on a generated start plateau): no carriers
+            for (int k = 0; k < b.Definition.Carriers; k++) settlers.Spawn(b.Owner, b.Id, door);
+        }
         return new Simulation(setup, map, 0, players,
             Pcg32.ForStream(setup.MatchSeed, RngStream.Economy),
             Pcg32.ForStream(setup.MatchSeed, RngStream.Combat),
             Pcg32.ForStream(setup.MatchSeed, RngStream.Monsters),
-            rejected: 0, territory, buildings);
+            rejected: 0, territory, buildings, settlers);
     }
 
     private static MapData GenerateMap(MatchSetup setup)
@@ -165,8 +176,9 @@ public sealed class Simulation
 
     private void StepTick()
     {
-        // Systems run here in a fixed order: construction, then (later M2 steps) production, logistics, combat, ...
+        // Systems run here in a fixed order: construction, settlers, then (later M2 steps) production, logistics, combat, ...
         Construction.Step(Tick, Buildings, Territory);
+        Settlers.Step(Tick, Map, Territory, Buildings, EconomyRng, _pathfinder);
         Tick++;
     }
 
@@ -223,11 +235,12 @@ public sealed class Simulation
         w.WriteUInt64(MapHash);
         Territory.WriteTo(w);
         Buildings.WriteTo(w);
+        Settlers.WriteTo(w);
     }
 
     public ulong ComputeHash()
     {
-        var w = new CanonicalWriter(Map.TileCount + 1024);
+        var w = new CanonicalWriter(Map.TileCount + 4096);
         WriteState(w);
         return StateHash.Of(w);
     }
@@ -271,7 +284,8 @@ public sealed class Simulation
         foreach (var c in territory.Claims)
             if (c.Owner >= count) throw new InvalidDataException("Territory claim of an unknown slot");
         var buildings = BuildingRegistry.ReadFrom(r, map.Edge, count, territory);
+        var settlers = Settlers.ReadFrom(r, map.Edge, count, buildings.NextId);
         if (!r.AtEnd) throw new InvalidDataException("Trailing data in save");
-        return new Simulation(setup, map, tick, players, economy, combat, monsters, rejected, territory, buildings);
+        return new Simulation(setup, map, tick, players, economy, combat, monsters, rejected, territory, buildings, settlers);
     }
 }
