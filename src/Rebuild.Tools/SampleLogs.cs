@@ -111,7 +111,7 @@ public static class SampleLogs
                         bool full = OpenSites(sim, slot) >= MaxOpenSites;
                         // Some valid placements are a woodcutter, a forester or another harvester with its source (for the
                         // forester a free tile) in reach, so production runs.
-                        if (kind >= 12) type = kind == 13 ? Harvesters[turn % Harvesters.Length] : turn % 3 == 0 ? BuildingIds.Forester : BuildingIds.Woodcutter;
+                        if (kind >= 12) type = kind == 13 ? Harvesters[turn % Harvesters.Length] : turn % 2 == 0 ? BuildingIds.Forester : BuildingIds.Woodcutter;
                         if (kind >= 7 && !full) FindValidSpot(sim, slot, type, ref x, ref y);
                         byte rotation = (byte)rng.NextInt(5); // 4 is invalid
                         if (full) rotation = 4;

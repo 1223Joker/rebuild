@@ -63,6 +63,7 @@ namespace Rebuild.Analyzers
             public long Ticks;
             public string Harvest = "None";
             public string Plant = "None";
+            public string Tool = "";
             public long Radius;
         }
 
@@ -279,6 +280,7 @@ namespace Rebuild.Analyzers
                         if ((string)kv.Value! != "tree") throw new FormatException("plant must be tree");
                         p.Plant = "Tree";
                         break;
+                    case "tool": p.Tool = GoodId((string)kv.Value!); break;
                     case "radius":
                         p.Radius = (long)kv.Value!;
                         if (p.Radius < 1 || p.Radius > MaxHarvestRadius) throw new FormatException("'radius' must be 1.." + MaxHarvestRadius.ToString(CultureInfo.InvariantCulture));
@@ -343,6 +345,7 @@ namespace Rebuild.Analyzers
                     sb.Append(k == 0 ? "" : ", ").Append("(ushort)Rebuild.Sim.Goods.GoodIds.").Append(CultureDataGenerator.PascalCase(p.Outputs[k]));
                 sb.Append(" }");
             }
+            if (p.Tool.Length != 0) sb.Append(", tool: (ushort)Rebuild.Sim.Goods.GoodIds.").Append(CultureDataGenerator.PascalCase(p.Tool));
             sb.Append(")");
             return sb.ToString();
         }

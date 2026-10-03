@@ -62,7 +62,7 @@ public class LogisticsTests
         {
             Assert.True(turn < 1000, "sites never completed");
             Run(sim);
-            maxJobs = System.Math.Max(maxJobs, sim.Logistics.All.Count);
+            maxJobs = System.Math.Max(maxJobs, sim.Logistics.All.Count(j => j.Kind == JobKind.Transport));
             spentPlanks = spentStone = 0;
             foreach (int id in ids)
             {
@@ -81,8 +81,8 @@ public class LogisticsTests
         }
         // The three sites need 7 planks + 5 stone; all are matched at once (30 idle carriers).
         Assert.Equal(12, maxJobs);
-        Assert.Empty(sim.Logistics.All);
-        Assert.All(sim.Settlers.All, s => Assert.Equal(0, s.JobId));
+        Assert.All(sim.Logistics.All, j => Assert.Equal(JobKind.Employ, j.Kind)); // workers of completed production buildings
+        Assert.Equal(sim.Logistics.All.Count, sim.Settlers.All.Count(s => s.JobId != 0));
     }
 
     private static int PlaceAnywhere(Simulation sim, ushort type, ushort seq) =>

@@ -375,7 +375,7 @@ public class ProductionTests
         int grainCycle = ConstructionTests.Get(sim, farm).Definition.Production!.CycleTicks;
         RunTicks(sim, 8 * grainCycle);
         int made = Units(sim, 0, GoodIds.Bread) - bread;
-        Assert.InRange(made, 4, 8); // at most one loaf per grain; the chain needs a few cycles to fill
+        Assert.InRange(made, 4, (int)sim.Statistics.TotalProduced(0, GoodIds.Grain)); // at most one loaf per grain; the chain needs a few cycles to fill
         Assert.Empty(sim.MapChanges.Tiles); // fertile land and water are not used up
         Assert.True(Units(sim, 0, GoodIds.Water) > 0);
         Assert.InRange(sim.Buildings.PilesOf(bakery)![1] + sim.Logistics.All.Count(j => j.DestinationId == bakery && j.Good == GoodIds.Water),

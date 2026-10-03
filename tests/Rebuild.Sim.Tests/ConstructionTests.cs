@@ -87,6 +87,21 @@ public class ConstructionTests
             Assert.True(turns < maxTurns, "site never completed");
             Run(sim);
         }
+        if (Get(sim, id).Definition.Production != null) RunUntilWorking(sim, id, maxTurns);
+    }
+
+    /// <summary>Whether the production building has its worker inside.</summary>
+    internal static bool HasWorker(Simulation sim, int id) =>
+        sim.Settlers.All.Any(s => s.Kind == SettlerKind.Worker && s.HomeId == id);
+
+    /// <summary>Runs turns until the production building's worker is inside; fails after <paramref name="maxTurns"/>.</summary>
+    internal static void RunUntilWorking(Simulation sim, int id, int maxTurns = 1000)
+    {
+        for (int turns = 0; !HasWorker(sim, id); turns++)
+        {
+            Assert.True(turns < maxTurns, "worker never arrived");
+            Run(sim);
+        }
     }
 
     /// <summary>Runs turns until no transport job is open; fails after <paramref name="maxTurns"/>.</summary>
@@ -121,7 +136,9 @@ public class ConstructionTests
         Assert.Equal(planks - def.CostPlanks, CastleStock(sim, 0, GoodIds.Plank));
         Assert.Equal(stone - def.CostStone, CastleStock(sim, 0, GoodIds.Stone));
         Assert.Null(sim.Buildings.StockOf(id));
-        Assert.Empty(sim.Logistics.All);
+        // Only the sawmill's worker is on the way: the saw left the castle stock.
+        Assert.Equal((JobKind.Employ, (ushort)GoodIds.Saw, id), sim.Logistics.All.Select(j => (j.Kind, j.Good, j.DestinationId)).Single());
+        Assert.Equal(0, CastleStock(sim, 0, GoodIds.Saw));
     }
 
     [Fact]

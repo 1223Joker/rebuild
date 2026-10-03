@@ -143,15 +143,18 @@ public static class Harvest
 /// one <see cref="Output"/> unit into its output pile, or — for a planter such as the forester — puts a
 /// <see cref="Plant"/> object on a free tile within <see cref="Radius"/> instead (World.Production). A smith has several
 /// <see cref="Outputs"/> (data <c>"outputs"</c>) and one output pile per output; each cycle makes the one the owner's quota
-/// picks (World.ProductionQuotas).
+/// picks (World.ProductionQuotas). A cycle only runs while the building's worker is inside; the worker is an idle carrier
+/// that fetched the building's <see cref="Tool"/> from a storage, if it has one (World.Logistics, docs/06-economy.md §3).
 /// </summary>
 public sealed class ProductionDefinition
 {
     /// <summary><see cref="Output"/> of a planter, which produces no good (its output pile stays empty).</summary>
     public const ushort NoOutput = ushort.MaxValue;
+    /// <summary><see cref="Tool"/> of a building whose worker needs none (miller, baker, smelter, …).</summary>
+    public const ushort NoTool = ushort.MaxValue;
 
     public ProductionDefinition(ushort[][] inputs, int[] inputAmounts, ushort output, int cycleTicks, HarvestSource harvest, int radius,
-        MapObject plant = MapObject.None, ushort[]? outputs = null)
+        MapObject plant = MapObject.None, ushort[]? outputs = null, ushort tool = NoTool)
     {
         if (outputs != null && (outputs.Length < 2 || outputs[0] != output || plant != MapObject.None))
             throw new System.ArgumentException("Output choices are at least two goods, the first being the output, and no planter", nameof(outputs));
@@ -177,6 +180,7 @@ public sealed class ProductionDefinition
         Harvest = harvest;
         Radius = radius;
         Plant = plant;
+        Tool = tool;
     }
 
     /// <summary>First good of each input pile (at most two piles); the pile's only good unless it has alternatives.</summary>
@@ -202,6 +206,8 @@ public sealed class ProductionDefinition
     public int Radius { get; }
     /// <summary>Object a cycle plants (<see cref="MapObject.Tree"/> for the forester), or <see cref="MapObject.None"/>.</summary>
     public MapObject Plant { get; }
+    /// <summary>Tool good the worker takes from a storage on its way to the building (axe, saw, …), or <see cref="NoTool"/>.</summary>
+    public ushort Tool { get; }
 
     /// <summary>Output index of <paramref name="good"/> (its pile is <see cref="Inputs"/>.Count + index), or -1 if the building does not make it.</summary>
     public int OutputIndexOf(int good)

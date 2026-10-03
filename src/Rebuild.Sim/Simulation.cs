@@ -15,7 +15,7 @@ namespace Rebuild.Sim;
 /// <summary>
 /// The deterministic simulation: <c>State(n+1) = Step(State(n), Commands(n))</c> (docs/01-architecture.md §1).
 /// Single-threaded, integer-only. Holds match/player state, RNG streams, the generated map, territory,
-/// buildings, settlers, transport jobs, smith quotas and production statistics; game systems are added from M2 on and must write their state in <see cref="WriteState"/>. The map is
+/// buildings, settlers (carriers and workers), transport and worker jobs, smith quotas and production statistics; game systems are added from M2 on and must write their state in <see cref="WriteState"/>. The map is
 /// regenerated from <see cref="MatchSetup.Map"/> on create and load (only its hash is saved); changes to its object and
 /// resource layers (harvested trees, stone, game and fish) are saved as <see cref="MapChanges"/>.
 /// </summary>
@@ -27,7 +27,7 @@ public sealed class Simulation
     public const int TicksPerTurn = 2;
 
     private const uint SaveMagic = 0x56415342; // "BSAV" little-endian
-    private const ushort SaveFormatVersion = 10;
+    private const ushort SaveFormatVersion = 11;
 
     private readonly PlayerState[] _players;
     private readonly PlayerCultureTable?[] _cultureTables;
@@ -192,7 +192,7 @@ public sealed class Simulation
         // Systems run here in a fixed order: construction, production, logistics matching, settlers (movement + jobs),
         // then (later milestones) combat, ...
         Construction.Step(Buildings, Territory);
-        Production.Step(Buildings, Map, Territory, MapChanges, Logistics, Quotas, Statistics);
+        Production.Step(Buildings, Map, Territory, MapChanges, Logistics, Settlers, Quotas, Statistics);
         Logistics.Match(Tick, Buildings, Settlers);
         Settlers.Step(Tick, Map, Territory, Buildings, Logistics, Statistics, EconomyRng, _pathfinder);
         Tick++;

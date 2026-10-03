@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using Rebuild.Sim.Buildings;
 using Rebuild.Sim.Goods;
 using Rebuild.Sim.MapGen;
 using Rebuild.Sim.Serialization;
@@ -14,15 +15,34 @@ public enum JobState : byte
     Carrying = 1,
 }
 
+public enum JobKind : byte
+{
+    /// <summary>Moves one unit of a good.</summary>
+    Transport = 0,
+    /// <summary>
+    /// Makes the carrier the destination's worker: it fetches the tool (<see cref="TransportJob.Good"/>) from the source
+    /// storage and walks into the building; without a tool (<see cref="ProductionDefinition.NoTool"/>; source = destination,
+    /// starts in <see cref="JobState.Carrying"/>) it walks straight there.
+    /// </summary>
+    Employ = 1,
+}
+
 /// <summary>
 /// One unit of <see cref="Good"/> moved by carrier <see cref="CarrierId"/> from <see cref="SourceId"/> (a storage building
 /// or a production building's output pile) to <see cref="DestinationId"/>: a construction site, a production building's
 /// input pile, or a storage building (output overflow, or a carried unit whose destination vanished or became unreachable).
+/// An <see cref="JobKind.Employ"/> job instead brings a worker (with its tool) to a production building.
 /// </summary>
-public readonly record struct TransportJob(int Id, byte Owner, int CarrierId, ushort Good, int SourceId, int DestinationId, JobState State);
+public readonly record struct TransportJob(int Id, byte Owner, int CarrierId, ushort Good, int SourceId, int DestinationId, JobState State,
+    JobKind Kind = JobKind.Transport);
 
 /// <summary>
-/// Logistics system (docs/06-economy.md §4). Requests: construction sites (missing planks and stone), production
+/// Logistics system (docs/06-economy.md §3–4). Worker requests come first: every complete production building without a
+/// worker (inside or on the way) gets the owner's idle carrier nearest to the owner's storage nearest to it that holds its
+/// <see cref="ProductionDefinition.Tool"/> (none held: it waits), or — without a tool — the idle carrier nearest to the
+/// building; the tool leaves the stock at once, and at the door the carrier becomes the building's worker
+/// (<see cref="SettlerKind.Worker"/>; the tool counts as consumed). A worker job whose building vanished or cannot be
+/// reached takes its tool to the nearest storage like a carried unit (no tool: the carrier just stops). Requests: construction sites (missing planks and stone), production
 /// buildings (input piles refilled to <see cref="Production.InputTarget"/>) and output overflow (every unit left in an
 /// output pile goes to a storage). Offers: storage stocks and output piles. Matching runs every tick after production and
 /// before movement, in three passes over the buildings in id order (older first): site materials (planks, then stone),
@@ -124,12 +144,34 @@ public sealed class Logistics
     private static bool Accepts(BuildingRegistry buildings, int index, int good) =>
         SlotOf(buildings.All[index], good) >= 0 || buildings.StockAt(index) != null;
 
+    /// <summary>Whether the job may still go to the building at list index <paramref name="index"/>.</summary>
+    private static bool Fits(BuildingRegistry buildings, int index, in TransportJob job)
+    {
+        if (job.Kind == JobKind.Transport) return Accepts(buildings, index, job.Good);
+        var b = buildings.All[index];
+        return b.State == BuildingState.Complete && b.Definition.Production?.Tool == job.Good;
+    }
+
+    /// <summary>Whether each building, by list index, has its worker inside or on the way.</summary>
+    private bool[] Staffed(BuildingRegistry buildings, Settlers settlers)
+    {
+        var staffed = settlers.Working(buildings);
+        foreach (var job in _jobs)
+        {
+            if (job.Kind != JobKind.Employ) continue;
+            int index = buildings.IndexOf(job.DestinationId);
+            if (index >= 0) staffed[index] = true;
+        }
+        return staffed;
+    }
+
     /// <summary>Units on their way to each request slot, by building list index (2 slots per building, see <see cref="SlotOf"/>).</summary>
     private int[] Pending(BuildingRegistry buildings)
     {
         var pending = new int[buildings.All.Count * 2];
         foreach (var job in _jobs)
         {
+            if (job.Kind != JobKind.Transport) continue;
             int index = buildings.IndexOf(job.DestinationId);
             if (index < 0) continue;
             int slot = SlotOf(buildings.All[index], job.Good);
@@ -152,7 +194,7 @@ public sealed class Logistics
     }
 
     /// <summary>
-    /// Creates transport jobs for site materials, production inputs and output overflow. Runs once per tick;
+    /// Creates worker jobs, then transport jobs for site materials, production inputs and output overflow. Runs once per tick;
     /// <paramref name="tick"/> is the tick being simulated.
     /// </summary>
     public void Match(int tick, BuildingRegistry buildings, Settlers settlers)
@@ -168,6 +210,22 @@ public sealed class Logistics
         }
         var noCarrier = new bool[256];
         int matches = 0;
+        var staffed = Staffed(buildings, settlers);
+        for (int i = 0; i < all.Count && matches < MaxMatchesPerTick && idle.Count > 0; i++)
+        {
+            // Workers: the tool from the nearest storage holding it, or straight to the building without a tool.
+            var b = all[i];
+            var p = b.Definition.Production;
+            if (p == null || b.State != BuildingState.Complete || staffed[i] || noCarrier[b.Owner] || IsUnreachable(b.Id)) continue;
+            int source = i;
+            if (p.Tool != ProductionDefinition.NoTool)
+            {
+                source = NearestStorage(buildings, b.Owner, p.Tool, b.CenterY * _edge + b.CenterX);
+                if (source < 0) continue;
+            }
+            if (TryCreate(buildings, settlers, idle, b.Owner, p.Tool, source, i, JobKind.Employ)) matches++;
+            else noCarrier[b.Owner] = true;
+        }
         for (int pass = 0; pass < 3; pass++)
         {
             for (int i = 0; i < all.Count && matches < MaxMatchesPerTick && idle.Count > 0; i++)
@@ -231,20 +289,24 @@ public sealed class Logistics
     }
 
     /// <summary>
-    /// Reserves one unit of <paramref name="good"/> at the source (stock or output pile) and gives it to the owner's idle
-    /// carrier nearest to the source; false (nothing reserved) if the owner has no idle carrier.
+    /// Reserves one unit of <paramref name="good"/> at the source (stock or output pile; nothing for a worker without a tool,
+    /// whose source is the destination) and gives it to the owner's idle carrier nearest to the source; false (nothing
+    /// reserved) if the owner has no idle carrier.
     /// </summary>
-    private bool TryCreate(BuildingRegistry buildings, Settlers settlers, List<int> idle, byte owner, ushort good, int source, int destination)
+    private bool TryCreate(BuildingRegistry buildings, Settlers settlers, List<int> idle, byte owner, ushort good, int source, int destination,
+        JobKind kind = JobKind.Transport)
     {
         var src = buildings.All[source];
         int pick = NearestCarrier(settlers, idle, owner, src.CenterY * _edge + src.CenterX);
         if (pick < 0) return false;
+        bool noTool = good == ProductionDefinition.NoTool;
         var stock = buildings.StockAt(source);
         if (stock != null) stock[good]--;
-        else buildings.PilesAt(source)![OutputPileOf(src, good)]--;
+        else if (!noTool) buildings.PilesAt(source)![OutputPileOf(src, good)]--;
         int carrier = idle[pick];
         idle.RemoveAt(pick);
-        var job = new TransportJob(NextId++, owner, settlers.All[carrier].Id, good, src.Id, buildings.All[destination].Id, JobState.ToPickup);
+        var job = new TransportJob(NextId++, owner, settlers.All[carrier].Id, good, src.Id, buildings.All[destination].Id,
+            noTool ? JobState.Carrying : JobState.ToPickup, kind);
         _jobs.Add(job);
         settlers.AssignJob(carrier, job.Id);
         return true;
@@ -349,7 +411,7 @@ public sealed class Logistics
             if (job.State == JobState.ToPickup)
             {
                 int dest = buildings.IndexOf(job.DestinationId);
-                if (dest < 0 || !Accepts(buildings, dest, job.Good))
+                if (dest < 0 || !Fits(buildings, dest, job))
                     return Cancel(s, j, buildings, wait: 0);
                 if (!buildings.TryGet(job.SourceId, out var source))
                     return Finish(s, j); // the reserved unit was lost with the demolished storage
@@ -369,7 +431,7 @@ public sealed class Logistics
             else
             {
                 int dest = buildings.IndexOf(job.DestinationId);
-                if (dest < 0 || !Accepts(buildings, dest, job.Good))
+                if (dest < 0 || !Fits(buildings, dest, job))
                 {
                     if (!Retarget(s, j, buildings)) return Finish(s, j);
                     job = _jobs[j];
@@ -377,6 +439,12 @@ public sealed class Logistics
                 }
                 var target = buildings.All[dest];
                 int door = Settlers.DoorOf(target, map, buildings);
+                if (door == s.Tile && job.Kind == JobKind.Employ)
+                {
+                    // The carrier enters as the building's worker; its tool is used up.
+                    if (job.Good != ProductionDefinition.NoTool) statistics.Consume(job.Owner, job.Good);
+                    return Finish(s, j) with { Kind = SettlerKind.Worker, HomeId = target.Id };
+                }
                 if (door == s.Tile)
                 {
                     var stock = buildings.StockAt(dest);
@@ -414,12 +482,16 @@ public sealed class Logistics
         return true;
     }
 
-    /// <summary>Sends a carried unit to the owner's storage nearest to the carrier that is not marked unreachable; false if there is none.</summary>
+    /// <summary>
+    /// Sends a carried unit (a worker's tool) to the owner's storage nearest to the carrier that is not marked unreachable;
+    /// false if there is none or a worker carries no tool.
+    /// </summary>
     private bool Retarget(Settler s, int j, BuildingRegistry buildings)
     {
+        if (_jobs[j].Good == ProductionDefinition.NoTool) return false;
         int storage = NearestStorage(buildings, s.Owner, good: -1, s.Tile);
         if (storage < 0) return false;
-        _jobs[j] = _jobs[j] with { DestinationId = buildings.All[storage].Id };
+        _jobs[j] = _jobs[j] with { DestinationId = buildings.All[storage].Id, Kind = JobKind.Transport };
         return true;
     }
 
@@ -457,6 +529,7 @@ public sealed class Logistics
             w.WriteInt32(job.SourceId);
             w.WriteInt32(job.DestinationId);
             w.WriteByte((byte)job.State);
+            w.WriteByte((byte)job.Kind);
         }
         w.WriteInt32(_unreachable.Count);
         foreach (var (id, until) in _unreachable)
@@ -468,7 +541,9 @@ public sealed class Logistics
 
     /// <summary>
     /// Reads and validates jobs (ids, owners, goods, building ids, a live source being a storage or a production building
-    /// with that output, a one-to-one link to carriers of the same owner, no site receiving more than its cost and no input
+    /// with that output — a worker job's source a storage holding the tool or, without a tool, its destination with the job
+    /// carrying — a one-to-one link to carriers of the same owner, at most one worker inside or on the way per building and
+    /// only in complete production buildings, a running cycle only with its worker inside, no site receiving more than its cost and no input
     /// pile more than <see cref="Production.InputTarget"/>, delivered + on the way, no output pile over
     /// <see cref="Production.OutputCap"/> counting reserved units and a running cycle) and the back-offs (ascending ids of live buildings).
     /// </summary>
@@ -483,15 +558,18 @@ public sealed class Logistics
         for (int i = 0; i < count; i++)
         {
             var job = new TransportJob(r.ReadInt32(), r.ReadByte(), r.ReadInt32(), r.ReadUInt16(), r.ReadInt32(), r.ReadInt32(),
-                (JobState)r.ReadByte());
+                (JobState)r.ReadByte(), (JobKind)r.ReadByte());
             int carrier = settlers.IndexOf(job.CarrierId);
             int source = buildings.IndexOf(job.SourceId);
-            if (job.Id <= lastId || job.Id >= nextId || job.Owner >= playerCount || job.Good >= GoodCatalog.All.Count
+            bool noTool = job.Kind == JobKind.Employ && job.Good == ProductionDefinition.NoTool;
+            if (job.Id <= lastId || job.Id >= nextId || job.Owner >= playerCount || job.Kind > JobKind.Employ
+                || (job.Good >= GoodCatalog.All.Count && !noTool)
                 || job.SourceId < 1 || job.SourceId >= buildings.NextId || job.DestinationId < 1 || job.DestinationId >= buildings.NextId
                 || job.State > JobState.Carrying || carrier < 0 || settlers.All[carrier].JobId != job.Id
                 || settlers.All[carrier].Owner != job.Owner
-                || (source >= 0 && buildings.StockAt(source) == null
-                    && (buildings.PilesAt(source) == null || OutputPileOf(buildings.All[source], job.Good) < 0)))
+                || (noTool ? job.State != JobState.Carrying || job.SourceId != job.DestinationId
+                    : source >= 0 && buildings.StockAt(source) == null
+                      && (job.Kind == JobKind.Employ || buildings.PilesAt(source) == null || OutputPileOf(buildings.All[source], job.Good) < 0)))
                 throw new InvalidDataException("Invalid transport job");
             lastId = job.Id;
             reg._jobs.Add(job);
@@ -510,6 +588,21 @@ public sealed class Logistics
             lastBuilding = id;
             reg._unreachable.Add((id, until));
         }
+        var workers = new int[buildings.All.Count];
+        foreach (var s in settlers.All)
+        {
+            int index = s.Kind == SettlerKind.Worker ? buildings.IndexOf(s.HomeId) : -1;
+            if (index < 0) continue;
+            if (buildings.All[index].State != BuildingState.Complete || buildings.All[index].Definition.Production == null)
+                throw new InvalidDataException("Worker of a building that takes none");
+            workers[index]++;
+        }
+        var working = settlers.Working(buildings);
+        foreach (var job in reg._jobs)
+        {
+            int index = job.Kind == JobKind.Employ ? buildings.IndexOf(job.DestinationId) : -1;
+            if (index >= 0) workers[index]++;
+        }
         var pending = reg.Pending(buildings);
         var reserved = reg.ReservedOutput(buildings);
         for (int i = 0; i < buildings.All.Count; i++)
@@ -521,6 +614,8 @@ public sealed class Logistics
                     throw new InvalidDataException("More material on the way than a site needs");
                 continue;
             }
+            if (workers[i] > 1) throw new InvalidDataException("More than one worker for a building");
+            if (b.Cycle > 0 && !working[i]) throw new InvalidDataException("Work cycle running without its worker");
             var piles = buildings.PilesAt(i);
             if (piles == null) continue;
             var p = b.Definition.Production!;

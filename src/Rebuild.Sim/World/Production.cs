@@ -18,7 +18,8 @@ namespace Rebuild.Sim.World;
 /// chosen output. A planter (forester,
 /// <see cref="ProductionDefinition.Plant"/>) instead needs a free tile in reach (<see cref="FindPlantSite"/>) to start and
 /// plants its object on the nearest such tile at the end (<see cref="MapChanges.Plant"/>; nothing if none is left).
-/// Workers do not exist yet: a complete building works on its own (ASSUMPTION until specialists, docs/06-economy.md §3).
+/// A cycle only starts while the building's worker is inside (<see cref="Settlers.Working"/>; brought by
+/// <see cref="Logistics"/>, docs/06-economy.md §3).
 /// Every piled output unit is counted in <see cref="ProductionStatistics"/>.
 /// <see cref="Logistics"/> refills the input piles to <see cref="InputTarget"/> and carries output units away.
 /// </summary>
@@ -31,10 +32,11 @@ public static class Production
 
     /// <summary>Runs one tick of production.</summary>
     public static void Step(BuildingRegistry buildings, MapData map, Territory territory, MapChanges changes, Logistics logistics,
-        ProductionQuotas quotas, ProductionStatistics statistics)
+        Settlers settlers, ProductionQuotas quotas, ProductionStatistics statistics)
     {
         var all = buildings.All;
         int[]? reserved = null;
+        bool[]? working = null;
         for (int i = 0; i < all.Count; i++)
         {
             var b = all[i];
@@ -43,6 +45,8 @@ public static class Production
             var piles = buildings.PilesAt(i)!;
             if (b.Cycle == 0)
             {
+                working ??= settlers.Working(buildings);
+                if (!working[i]) continue;
                 reserved ??= logistics.ReservedOutput(buildings);
                 if (OutputUnits(piles, p) + reserved[i] + 1 > OutputCap) continue;
                 bool ready = true;
