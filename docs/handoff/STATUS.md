@@ -163,7 +163,7 @@
 | Logistics: overflow per output pile, offers/reservations/returns use the good's own output pile | done |
 | Save format 9 (`Choice` per building; weights + credits per player; load checks choice/cycle consistency, weights, credit 0 at weight 0, credit range, credits balanced per smith); `GameVersion` 0.12.0; both golden replays regenerated; `m2-build.rblog` now also places a toolsmith and a weaponsmith per slot at turn 350 and sends quota commands every 40 turns (some invalid) | done |
 | Code review (`/code-review`, medium): 1 finding fixed — a save with unbalanced quota credits loaded and broke the next save/load round trip (balance check + regression case added) | done |
-| Tests / CI | 187 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112 + .NET 8 runtime); float-ban, golden-version and hash comparison pass locally; CI on `main`: see below | pending |
+| Tests / CI | 187 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112 + .NET 8 runtime); float-ban, golden-version and hash comparison pass locally; **CI run 37105619781 green** on `main` (0a28fb0): 4 runners × Debug/Release, `cross-os-hashes` (both new replay hashes identical everywhere) and `golden-version` pass | done |
 
 ## In progress
 - Nothing.
@@ -176,7 +176,7 @@
 5. Before M3: run S1's Godot part — install the Godot **.NET** edition (the installed `/Applications/Godot.app` 4.7.2 is the standard build without C#) and export a test project for macOS and Windows — and spike S2 (rendering scale). Before M5: spike S3 (ENet transport).
 
 ## Blockers / waiting for user approval
-- Deleting old remote branches (`claude/amazing-hopper-tq38xc`, `claude/amazing-hopper-s87jxe`, `claude/amazing-hopper-p2ghnv`, `claude/amazing-hopper-zablrl`, `claude/amazing-hopper-wcv8g0`, `claude/amazing-hopper-jtagzl`, `claude/amazing-hopper-w5qo6z`, and any other merged `claude/amazing-hopper-*` branch still listed, all fully merged into `main`) is not possible from the cloud session (git proxy HTTP 403 earlier; on 2026-10-03 the session's permission policy blocked the delete again, three times); delete them in the GitHub UI.
+- Deleting old remote branches (`claude/amazing-hopper-tq38xc`, `claude/amazing-hopper-s87jxe`, `claude/amazing-hopper-p2ghnv`, `claude/amazing-hopper-zablrl`, `claude/amazing-hopper-wcv8g0`, `claude/amazing-hopper-jtagzl`, `claude/amazing-hopper-w5qo6z`, and any other merged `claude/amazing-hopper-*` branch still listed, all fully merged into `main`) is not possible from the cloud session (git proxy HTTP 403 earlier; on 2026-10-03 the session's permission policy blocked the delete again, four times — also for `claude/amazing-hopper-t7rnb5`, the M2 step 10 branch, fully merged into `main`); delete them in the GitHub UI.
 
 ## Dead ends (tried or rejected, and why)
 - Using Godot `FastNoiseLite` for the shared map: floats, not cross-platform deterministic → rejected ([ADR 0003](../decisions/0003-mapgen-determinism.md)); allowed for client cosmetics only.
