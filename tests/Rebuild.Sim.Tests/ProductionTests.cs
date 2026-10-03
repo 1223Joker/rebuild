@@ -136,6 +136,39 @@ public class ProductionTests
     }
 
     [Fact]
+    public void Storage_capacities_are_compiled_from_data()
+    {
+        Assert.Equal(500, BuildingCatalog.All[BuildingIds.Castle].StorageCapacity);
+        Assert.Equal(300, BuildingCatalog.All[BuildingIds.Storehouse].StorageCapacity);
+        Assert.All(BuildingCatalog.All.Where(d => !d.IsStorage), d => Assert.Equal(0, d.StorageCapacity));
+        Assert.True(GoodCatalog.All.Sum(g => g.StartStock) < BuildingCatalog.All[BuildingIds.Castle].StorageCapacity);
+    }
+
+    [Fact]
+    public void A_woodcutter_works_until_its_pile_is_full_when_no_storage_has_room()
+    {
+        var sim = Simulation.Create(TwoPlayers());
+        int id = Woodcutter(sim, trees: 14);
+        var stock = sim.Buildings.StockAt(CastleIndex(sim))!;
+        int capacity = BuildingCatalog.All[BuildingIds.Castle].StorageCapacity;
+        stock[GoodIds.Stone] += capacity - 2 - stock.Sum(); // room for two more units
+        int cycle = ConstructionTests.Get(sim, id).Definition.Production!.CycleTicks;
+        RunTicks(sim, 12 * cycle);
+        // Two logs reached the castle; the rest filled the pile, then the woodcutter paused.
+        Assert.Equal(capacity, stock.Sum());
+        Assert.Equal(2, stock[GoodIds.Log]);
+        Assert.Equal(new[] { Production.OutputCap }, sim.Buildings.PilesOf(id));
+        Assert.Equal(0, ConstructionTests.Get(sim, id).Cycle);
+        Assert.DoesNotContain(sim.Logistics.All, j => j.Kind == JobKind.Transport);
+        // Room in storage again: the overflow resumes and the woodcutter works on.
+        stock[GoodIds.Stone] -= 5;
+        RunTicks(sim, 3 * cycle);
+        Assert.Equal(7, stock[GoodIds.Log]);
+        Assert.Equal(capacity, stock.Sum());
+        Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
+    }
+
+    [Fact]
     public void Woodcutter_and_sawmill_turn_trees_into_planks()
     {
         var sim = Simulation.Create(TwoPlayers(3));
@@ -491,7 +524,7 @@ public class ProductionTests
         return true;
     }
 
-    /// <summary>Food goods a mine accepts in its one food pile.</summary>
+    /// <summary>Food goods; mines no longer eat any (user, 2026-10-03).</summary>
     private static readonly int[] Food = { GoodIds.Fish, GoodIds.Meat, GoodIds.Bread };
 
     /// <summary>Places and completes a mine with its deposit in reach on the first seed whose start area allows it.</summary>
@@ -522,11 +555,8 @@ public class ProductionTests
             var p = def.Production!;
             Assert.Equal(BuildingTerrain.Mountain, def.Terrain);
             Assert.Equal((harvest, 3, (ushort)output), (p.Harvest, p.Radius, p.Output));
-            Assert.Equal(new[] { 1 }, p.InputAmounts);
-            Assert.Equal(Food.Select(g => (ushort)g), p.Alternatives.Single());
-            Assert.Equal((ushort)GoodIds.Fish, p.Inputs.Single());
-            Assert.All(Food, g => Assert.Equal(0, p.InputIndexOf(g)));
-            Assert.Equal(-1, p.InputIndexOf(GoodIds.Grain));
+            Assert.Empty(p.Inputs); // no work ration (user, 2026-10-03)
+            Assert.Equal((ushort)GoodIds.Pickaxe, p.Tool);
             Assert.True(Harvest.IsConsumed(harvest) && Harvest.IsResource(harvest));
         }
         Assert.Equal(new[] { (ushort)GoodIds.Log }, BuildingCatalog.All[BuildingIds.Sawmill].Production!.Alternatives.Single());
@@ -536,15 +566,10 @@ public class ProductionTests
     [Theory]
     [InlineData(BuildingIds.CoalMine, GoodIds.Coal, Resource.Coal)]
     [InlineData(BuildingIds.IronMine, GoodIds.IronOre, Resource.Iron)]
-    public void A_mine_eats_any_food_and_digs_its_deposit(ushort type, int output, Resource ore)
+    public void A_mine_digs_its_deposit_without_food(ushort type, int output, Resource ore)
     {
         var (sim, id) = Mine(type);
-        var stock = sim.Buildings.StockAt(CastleIndex(sim))!;
-        stock[GoodIds.Fish] = 0;
-        stock[GoodIds.Meat] = 2;
-        stock[GoodIds.Bread] = 3; // two kinds left in storage, the pile takes both
-        // + food already in the pile, on the way or feeding a running cycle
-        int food = Food.Sum(g => Units(sim, 0, g)) + sim.Buildings.PilesOf(id)![0] + Consumed(sim, id);
+        int food = Food.Sum(g => Units(sim, 0, g));
         var b = ConstructionTests.Get(sim, id);
         var p = b.Definition.Production!;
         int nearest = Production.FindHarvest(sim.Map, sim.Territory, b, p);
@@ -552,22 +577,18 @@ public class ProductionTests
         int amount = sim.Map.Amount[nearest];
         Assert.True(amount >= 2);
         int before = Units(sim, 0, output);
-        int maxPile = 0;
-        for (int turn = 0; turn < 14 * p.CycleTicks / Simulation.TicksPerTurn; turn++)
+        for (int turn = 0; turn < 4 * p.CycleTicks / Simulation.TicksPerTurn; turn++)
         {
             Run(sim);
-            int onTheWay = sim.Logistics.All.Count(j => j.DestinationId == id);
-            Assert.All(sim.Logistics.All.Where(j => j.DestinationId == id), j => Assert.Contains((int)j.Good, Food));
-            maxPile = System.Math.Max(maxPile, sim.Buildings.PilesOf(id)![0] + onTheWay);
+            Assert.DoesNotContain(sim.Logistics.All, j => j.DestinationId == id && j.Kind == JobKind.Transport);
         }
-        Assert.InRange(maxPile, 1, Production.InputTarget);
-        // Every food unit became one unit of ore (or feeds the running cycle); nothing else was eaten.
-        Assert.Equal(food, Units(sim, 0, output) - before + Consumed(sim, id));
-        Assert.Equal(0, Food.Sum(g => Units(sim, 0, g)) + sim.Buildings.PilesOf(id)![0]);
-        Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
-        // The deposit lost the units, nearest tile first, and the changes survive save and load.
-        Assert.Equal(System.Math.Max(0, amount - food), sim.Map.Amount[nearest]);
+        // Every dug unit came from the deposit, nearest tile first; no food was touched.
+        int dug = Units(sim, 0, output) - before;
+        Assert.InRange(dug, 2, 4);
+        Assert.Equal(food, Food.Sum(g => Units(sim, 0, g)));
+        Assert.Equal(System.Math.Max(0, amount - dug), sim.Map.Amount[nearest]);
         Assert.Contains(nearest, sim.MapChanges.Tiles);
+        Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
         var loaded = Simulation.Load(sim.Save());
         Assert.Equal(sim.Map.Resource, loaded.Map.Resource);
         Assert.Equal(sim.Map.Amount, loaded.Map.Amount);
@@ -591,24 +612,19 @@ public class ProductionTests
             }
         }
         Assert.InRange(tiles.Count, 4, 30);
-        var stock = sim.Buildings.StockAt(CastleIndex(sim))!;
-        stock[GoodIds.Fish] = 40;
-        int food = Food.Sum(g => Units(sim, 0, g)) + sim.Buildings.PilesOf(id)![0];
         int before = Units(sim, 0, GoodIds.Coal);
         RunTicks(sim, (tiles.Count + 3) * p.CycleTicks);
         Assert.Equal(tiles.Count, Units(sim, 0, GoodIds.Coal) - before);
         Assert.All(tiles, t => Assert.Equal(((byte)Resource.None, (byte)0), (sim.Map.Resource[t], sim.Map.Amount[t])));
         Assert.Equal(-1, Production.FindHarvest(sim.Map, sim.Territory, b, p));
         Assert.Equal(0, ConstructionTests.Get(sim, id).Cycle); // idle: no cycle starts without ore
-        Assert.Equal(Production.InputTarget, sim.Buildings.PilesOf(id)![0]); // the food waits in its pile
-        Assert.Equal(food - tiles.Count, Food.Sum(g => Units(sim, 0, g)) + Production.InputTarget);
     }
 
     [Fact]
     public void Corrupt_ore_changes_are_rejected_on_load()
     {
         var (sim, _) = Mine(BuildingIds.CoalMine);
-        while (sim.MapChanges.Tiles.Count == 0) Run(sim); // the first cycle starts once food arrives
+        while (sim.MapChanges.Tiles.Count == 0) Run(sim); // the first cycle starts once the miner is inside
         Assert.Single(sim.MapChanges.Tiles);
         var w = new CanonicalWriter(64);
         sim.MapChanges.WriteTo(w, sim.Map);

@@ -7,7 +7,7 @@ User request (2026-10-03, [USER-ANSWERS](handoff/USER-ANSWERS.md)): "every perso
 All numbers are ASSUMPTIONS (balancing starting points for the Rivermen baseline), stored in `data/*.json`, integer only. 1 s = 10 ticks ([ADR 0006](decisions/0006-sim-core-conventions.md)).
 
 ## 1. Population needs
-Every settler — carrier, specialist, builder, soldier — needs **a bed, food and water**, and in winter **heat**. Mines keep their per-cycle work ration on top (heavy work, [06-economy §1](06-economy.md)); they are no longer the only food consumers.
+Every settler — carrier, specialist, builder, soldier — needs **a bed, food and water**, and in winter **heat**. Mines no longer eat a per-cycle work ration (user 2026-10-03, removed in M2 step 14); their miners eat at home like everyone else.
 
 ### 1.1 Housing
 | Rule | Value |

@@ -9,7 +9,7 @@ namespace Rebuild.Sim.World;
 /// ring buffer of the last <see cref="Minutes"/> minutes, plus match totals. A unit is <i>produced</i> when a production
 /// cycle puts it into an output pile; it is <i>consumed</i> when a carrier hands it over to a consumer — an input pile of a
 /// production building or a construction site (ASSUMPTION: counted at hand-over rather than at cycle start, because an
-/// input pile with alternatives, such as a mine's food pile, does not remember which good it holds; refunds of a
+/// input pile with alternatives ("a|b|c" in data) does not remember which good it holds; refunds of a
 /// cancelled site and units lost with a demolished building are not counted). Household food, water and fuel come with
 /// needs (docs/12-needs-seasons-weather.md). Used by the UI and the AI (docs/05-ai.md).
 /// Minute m covers ticks [m·<see cref="TicksPerMinute"/>, (m+1)·<see cref="TicksPerMinute"/>) and lives in slot

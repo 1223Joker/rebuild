@@ -24,7 +24,7 @@ public enum BuildingTerrain : byte
 public sealed class BuildingDefinition
 {
     public BuildingDefinition(int index, string id, string name, BuildingSize size, BuildingTerrain terrain,
-        int territoryRadius, int costPlanks, int costStone, bool playerPlaceable, bool isStorage, int carriers,
+        int territoryRadius, int costPlanks, int costStone, bool playerPlaceable, int storageCapacity, int carriers,
         ProductionDefinition? production = null)
     {
         Index = index;
@@ -36,7 +36,7 @@ public sealed class BuildingDefinition
         CostPlanks = costPlanks;
         CostStone = costStone;
         PlayerPlaceable = playerPlaceable;
-        IsStorage = isStorage;
+        StorageCapacity = storageCapacity;
         Carriers = carriers;
         Production = production;
     }
@@ -53,8 +53,13 @@ public sealed class BuildingDefinition
     public int CostStone { get; }
     /// <summary>False for buildings only the sim creates (the start castle).</summary>
     public bool PlayerPlaceable { get; }
+    /// <summary>
+    /// Units (all goods together) a complete storage accepts as output overflow (data <c>"storage"</c>); 0 = no storage.
+    /// Returned units (refunds, tools of freed workers, units whose destination vanished) may exceed it (ASSUMPTION).
+    /// </summary>
+    public int StorageCapacity { get; }
     /// <summary>Holds a goods stock once complete (castle, storehouse).</summary>
-    public bool IsStorage { get; }
+    public bool IsStorage => StorageCapacity > 0;
     /// <summary>
     /// Carriers homed at the complete building (castle 30, residence 10): one more spawns every
     /// <see cref="World.Settlers.SpawnIntervalTicks"/> while fewer live; the start castle starts full (docs/06-economy.md §3).
@@ -138,7 +143,7 @@ public static class Harvest
 /// <summary>
 /// Work cycle of a production building (data/buildings.json <c>"production"</c>): at the start it takes
 /// <see cref="InputAmounts"/>[k] units from input pile k, which holds any of the goods <see cref="Alternatives"/>[k]
-/// (one good, or alternatives such as a mine's fish/meat/bread written <c>"fish|meat|bread"</c>); after <see cref="CycleTicks"/> ticks
+/// (one good, or alternatives written <c>"a|b|c"</c>, kept for the planned home fuel pile, docs/12-needs-seasons-weather.md §2); after <see cref="CycleTicks"/> ticks
 /// it takes one unit of the <see cref="Harvest"/> source within <see cref="Radius"/> tiles (if any and consumed) and puts
 /// one <see cref="Output"/> unit into its output pile, or — for a planter such as the forester — puts a
 /// <see cref="Plant"/> object on a free tile within <see cref="Radius"/> instead (World.Production). A smith has several
@@ -198,7 +203,7 @@ public sealed class ProductionDefinition
 
     /// <summary>First good of each input pile (at most two piles); the pile's only good unless it has alternatives.</summary>
     public IReadOnlyList<ushort> Inputs { get; }
-    /// <summary>Goods each input pile accepts, in data order (one, or the alternatives of a mine's food pile).</summary>
+    /// <summary>Goods each input pile accepts, in data order (one, or alternatives written "a|b|c").</summary>
     public IReadOnlyList<IReadOnlyList<ushort>> Alternatives { get; }
     /// <summary>Units of each input one cycle consumes.</summary>
     public IReadOnlyList<int> InputAmounts { get; }

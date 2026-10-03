@@ -24,7 +24,7 @@
 
 ## Decision
 **(B) + (W2)**, specified in [12-needs-seasons-weather](../12-needs-seasons-weather.md):
-- Every settler has a home bed; homes hold food, water and fuel piles refilled by logistics; integer need counters per home; shortage states Short/Crisis reduce work and finally make settlers leave. Mines keep their work ration on top.
+- Every settler has a home bed; homes hold food, water and fuel piles refilled by logistics; integer need counters per home; shortage states Short/Crisis reduce work and finally make settlers leave. Mines eat no work ration (user 2026-10-03, superseding the earlier "mines keep their work ration").
 - A tick-derived calendar with four seasons (lobby: Off/Short/Normal/Long); winter heating burns log/coal per building size.
 - Weather events from a new RNG stream `Weather` (extends the stream list of ADR 0006 without changing existing streams), forecast 60 s ahead; Blizzard and Thunderstorm make war impossible through **exposure**: units outside a shelter lose HP every second until they die, so the player must bring armies into shelters in time (user clarification 2026-10-03; new command `SeekShelter`, new building Bivouac); lightning, fire, floods, gales, droughts, fog, hail, deep frost and two positive events. Lobby: Weather Off/Mild/Harsh.
 - Cultures differ by plain numeric modifiers plus food/fuel values per good and two byproducts (Riders' kumis, dung).

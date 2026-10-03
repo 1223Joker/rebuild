@@ -23,6 +23,8 @@ namespace Rebuild.Analyzers
 
         /// <summary>Upper bound of radius, cost and carrier values (they are serialized as one byte).</summary>
         private const long MaxSmallValue = 255;
+        /// <summary>Largest storage capacity (units of all goods together).</summary>
+        private const long MaxStorage = 100000;
 
         public void Initialize(IncrementalGeneratorInitializationContext context)
         {
@@ -50,7 +52,8 @@ namespace Rebuild.Analyzers
             public long Planks;
             public long Stone;
             public bool PlayerPlaceable = true;
-            public bool Storage;
+            /// <summary>Stock capacity in units once complete; 0 = no storage.</summary>
+            public long Storage;
             public long Carriers;
             public Production? Production;
         }
@@ -131,7 +134,7 @@ namespace Rebuild.Analyzers
                   .Append(b.Planks.ToString(CultureInfo.InvariantCulture)).Append(", ")
                   .Append(b.Stone.ToString(CultureInfo.InvariantCulture)).Append(", ")
                   .Append(b.PlayerPlaceable ? "true" : "false").Append(", ")
-                  .Append(b.Storage ? "true" : "false").Append(", ")
+                  .Append(b.Storage.ToString(CultureInfo.InvariantCulture)).Append(", ")
                   .Append(b.Carriers.ToString(CultureInfo.InvariantCulture)).Append(", ")
                   .Append(ProductionLiteral(b.Production)).AppendLine("),");
             }
@@ -211,7 +214,10 @@ namespace Rebuild.Analyzers
                         }
                         break;
                     case "player_placeable": b.PlayerPlaceable = (bool)kv.Value!; break;
-                    case "storage": b.Storage = (bool)kv.Value!; break;
+                    case "storage":
+                        b.Storage = (long)kv.Value!;
+                        if (b.Storage < 1 || b.Storage > MaxStorage) throw new FormatException("'storage' must be 1.." + MaxStorage);
+                        break;
                     case "carriers": b.Carriers = Small(kv); break;
                     case "production": b.Production = ReadProduction((List<KeyValuePair<string, object?>>)kv.Value!); break;
                     default: throw new FormatException("unknown field '" + kv.Key + "'");
@@ -224,7 +230,7 @@ namespace Rebuild.Analyzers
             if (b.Size.Length == 0) throw new FormatException("'" + b.Id + "' has no size");
             if (b.Placement.Length == 0) throw new FormatException("'" + b.Id + "' has no placement");
             if (b.Name.Length == 0) b.Name = b.Id;
-            if (b.Production != null && b.Storage) throw new FormatException("'" + b.Id + "' cannot be both storage and production");
+            if (b.Production != null && b.Storage > 0) throw new FormatException("'" + b.Id + "' cannot be both storage and production");
             return b;
         }
 
@@ -240,7 +246,7 @@ namespace Rebuild.Analyzers
                         {
                             long amount = (long)g.Value!;
                             if (amount < 1 || amount > MaxInputAmount) throw new FormatException("input '" + g.Key + "' must be 1.." + MaxInputAmount.ToString(CultureInfo.InvariantCulture));
-                            // "a|b|c": one input pile that accepts any of the alternative goods (mine food).
+                            // "a|b|c": one input pile that accepts any of the alternative goods.
                             var taken = p.Inputs.SelectMany(other => other.Key.Split('|')).ToList();
                             foreach (string good in g.Key.Split('|'))
                             {

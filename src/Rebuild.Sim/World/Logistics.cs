@@ -45,12 +45,12 @@ public readonly record struct TransportJob(int Id, byte Owner, int CarrierId, us
 /// its tool to the nearest storage like a carried unit (no tool: the carrier just stops); so does a worker whose building is
 /// demolished (<see cref="ReleaseWorker"/>). Requests: construction sites (missing planks and stone), production
 /// buildings (input piles refilled to <see cref="Production.InputTarget"/>) and output overflow (every unit left in an
-/// output pile goes to a storage). Offers: storage stocks and output piles. Matching runs every tick after production and
+/// output pile goes to a storage with room, see <see cref="BuildingDefinition.StorageCapacity"/>). Offers: storage stocks and output piles. Matching runs every tick after production and
 /// before movement, in three passes over the buildings in id order (older first): site materials (planks, then stone),
-/// production inputs (data order; a pile with alternative goods, such as a mine's food, takes any of them), then
+/// production inputs (data order; a pile with alternative goods takes any of them), then
 /// overflow. Each request takes the owner's offer of the good nearest to the
 /// requester by <see cref="SectorDistance"/> (ties: lower id; never the requester itself), overflow the owner's nearest
-/// storage; then the owner's idle carrier nearest to the source (ties: lower id); at most <see cref="MaxMatchesPerTick"/>
+/// storage with room; then the owner's idle carrier nearest to the source (ties: lower id); at most <see cref="MaxMatchesPerTick"/>
 /// jobs per tick. A matched unit leaves the source stock or pile at once (reservation). Carriers execute their job inside
 /// <see cref="Settlers.Step"/> via <see cref="Advance"/>: walk to the source door, pick up, walk to the destination door,
 /// hand over. A pickup whose destination vanished or that cannot be reached returns the unit to its source; a carried
@@ -181,6 +181,29 @@ public sealed class Logistics
         return pending;
     }
 
+    /// <summary>
+    /// Units each storage still takes as overflow, by building list index: <see cref="BuildingDefinition.StorageCapacity"/>
+    /// − stock − units on the way to it (0 for other buildings; may be negative after returns).
+    /// </summary>
+    private int[] Room(BuildingRegistry buildings)
+    {
+        var room = new int[buildings.All.Count];
+        for (int i = 0; i < room.Length; i++)
+        {
+            var stock = buildings.StockAt(i);
+            if (stock == null) continue;
+            room[i] = buildings.All[i].Definition.StorageCapacity;
+            foreach (int units in stock) room[i] -= units;
+        }
+        foreach (var job in _jobs)
+        {
+            if (job.Kind != JobKind.Transport) continue;
+            int index = buildings.IndexOf(job.DestinationId);
+            if (index >= 0 && buildings.StockAt(index) != null) room[index]--;
+        }
+        return room;
+    }
+
     /// <summary>Units reserved from each building's stock or output pile by jobs not yet picked up, by building list index.</summary>
     internal int[] ReservedOutput(BuildingRegistry buildings)
     {
@@ -227,6 +250,7 @@ public sealed class Logistics
             if (TryCreate(buildings, settlers, idle, b.Owner, p.Tool, source, i, JobKind.Employ)) matches++;
             else noCarrier[b.Owner] = true;
         }
+        int[]? room = null;
         for (int pass = 0; pass < 3; pass++)
         {
             for (int i = 0; i < all.Count && matches < MaxMatchesPerTick && idle.Count > 0; i++)
@@ -237,19 +261,22 @@ public sealed class Logistics
                 int tile = b.CenterY * _edge + b.CenterX;
                 if (pass == 2)
                 {
-                    // Overflow: every unit left in an output pile goes to the nearest storage (output piles in data order).
+                    // Overflow: every unit left in an output pile goes to the nearest storage with room (output piles in data
+                    // order); with none, it stays and the full pile pauses the building.
                     var piles = buildings.PilesAt(i);
                     if (piles == null) continue;
                     for (int o = p!.Inputs.Count; o < piles.Length && !noCarrier[b.Owner]; o++)
                         while (piles[o] > 0 && matches < MaxMatchesPerTick)
                         {
-                            int storage = NearestStorage(buildings, b.Owner, good: -1, tile);
+                            room ??= Room(buildings);
+                            int storage = NearestStorage(buildings, b.Owner, good: -1, tile, room);
                             if (storage < 0) break;
                             if (!TryCreate(buildings, settlers, idle, b.Owner, p.Outputs[o - p.Inputs.Count], i, storage))
                             {
                                 noCarrier[b.Owner] = true;
                                 break;
                             }
+                            room[storage]--;
                             matches++;
                         }
                     continue;
@@ -357,9 +384,10 @@ public sealed class Logistics
 
     /// <summary>
     /// List index of the owner's complete storage building nearest to <paramref name="tile"/> by sector distance
-    /// (ties: lower id) whose stock holds <paramref name="good"/> (any storage if good &lt; 0), or -1.
+    /// (ties: lower id) whose stock holds <paramref name="good"/> (any storage if good &lt; 0) and, if
+    /// <paramref name="room"/> is given, that has room left (see <see cref="Room"/>), or -1.
     /// </summary>
-    private int NearestStorage(BuildingRegistry buildings, byte owner, int good, int tile)
+    private int NearestStorage(BuildingRegistry buildings, byte owner, int good, int tile, int[]? room = null)
     {
         var all = buildings.All;
         int best = -1, bestDistance = int.MaxValue;
@@ -367,7 +395,7 @@ public sealed class Logistics
         {
             if (all[i].Owner != owner) continue;
             var stock = buildings.StockAt(i);
-            if (stock == null || (good >= 0 && stock[good] <= 0) || IsUnreachable(all[i].Id)) continue;
+            if (stock == null || (good >= 0 && stock[good] <= 0) || (room != null && room[i] <= 0) || IsUnreachable(all[i].Id)) continue;
             int d = SectorDistance(_edge, all[i].CenterY * _edge + all[i].CenterX, tile);
             if (d < bestDistance)
             {
