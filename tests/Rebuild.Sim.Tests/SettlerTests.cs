@@ -133,9 +133,9 @@ public class SettlerTests
     public void Start_castles_spawn_their_carriers_at_the_door()
     {
         var sim = Simulation.Create(TwoPlayers());
-        int perCastle = BuildingCatalog.All[BuildingIds.Castle].Carriers;
+        int perCastle = BuildingCatalog.All[BuildingIds.Castle].Beds;
         Assert.Equal(30, perCastle);
-        Assert.Equal(10, BuildingCatalog.All[BuildingIds.Residence].Carriers);
+        Assert.Equal(10, BuildingCatalog.All[BuildingIds.Residence].Beds);
         Assert.Equal(2 * perCastle, sim.Settlers.All.Count);
         foreach (var castle in sim.Buildings.All)
         {

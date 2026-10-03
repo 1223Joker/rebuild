@@ -37,7 +37,7 @@ public readonly record struct Building(int Id, ushort Type, byte Owner, int X, i
 /// wall off a passage between them (ASSUMPTION, docs/06-economy.md §1). Complete storage buildings
 /// (<see cref="BuildingDefinition.IsStorage"/>) own a goods stock, one count per good in <see cref="GoodCatalog"/>;
 /// complete production buildings (<see cref="BuildingDefinition.Production"/>) own piles: one per input, then one output
-/// pile per <see cref="ProductionDefinition.Outputs"/> entry. Complete homes (<see cref="BuildingDefinition.Carriers"/> &gt; 0)
+/// pile per <see cref="ProductionDefinition.Outputs"/> entry. Complete homes (<see cref="BuildingDefinition.Beds"/> &gt; 0)
 /// own <see cref="Households"/> need counters, and those without a stock two pantry piles (food, water) as their piles.
 /// </summary>
 public sealed class BuildingRegistry
@@ -111,7 +111,7 @@ public sealed class BuildingRegistry
     internal int[]? NeedsAt(int index) => _needs[index];
 
     /// <summary>Whether the building is a complete home (has beds).</summary>
-    public static bool IsHome(in Building b) => b.State == BuildingState.Complete && b.Definition.Carriers > 0;
+    public static bool IsHome(in Building b) => b.State == BuildingState.Complete && b.Definition.Beds > 0;
 
     /// <summary>Whether the building is a complete home without a stock, eating from two pantry piles.</summary>
     public static bool HasPantry(in Building b) => IsHome(b) && !b.Definition.IsStorage;

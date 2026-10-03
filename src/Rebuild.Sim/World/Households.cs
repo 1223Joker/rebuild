@@ -15,8 +15,11 @@ public enum NeedState : byte
 
 /// <summary>
 /// Food and water of every home (docs/12-needs-seasons-weather.md §1.2–1.3), run every tick after production and before
-/// logistics. A home is a complete building with beds (<see cref="Buildings.BuildingDefinition.Carriers"/>); its occupants
-/// are the carriers it homes (ASSUMPTION: workers eat nothing until they live in homes, housing step). Needs are counted per
+/// logistics. A home is a complete building with beds (<see cref="Buildings.BuildingDefinition.Beds"/>); its occupants
+/// are the settlers it homes, carriers and workers (§1.1). A settler whose home is gone is homeless: every tick it takes a
+/// free bed in the owner's home nearest to it (<see cref="Logistics.SectorDistance"/>, ties lower id) if there is one;
+/// after <see cref="HomelessTicks"/> without a bed a worker leaves its workplace as a carrier bringing its tool back, and a
+/// carrier without a job leaves the map (one with a job finishes it first). Homeless settlers eat nothing. Needs are counted per
 /// home, not per settler: every tick each need's due counter grows by the occupant count, and once it reaches the need's
 /// period (<see cref="FoodTicks"/>, <see cref="WaterTicks"/> per settler) one unit is eaten — from the home's own stock if it
 /// is a storage (the castle: the food good it holds most of, ties data order), else from its pantry pile, which
@@ -38,6 +41,8 @@ public static class Households
     public static readonly int[] CrisisTicks = { 1800, 1200 };
     /// <summary>Ticks between two occupants leaving a home in Crisis (60 s).</summary>
     public const int LeaveIntervalTicks = 600;
+    /// <summary>Ticks a homeless settler looks for a free bed before it leaves (120 s).</summary>
+    public const int HomelessTicks = 1200;
 
     /// <summary>Food goods (ponytail: fixed list; culture data when a second culture needs other food).</summary>
     public static readonly ushort[] FoodGoods = { (ushort)GoodIds.Fish, (ushort)GoodIds.Meat, (ushort)GoodIds.Bread };
@@ -65,15 +70,29 @@ public static class Households
         return food > water ? food : water;
     }
 
-    /// <summary>Runs one tick of eating and drinking.</summary>
-    public static void Step(BuildingRegistry buildings, Settlers settlers, ProductionStatistics statistics)
+    /// <summary>Runs one tick of re-housing, eating and drinking.</summary>
+    public static void Step(int edge, BuildingRegistry buildings, Settlers settlers, Logistics logistics, ProductionStatistics statistics)
     {
         var all = buildings.All;
-        var occupants = new int[all.Count];
-        foreach (var s in settlers.All)
+        var occupants = settlers.Occupants(buildings);
+        for (int i = settlers.All.Count - 1; i >= 0; i--)
         {
-            int index = s.Kind == SettlerKind.Carrier ? buildings.IndexOf(s.HomeId) : -1;
-            if (index >= 0) occupants[index]++;
+            var s = settlers.All[i];
+            int home = buildings.IndexOf(s.HomeId);
+            if (home >= 0 && BuildingRegistry.IsHome(all[home])) continue;
+            int bed = FreeBed(edge, buildings, occupants, s);
+            if (bed >= 0)
+            {
+                occupants[bed]++;
+                settlers.Replace(i, s with { HomeId = all[bed].Id, HomelessTicks = 0 });
+                continue;
+            }
+            if (s.HomelessTicks < HomelessTicks)
+                settlers.Replace(i, s with { HomelessTicks = s.HomelessTicks + 1 });
+            else if (s.Kind == SettlerKind.Worker)
+                logistics.ReleaseWorkerAt(buildings, settlers, i);
+            else if (s.JobId == 0)
+                settlers.RemoveAt(i);
         }
         for (int i = 0; i < all.Count; i++)
         {
@@ -94,8 +113,22 @@ public static class Households
                 int crisis = ++n[2 + need] - ShortTicks[need] - CrisisTicks[need];
                 if (crisis >= 0 && crisis % LeaveIntervalTicks == 0) leave = true;
             }
-            if (leave) Leave(settlers, all[i].Id);
+            if (leave) Leave(buildings, settlers, logistics, all[i].Id);
         }
+    }
+
+    /// <summary>List index of the owner's home with a free bed nearest to the settler (ties lower id), or -1.</summary>
+    private static int FreeBed(int edge, BuildingRegistry buildings, int[] occupants, in Settler s)
+    {
+        int best = -1, bestDistance = int.MaxValue;
+        for (int i = 0; i < occupants.Length; i++)
+        {
+            var b = buildings.All[i];
+            if (b.Owner != s.Owner || !BuildingRegistry.IsHome(b) || occupants[i] >= b.Definition.Beds) continue;
+            int d = Logistics.SectorDistance(edge, s.Tile, b.CenterY * edge + b.CenterX);
+            if (d < bestDistance) (best, bestDistance) = (i, d);
+        }
+        return best;
     }
 
     /// <summary>Eats one unit of the need from the home's stock or pantry pile; false if there is none.</summary>
@@ -118,15 +151,27 @@ public static class Households
         return true;
     }
 
-    /// <summary>The highest-id carrier of the home without a transport job leaves the map (none free: nobody leaves).</summary>
-    private static void Leave(Settlers settlers, int homeId)
+    /// <summary>
+    /// The highest-id carrier of the home without a transport job leaves the map; with none, the highest-id worker of the
+    /// home leaves its workplace as a carrier bringing its tool back (it can leave the map next time).
+    /// </summary>
+    private static void Leave(BuildingRegistry buildings, Settlers settlers, Logistics logistics, int homeId)
     {
+        int worker = -1;
         for (int i = settlers.All.Count - 1; i >= 0; i--)
         {
             var s = settlers.All[i];
-            if (s.Kind != SettlerKind.Carrier || s.HomeId != homeId || s.JobId != 0) continue;
-            settlers.RemoveAt(i);
-            return;
+            if (s.HomeId != homeId) continue;
+            if (s.Kind == SettlerKind.Worker)
+            {
+                if (worker < 0) worker = i;
+            }
+            else if (s.JobId == 0)
+            {
+                settlers.RemoveAt(i);
+                return;
+            }
         }
+        if (worker >= 0) logistics.ReleaseWorkerAt(buildings, settlers, worker);
     }
 }

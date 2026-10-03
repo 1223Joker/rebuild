@@ -92,7 +92,7 @@ public class ConstructionTests
 
     /// <summary>Whether the production building has its worker inside.</summary>
     internal static bool HasWorker(Simulation sim, int id) =>
-        sim.Settlers.All.Any(s => s.Kind == SettlerKind.Worker && s.HomeId == id);
+        sim.Settlers.All.Any(s => s.Kind == SettlerKind.Worker && s.WorkplaceId == id);
 
     /// <summary>Runs turns until the production building's worker is inside; fails after <paramref name="maxTurns"/>.</summary>
     internal static void RunUntilWorking(Simulation sim, int id, int maxTurns = 1000)

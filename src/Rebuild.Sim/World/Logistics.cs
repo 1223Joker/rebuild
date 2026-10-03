@@ -233,7 +233,7 @@ public sealed class Logistics
         for (int i = 0; i < settlers.All.Count; i++)
         {
             var s = settlers.All[i];
-            if (s.Kind == SettlerKind.Carrier && s.JobId == 0 && s.State == SettlerState.Idle) idle.Add(i);
+            if (s.Kind == SettlerKind.Carrier && s.JobId == 0 && s.State == SettlerState.Idle && s.HomelessTicks == 0) idle.Add(i);
         }
         var noCarrier = new bool[256];
         int matches = 0;
@@ -480,7 +480,7 @@ public sealed class Logistics
                 if (door == s.Tile && job.Kind == JobKind.Employ)
                 {
                     // The carrier enters as the building's worker and keeps its tool.
-                    return Finish(s, j) with { Kind = SettlerKind.Worker, HomeId = target.Id };
+                    return Finish(s, j) with { Kind = SettlerKind.Worker, WorkplaceId = target.Id };
                 }
                 if (door == s.Tile)
                 {
@@ -509,22 +509,28 @@ public sealed class Logistics
     /// </summary>
     internal void ReleaseWorker(BuildingRegistry buildings, Settlers settlers, int buildingId)
     {
-        if (!buildings.TryGet(buildingId, out var b) || b.Definition.Production is not { } p) return;
         for (int i = 0; i < settlers.All.Count; i++)
-        {
-            var s = settlers.All[i];
-            if (s.Kind != SettlerKind.Worker || s.HomeId != buildingId) continue;
-            s = s with { Kind = SettlerKind.Carrier, WaitTicks = Settlers.MinIdleTicks };
-            int storage = p.Tool == ProductionDefinition.NoTool ? -1 : NearestStorage(buildings, s.Owner, good: -1, s.Tile);
-            if (storage >= 0)
+            if (settlers.All[i].Kind == SettlerKind.Worker && settlers.All[i].WorkplaceId == buildingId)
             {
-                var job = new TransportJob(NextId++, s.Owner, s.Id, p.Tool, buildingId, buildings.All[storage].Id, JobState.Carrying);
-                _jobs.Add(job);
-                s = s with { JobId = job.Id, WaitTicks = 0 };
+                ReleaseWorkerAt(buildings, settlers, i);
+                return;
             }
-            settlers.Replace(i, s);
-            return;
+    }
+
+    /// <summary>Brings the worker at settler list index <paramref name="index"/> out of its workplace as in <see cref="ReleaseWorker"/>.</summary>
+    internal void ReleaseWorkerAt(BuildingRegistry buildings, Settlers settlers, int index)
+    {
+        var s = settlers.All[index];
+        ushort tool = buildings.TryGet(s.WorkplaceId, out var b) ? b.Definition.Production!.Tool : ProductionDefinition.NoTool;
+        s = s with { Kind = SettlerKind.Carrier, WorkplaceId = 0, WaitTicks = Settlers.MinIdleTicks };
+        int storage = tool == ProductionDefinition.NoTool ? -1 : NearestStorage(buildings, s.Owner, good: -1, s.Tile);
+        if (storage >= 0)
+        {
+            var job = new TransportJob(NextId++, s.Owner, s.Id, tool, b.Id, buildings.All[storage].Id, JobState.Carrying);
+            _jobs.Add(job);
+            s = s with { JobId = job.Id, WaitTicks = 0 };
         }
+        settlers.Replace(index, s);
     }
 
     private bool Plan(Settler s, int goal, List<int> path, MapData map, Territory territory, BuildingRegistry buildings,
@@ -629,7 +635,7 @@ public sealed class Logistics
                 || job.State > JobState.Carrying || carrier < 0 || settlers.All[carrier].JobId != job.Id
                 || settlers.All[carrier].Owner != job.Owner
                 || (noTool ? job.State != JobState.Carrying || job.SourceId != job.DestinationId
-                    : source >= 0 && buildings.StockAt(source) == null
+                    : job.State == JobState.ToPickup && source >= 0 && buildings.StockAt(source) == null
                       && (job.Kind == JobKind.Employ || buildings.PilesAt(source) == null || OutputPileOf(buildings.All[source], job.Good) < 0)))
                 throw new InvalidDataException("Invalid transport job");
             lastId = job.Id;
@@ -653,7 +659,7 @@ public sealed class Logistics
         foreach (var s in settlers.All)
         {
             if (s.Kind != SettlerKind.Worker) continue;
-            int index = buildings.IndexOf(s.HomeId);
+            int index = buildings.IndexOf(s.WorkplaceId);
             if (index < 0) throw new InvalidDataException("Worker of a missing building");
             if (buildings.All[index].State != BuildingState.Complete || buildings.All[index].Definition.Production == null)
                 throw new InvalidDataException("Worker of a building that takes none");

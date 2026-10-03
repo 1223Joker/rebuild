@@ -191,7 +191,6 @@ public class LogisticsTests
             (first + 5, 0xEE),  // carrier that does not exist or has another job
             (first + 9, 0xEE),  // unknown good
             (first + 11, 0),    // source id 0
-            (first + 11, 3),    // source is the construction site (no stock)
             (first + 15, 0xEE), // unknown destination
             (first + 19, 2),    // state
         };
@@ -201,6 +200,13 @@ public class LogisticsTests
             bytes[offset] = value;
             Assert.Throws<InvalidDataException>(() => Read(bytes));
         }
+        // A pickup from the construction site (no stock); a carried unit's source no longer matters (a released worker's tool).
+        Assert.Equal(JobState.Carrying, sim.Logistics.All[0].State);
+        var site = (byte[])good.Clone();
+        site[first + 11] = 3;
+        Read(site);
+        site[first + 19] = (byte)JobState.ToPickup;
+        Assert.Throws<InvalidDataException>(() => Read(site));
         // Dropping a job leaves its carrier pointing at nothing.
         var w = new CanonicalWriter(4096);
         w.WriteInt32(sim.Logistics.NextId);

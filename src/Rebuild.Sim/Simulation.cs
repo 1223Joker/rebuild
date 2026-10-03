@@ -27,7 +27,7 @@ public sealed class Simulation
     public const int TicksPerTurn = 2;
 
     private const uint SaveMagic = 0x56415342; // "BSAV" little-endian
-    private const ushort SaveFormatVersion = 13;
+    private const ushort SaveFormatVersion = 14;
 
     private readonly PlayerState[] _players;
     private readonly PlayerCultureTable?[] _cultureTables;
@@ -151,7 +151,7 @@ public sealed class Simulation
         {
             int door = Settlers.DoorOf(b, map, buildings);
             if (door < 0) continue; // no free tile around the castle (not on a generated start plateau): no carriers
-            for (int k = 0; k < b.Definition.Carriers; k++) settlers.Spawn(b.Owner, b.Id, door);
+            for (int k = 0; k < b.Definition.Beds; k++) settlers.Spawn(b.Owner, b.Id, door);
         }
         return new Simulation(setup, map, map.ComputeHash(), new MapChanges(), 0, players,
             Pcg32.ForStream(setup.MatchSeed, RngStream.Economy),
@@ -196,7 +196,7 @@ public sealed class Simulation
         // then (later milestones) combat, ...
         Construction.Step(Buildings, Territory);
         Production.Step(Buildings, Map, Territory, MapChanges, Logistics, Settlers, Quotas, Statistics, Season);
-        Households.Step(Buildings, Settlers, Statistics);
+        Households.Step(Map.Edge, Buildings, Settlers, Logistics, Statistics);
         Logistics.Match(Tick, Buildings, Settlers);
         Settlers.Step(Tick, Map, Territory, Buildings, Logistics, Statistics, EconomyRng, _pathfinder);
         Tick++;

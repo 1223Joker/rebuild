@@ -11,9 +11,9 @@ public enum SettlerKind : byte
     /// <summary>Carries goods (docs/06-economy.md §3).</summary>
     Carrier = 0,
     /// <summary>
-    /// Works inside the production building <see cref="Settler.HomeId"/> (a carrier that took the building's tool; standing
-    /// at its door, never walking); comes out as a carrier bringing its tool back when the building is demolished
-    /// (<see cref="Logistics.ReleaseWorker"/>).
+    /// Works inside the production building <see cref="Settler.WorkplaceId"/> (a carrier that took the building's tool; standing
+    /// at its door, never walking) and keeps its bed at <see cref="Settler.HomeId"/>; comes out as a carrier bringing its tool
+    /// back when the building is demolished or it stayed homeless too long (<see cref="Logistics.ReleaseWorker"/>).
     /// </summary>
     Worker = 1,
 }
@@ -27,22 +27,25 @@ public enum SettlerState : byte
 }
 
 /// <summary>
-/// A settler on the tile grid. <see cref="HomeId"/> is the building that spawned a carrier (it may since have been
-/// demolished) or a worker's workplace. <see cref="Progress"/> counts sub-tile units (<see cref="Settlers.SubTile"/> per straight step)
-/// walked towards the next path tile. <see cref="JobId"/> is the carrier's <see cref="TransportJob"/> (0 = none).
+/// A settler on the tile grid. <see cref="HomeId"/> is the home whose bed it has (docs/12-needs-seasons-weather.md §1.1);
+/// once that home is gone the settler is homeless and counts <see cref="HomelessTicks"/> (<see cref="Households"/>).
+/// <see cref="WorkplaceId"/> is a worker's production building (0 for carriers). <see cref="Progress"/> counts sub-tile
+/// units (<see cref="Settlers.SubTile"/> per straight step) walked towards the next path tile. <see cref="JobId"/> is the
+/// carrier's <see cref="TransportJob"/> (0 = none).
 /// </summary>
 public readonly record struct Settler(int Id, SettlerKind Kind, byte Owner, int HomeId, int Tile, SettlerState State, int Progress, int WaitTicks,
-    int JobId = 0);
+    int JobId = 0, int WorkplaceId = 0, int HomelessTicks = 0);
 
 /// <summary>
 /// Settlers and their movement system (docs/06-economy.md §3, §6), run every tick after construction.
-/// Every <see cref="SpawnIntervalTicks"/> ticks each complete building with <c>carriers</c> in its data spawns one
-/// carrier at its door while fewer than that many carriers call it home (the start castle starts full). Settlers walk
+/// Every <see cref="SpawnIntervalTicks"/> ticks each complete home spawns one carrier at its door while it has a free bed
+/// (settlers homed there, carriers and workers, fewer than its <c>beds</c>; the start castle starts full), so beds cap the
+/// population. Settlers walk
 /// on walkable tiles of their owner's territory that no building covers, along A* paths (<see cref="Pathfinder"/>) at
 /// <see cref="Speed"/> sub-tile units per tick; diagonal steps cost 14/10 of a straight step. Settlers never collide;
 /// a settler covered by a newly placed building is put at that building's door. Workers stay inside their workplace
 /// (they do not walk to their resources yet, ASSUMPTION) and come out as carriers taking their tool to a storage when it
-/// is demolished (no building homes them then, ASSUMPTION).
+/// is demolished.
 /// Carriers with a transport job execute it via <see cref="Logistics.Advance"/>; idle carriers without one wander to a
 /// random tile within <see cref="WanderRadius"/> of their home's door (ASSUMPTION placeholder until idle carriers
 /// gather at storages).
@@ -126,7 +129,7 @@ public sealed class Settlers
         foreach (var s in _settlers)
         {
             if (s.Kind != SettlerKind.Worker) continue;
-            int index = buildings.IndexOf(s.HomeId);
+            int index = buildings.IndexOf(s.WorkplaceId);
             if (index >= 0) working[index] = true;
         }
         return working;
@@ -274,20 +277,27 @@ public sealed class Settlers
         return s with { State = SettlerState.Walking, Progress = 0 };
     }
 
-    /// <summary>Spawns one carrier at every complete building homing fewer carriers than its data allows, unless it is short of food or water (<see cref="Households"/>).</summary>
+    /// <summary>Settlers homed at each building, by list index.</summary>
+    internal int[] Occupants(BuildingRegistry buildings)
+    {
+        var occupants = new int[buildings.All.Count];
+        foreach (var s in _settlers)
+        {
+            int index = buildings.IndexOf(s.HomeId);
+            if (index >= 0) occupants[index]++;
+        }
+        return occupants;
+    }
+
+    /// <summary>Spawns one carrier at every complete home with a free bed, unless it is short of food or water (<see cref="Households"/>).</summary>
     private void Refill(MapData map, BuildingRegistry buildings)
     {
         var all = buildings.All;
-        var homed = new int[all.Count];
-        foreach (var s in _settlers)
-        {
-            int index = s.Kind == SettlerKind.Carrier ? buildings.IndexOf(s.HomeId) : -1;
-            if (index >= 0) homed[index]++;
-        }
+        var occupants = Occupants(buildings);
         for (int i = 0; i < all.Count; i++)
         {
             var b = all[i];
-            if (b.State != BuildingState.Complete || homed[i] >= b.Definition.Carriers || Households.StateAt(buildings, i) != NeedState.Supplied) continue;
+            if (!BuildingRegistry.IsHome(b) || occupants[i] >= b.Definition.Beds || Households.StateAt(buildings, i) != NeedState.Supplied) continue;
             int door = DoorOf(b, map, buildings);
             if (door >= 0) Spawn(b.Owner, b.Id, door);
         }
@@ -310,6 +320,8 @@ public sealed class Settlers
             w.WriteUInt16((ushort)s.Progress);
             w.WriteUInt16((ushort)s.WaitTicks);
             w.WriteInt32(s.JobId);
+            w.WriteInt32(s.WorkplaceId);
+            w.WriteUInt16((ushort)s.HomelessTicks);
             var path = _paths[i];
             w.WriteInt32(path.Count);
             for (int k = path.Count - 1; k >= 0; k--) w.WriteInt32(path[k]);
@@ -328,9 +340,11 @@ public sealed class Settlers
         for (int i = 0; i < count; i++)
         {
             var s = new Settler(r.ReadInt32(), (SettlerKind)r.ReadByte(), r.ReadByte(), r.ReadInt32(), r.ReadInt32(),
-                (SettlerState)r.ReadByte(), r.ReadUInt16(), r.ReadUInt16(), r.ReadInt32());
+                (SettlerState)r.ReadByte(), r.ReadUInt16(), r.ReadUInt16(), r.ReadInt32(), r.ReadInt32(), r.ReadUInt16());
             if (s.Id <= lastId || s.Id >= nextId || s.Kind > SettlerKind.Worker || s.Owner >= playerCount
-                || s.HomeId < 1 || s.HomeId >= nextBuildingId || (uint)s.Tile >= (uint)tiles || s.State > SettlerState.Walking || s.JobId < 0)
+                || s.HomeId < 1 || s.HomeId >= nextBuildingId || (uint)s.Tile >= (uint)tiles || s.State > SettlerState.Walking || s.JobId < 0
+                || (s.Kind == SettlerKind.Worker) != (s.WorkplaceId != 0) || s.WorkplaceId < 0 || s.WorkplaceId >= nextBuildingId
+                || s.HomelessTicks > Households.HomelessTicks)
                 throw new InvalidDataException("Invalid settler");
             int length = r.ReadInt32();
             if (length < 0 || length > tiles) throw new InvalidDataException("Invalid settler path length");

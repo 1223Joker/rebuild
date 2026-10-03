@@ -54,7 +54,7 @@ namespace Rebuild.Analyzers
             public bool PlayerPlaceable = true;
             /// <summary>Stock capacity in units once complete; 0 = no storage.</summary>
             public long Storage;
-            public long Carriers;
+            public long Beds;
             public Production? Production;
         }
 
@@ -135,7 +135,7 @@ namespace Rebuild.Analyzers
                   .Append(b.Stone.ToString(CultureInfo.InvariantCulture)).Append(", ")
                   .Append(b.PlayerPlaceable ? "true" : "false").Append(", ")
                   .Append(b.Storage.ToString(CultureInfo.InvariantCulture)).Append(", ")
-                  .Append(b.Carriers.ToString(CultureInfo.InvariantCulture)).Append(", ")
+                  .Append(b.Beds.ToString(CultureInfo.InvariantCulture)).Append(", ")
                   .Append(ProductionLiteral(b.Production)).AppendLine("),");
             }
             sb.AppendLine("    };");
@@ -218,7 +218,7 @@ namespace Rebuild.Analyzers
                         b.Storage = (long)kv.Value!;
                         if (b.Storage < 1 || b.Storage > MaxStorage) throw new FormatException("'storage' must be 1.." + MaxStorage);
                         break;
-                    case "carriers": b.Carriers = Small(kv); break;
+                    case "beds": b.Beds = Small(kv); break;
                     case "production": b.Production = ReadProduction((List<KeyValuePair<string, object?>>)kv.Value!); break;
                     default: throw new FormatException("unknown field '" + kv.Key + "'");
                 }

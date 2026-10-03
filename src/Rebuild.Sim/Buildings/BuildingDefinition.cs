@@ -24,7 +24,7 @@ public enum BuildingTerrain : byte
 public sealed class BuildingDefinition
 {
     public BuildingDefinition(int index, string id, string name, BuildingSize size, BuildingTerrain terrain,
-        int territoryRadius, int costPlanks, int costStone, bool playerPlaceable, int storageCapacity, int carriers,
+        int territoryRadius, int costPlanks, int costStone, bool playerPlaceable, int storageCapacity, int beds,
         ProductionDefinition? production = null)
     {
         Index = index;
@@ -37,7 +37,7 @@ public sealed class BuildingDefinition
         CostStone = costStone;
         PlayerPlaceable = playerPlaceable;
         StorageCapacity = storageCapacity;
-        Carriers = carriers;
+        Beds = beds;
         Production = production;
     }
 
@@ -61,10 +61,11 @@ public sealed class BuildingDefinition
     /// <summary>Holds a goods stock once complete (castle, storehouse).</summary>
     public bool IsStorage => StorageCapacity > 0;
     /// <summary>
-    /// Carriers homed at the complete building (castle 30, residence 10): one more spawns every
-    /// <see cref="World.Settlers.SpawnIntervalTicks"/> while fewer live; the start castle starts full (docs/06-economy.md §3).
+    /// Beds of the complete building (data <c>"beds"</c>; castle 30, residence 10): every settler homed there (carriers and
+    /// workers) takes one; one carrier spawns every <see cref="World.Settlers.SpawnIntervalTicks"/> while a bed is free; the
+    /// start castle starts full (docs/12-needs-seasons-weather.md §1.1).
     /// </summary>
-    public int Carriers { get; }
+    public int Beds { get; }
     /// <summary>Work cycle of the complete building, or null if it produces nothing (docs/06-economy.md §4).</summary>
     public ProductionDefinition? Production { get; }
     /// <summary>Plank + stone units a construction site needs.</summary>

@@ -53,7 +53,7 @@ public class WorkerTests
 
     private static int[] CastleStock(Simulation sim) => sim.Buildings.StockAt(sim.Buildings.IndexOf(1))!;
 
-    private static Settler WorkerOf(Simulation sim, int id) => sim.Settlers.All.Single(s => s.Kind == SettlerKind.Worker && s.HomeId == id);
+    private static Settler WorkerOf(Simulation sim, int id) => sim.Settlers.All.Single(s => s.Kind == SettlerKind.Worker && s.WorkplaceId == id);
 
     private static TransportJob[] EmployJobs(Simulation sim) => sim.Logistics.All.Where(j => j.Kind == JobKind.Employ).ToArray();
 
@@ -104,10 +104,11 @@ public class WorkerTests
         Assert.Equal(axes - 1, CastleStock(sim)[GoodIds.Axe]);
         Run(sim);
         Assert.True(ConstructionTests.Get(sim, id).Cycle > 0, "the cycle starts once the worker is inside");
-        // The worker stays put; the castle refills the carrier it lost.
+        // The worker stays put and keeps its castle bed, so the castle does not refill the carrier it lost.
         RunTicks(sim, Settlers.SpawnIntervalTicks);
         Assert.Equal(worker, WorkerOf(sim, id));
-        Assert.Equal(BuildingCatalog.All[BuildingIds.Castle].Carriers,
+        Assert.Equal(1, worker.HomeId);
+        Assert.Equal(BuildingCatalog.All[BuildingIds.Castle].Beds - 1,
             sim.Settlers.All.Count(s => s.Kind == SettlerKind.Carrier && s.HomeId == 1));
         var loaded = Simulation.Load(sim.Save());
         Assert.Equal(sim.ComputeHash(), loaded.ComputeHash());
@@ -162,7 +163,7 @@ public class WorkerTests
         Run(sim, BuildingCommands.Demolish(0, 1, id));
         Assert.Equal(0, sim.RejectedCommands);
         var s = sim.Settlers.All[sim.Settlers.IndexOf(worker)];
-        Assert.Equal((SettlerKind.Carrier, id), (s.Kind, s.HomeId));
+        Assert.Equal((SettlerKind.Carrier, 1, 0), (s.Kind, s.HomeId, s.WorkplaceId)); // keeps its castle bed
         Assert.DoesNotContain(sim.Settlers.All, x => x.Kind == SettlerKind.Worker);
         var job = sim.Logistics.All.Single(j => j.CarrierId == worker);
         Assert.Equal((JobKind.Transport, (ushort)GoodIds.Axe, id, 1, JobState.Carrying),
@@ -211,7 +212,7 @@ public class WorkerTests
     private static int SettlerOffset(Simulation sim, int index)
     {
         int offset = 8; // next id, count
-        for (int i = 0; i < index; i++) offset += 27 + 4 * sim.Settlers.PathAt(i).Count;
+        for (int i = 0; i < index; i++) offset += 33 + 4 * sim.Settlers.PathAt(i).Count;
         return offset;
     }
 
@@ -263,11 +264,20 @@ public class WorkerTests
         {
             (With(4, 2, 1), "Invalid settler"),
             (With(17, 5, 2), "A worker neither walks, waits nor carries"),
-            (With(6, 1, 4), "Worker of a building that takes none"), // the castle
-            (With(6, a, 4, workerOfB: true), "More than one worker for a building"),
-            (With(6, dead, 4), "Worker of a missing building"),
-            (With(4, 0, 1), "Work cycle running without its worker"), // a's worker turned into a carrier
+            (With(4, 0, 1), "Invalid settler"), // a carrier with a workplace
+            (With(23, 0, 4), "Invalid settler"), // a worker without one
+            (With(27, Households.HomelessTicks + 1, 2), "Invalid settler"),
+            (With(23, 1, 4), "Worker of a building that takes none"), // the castle
+            (With(23, a, 4, workerOfB: true), "More than one worker for a building"),
+            (With(23, dead, 4), "Worker of a missing building"),
+            (CarrierA(), "Work cycle running without its worker"), // a's worker turned into a carrier
         };
+        byte[] CarrierA()
+        {
+            var bytes = With(4, 0, 1);
+            BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(atA + 23), 0);
+            return bytes;
+        }
         foreach (var (bytes, message) in cases)
             Assert.Equal(message, Assert.Throws<InvalidDataException>(() => Load(bytes)).Message);
     }
