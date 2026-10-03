@@ -19,7 +19,9 @@ namespace Rebuild.Sim.World;
 /// <see cref="ProductionDefinition.Plant"/>) instead needs a free tile in reach (<see cref="FindPlantSite"/>) to start and
 /// plants its object on the nearest such tile at the end (<see cref="MapChanges.Plant"/>; nothing if none is left).
 /// A cycle only starts while the building's worker is inside (<see cref="Settlers.Working"/>; brought by
-/// <see cref="Logistics"/>, docs/06-economy.md §3).
+/// <see cref="Logistics"/>, docs/06-economy.md §3). A worker whose home is Short (<see cref="Households"/>) skips every
+/// <see cref="ShortSkipEvery"/>-th tick (work −25 %); in Crisis its building neither starts nor advances a cycle
+/// (docs/12-needs-seasons-weather.md §1.3).
 /// Every piled output unit is counted in <see cref="ProductionStatistics"/>. The season (<see cref="Calendar"/>) sets the
 /// work speed: a cycle ends once its elapsed ticks reach <see cref="ProductionDefinition.CycleTicksIn"/> of the current
 /// season, and none starts in a season where the building does not work (<see cref="ProductionDefinition.WorksIn"/>).
@@ -31,19 +33,24 @@ public static class Production
     public const int InputTarget = 4;
     /// <summary>Output pile capacity; a full building pauses (docs/06-economy.md §4).</summary>
     public const int OutputCap = 8;
+    /// <summary>A Short worker's cycle does not advance on ticks divisible by this (−25 %).</summary>
+    public const int ShortSkipEvery = 4;
 
     /// <summary>Runs one tick of production.</summary>
-    public static void Step(BuildingRegistry buildings, MapData map, Territory territory, MapChanges changes, Logistics logistics,
+    public static void Step(int tick, BuildingRegistry buildings, MapData map, Territory territory, MapChanges changes, Logistics logistics,
         Settlers settlers, ProductionQuotas quotas, ProductionStatistics statistics, Season season)
     {
         var all = buildings.All;
         int[]? reserved = null;
         bool[]? working = null;
+        NeedState[]? states = null;
         for (int i = 0; i < all.Count; i++)
         {
             var b = all[i];
             var p = b.Definition.Production;
             if (p == null || b.State != BuildingState.Complete) continue;
+            states ??= settlers.WorkerHomeStates(buildings);
+            if (states[i] == NeedState.Crisis || (states[i] == NeedState.Short && tick % ShortSkipEvery == 0)) continue;
             var piles = buildings.PilesAt(i)!;
             if (b.Cycle == 0)
             {

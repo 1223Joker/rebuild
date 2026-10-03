@@ -90,6 +90,14 @@ public class ConstructionTests
         if (Get(sim, id).Definition.Production != null) RunUntilWorking(sim, id, maxTurns);
     }
 
+    /// <summary>Runs one turn with every home's due counters cleared first: nobody eats, so no home goes Short.</summary>
+    internal static void RunFed(Simulation sim)
+    {
+        for (int i = 0; i < sim.Buildings.All.Count; i++)
+            if (sim.Buildings.NeedsAt(i) is { } n) n[0] = n[1] = 0;
+        Run(sim);
+    }
+
     /// <summary>Whether the production building has its worker inside.</summary>
     internal static bool HasWorker(Simulation sim, int id) =>
         sim.Settlers.All.Any(s => s.Kind == SettlerKind.Worker && s.WorkplaceId == id);

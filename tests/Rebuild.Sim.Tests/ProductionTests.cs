@@ -149,11 +149,11 @@ public class ProductionTests
         var sim = Simulation.Create(TwoPlayers());
         int id = Woodcutter(sim, trees: 14);
         var stock = sim.Buildings.StockAt(CastleIndex(sim))!;
-        foreach (int g in Food.Append(GoodIds.Water)) stock[g] = 0; // nothing eaten makes room
+        foreach (int g in Food.Append(GoodIds.Water)) stock[g] = 0; // nothing eaten makes room (RunFed)
         int capacity = BuildingCatalog.All[BuildingIds.Castle].StorageCapacity;
         stock[GoodIds.Stone] += capacity - 2 - stock.Sum(); // room for two more units
         int cycle = ConstructionTests.Get(sim, id).Definition.Production!.CycleTicks;
-        RunTicks(sim, 12 * cycle);
+        for (int i = 0; i < 12 * cycle / Simulation.TicksPerTurn; i++) ConstructionTests.RunFed(sim);
         // Two logs reached the castle; the rest filled the pile, then the woodcutter paused.
         Assert.Equal(capacity, stock.Sum());
         Assert.Equal(2, stock[GoodIds.Log]);
@@ -162,7 +162,7 @@ public class ProductionTests
         Assert.DoesNotContain(sim.Logistics.All, j => j.Kind == JobKind.Transport);
         // Room in storage again: the overflow resumes and the woodcutter works on.
         stock[GoodIds.Stone] -= 5;
-        RunTicks(sim, 3 * cycle);
+        for (int i = 0; i < 3 * cycle / Simulation.TicksPerTurn; i++) ConstructionTests.RunFed(sim);
         Assert.Equal(7, stock[GoodIds.Log]);
         Assert.Equal(capacity, stock.Sum());
         Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());

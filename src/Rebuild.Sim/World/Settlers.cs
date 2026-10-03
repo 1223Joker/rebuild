@@ -61,6 +61,8 @@ public sealed class Settlers
     public const int DiagonalStep = SubTile * Pathfinder.DiagonalCost / Pathfinder.StraightCost;
     /// <summary>Walking speed in sub-tile units per tick (2.5 tiles/s; ASSUMPTION).</summary>
     public const int Speed = 64;
+    /// <summary>Speed of a settler whose home is Short or worse (−15 %, docs/12-needs-seasons-weather.md §1.3).</summary>
+    public const int ShortSpeed = Speed * 85 / 100;
     /// <summary>Wander targets lie within this Chebyshev distance of the home door (placeholder behaviour).</summary>
     public const int WanderRadius = 6;
     /// <summary>Idle wait after a walk: <see cref="MinIdleTicks"/> + random [0, <see cref="IdleTicksRange"/>).</summary>
@@ -121,6 +123,19 @@ public sealed class Settlers
 
     /// <summary>Gives the idle carrier at list index <paramref name="index"/> a transport job; it starts on its next step.</summary>
     internal void AssignJob(int index, int jobId) => _settlers[index] = _settlers[index] with { JobId = jobId, WaitTicks = 0 };
+
+    /// <summary>Need state of each building's worker's home, by list index (Supplied without a worker).</summary>
+    internal NeedState[] WorkerHomeStates(BuildingRegistry buildings)
+    {
+        var states = new NeedState[buildings.All.Count];
+        foreach (var s in _settlers)
+        {
+            if (s.Kind != SettlerKind.Worker) continue;
+            int index = buildings.IndexOf(s.WorkplaceId);
+            if (index >= 0) states[index] = Households.HomeState(buildings, s.HomeId);
+        }
+        return states;
+    }
 
     /// <summary>Whether each building, by list index, has its worker inside.</summary>
     internal bool[] Working(BuildingRegistry buildings)
@@ -212,7 +227,7 @@ public sealed class Settlers
                 int next = path[path.Count - 1];
                 bool diagonal = next % _edge != s.Tile % _edge && next / _edge != s.Tile / _edge;
                 int cost = diagonal ? DiagonalStep : SubTile;
-                int progress = s.Progress + Speed;
+                int progress = s.Progress + (Households.HomeState(buildings, s.HomeId) == NeedState.Supplied ? Speed : ShortSpeed);
                 if (progress < cost)
                 {
                     s = s with { Progress = progress };

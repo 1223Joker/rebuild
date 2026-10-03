@@ -7,9 +7,15 @@ public enum NeedState : byte
 {
     /// <summary>The last due unit was paid.</summary>
     Supplied = 0,
-    /// <summary>A due unit has been unpaid for <see cref="Households.ShortTicks"/>: the home spawns no new carriers.</summary>
+    /// <summary>
+    /// A due unit has been unpaid for <see cref="Households.ShortTicks"/>: the home spawns no new carriers, its settlers walk
+    /// −15 % (<see cref="Settlers.ShortSpeed"/>) and its workers work −25 % (<see cref="Production"/>).
+    /// </summary>
     Short = 1,
-    /// <summary>Short for <see cref="Households.CrisisTicks"/> more: one occupant leaves the map every <see cref="Households.LeaveIntervalTicks"/>.</summary>
+    /// <summary>
+    /// Short for <see cref="Households.CrisisTicks"/> more: as Short, but its workers stop working, and one occupant leaves the map
+    /// every <see cref="Households.LeaveIntervalTicks"/>.
+    /// </summary>
     Crisis = 2,
 }
 
@@ -73,6 +79,13 @@ public static class Households
         var food = StateOf(0, n[2]);
         var water = StateOf(1, n[3]);
         return food > water ? food : water;
+    }
+
+    /// <summary>Worst need state of home <paramref name="homeId"/> (Supplied if it is gone: homeless settlers eat nothing).</summary>
+    public static NeedState HomeState(BuildingRegistry buildings, int homeId)
+    {
+        int index = buildings.IndexOf(homeId);
+        return index < 0 ? NeedState.Supplied : StateAt(buildings, index);
     }
 
     /// <summary>Runs one tick of re-housing, eating and drinking.</summary>

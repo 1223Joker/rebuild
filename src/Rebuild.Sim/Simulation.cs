@@ -195,7 +195,7 @@ public sealed class Simulation
         // Systems run here in a fixed order: construction, production, households, logistics matching, settlers (movement + jobs),
         // then (later milestones) combat, ...
         Construction.Step(Buildings, Territory);
-        Production.Step(Buildings, Map, Territory, MapChanges, Logistics, Settlers, Quotas, Statistics, Season);
+        Production.Step(Tick, Buildings, Map, Territory, MapChanges, Logistics, Settlers, Quotas, Statistics, Season);
         Households.Step(Map.Edge, Buildings, Settlers, Logistics, Statistics);
         Logistics.Match(Tick, Buildings, Settlers);
         Settlers.Step(Tick, Map, Territory, Buildings, Logistics, Statistics, EconomyRng, _pathfinder);

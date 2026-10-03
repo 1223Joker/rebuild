@@ -113,6 +113,43 @@ public class HouseholdTests
     }
 
     [Fact]
+    public void A_short_home_walks_and_works_slower_and_its_workers_stop_in_crisis()
+    {
+        var sim = Simulation.Create(TwoPlayers());
+        sim.Buildings.StockAt(0)![GoodIds.Water] += 100;
+        int cutter = ProductionTests.Woodcutter(sim, trees: 14);
+        Assert.Equal(sim.Buildings.All[0].Id, sim.Settlers.All.Single(s => s.WorkplaceId == cutter).HomeId); // worker lives in the castle
+        for (int turns = 0; ConstructionTests.Get(sim, cutter).Cycle is 0 or > 10; turns++)
+        {
+            Assert.True(turns < 200, "woodcutter never worked");
+            ConstructionTests.Run(sim);
+        }
+        int Advance(int ticks)
+        {
+            int before = ConstructionTests.Get(sim, cutter).Cycle;
+            RunTicks(sim, ticks);
+            return ConstructionTests.Get(sim, cutter).Cycle - before;
+        }
+        Assert.Equal(40, Advance(40));
+        // Water runs out and has been unpaid long enough: Short (water stays due while unpaid, so the state holds).
+        var needs = sim.Buildings.NeedsAt(0)!;
+        sim.Buildings.StockAt(0)![GoodIds.Water] = 0;
+        needs[1] = Households.WaterTicks;
+        needs[3] = Households.ShortTicks[1];
+        Assert.Equal(30, Advance(40)); // work −25 %: every 4th tick skipped
+        Assert.Equal(NeedState.Short, Households.StateAt(sim.Buildings, 0));
+        // Its carriers walk −15 %.
+        var walker = sim.Settlers.All.First(s => s.Owner == 0 && s.State == SettlerState.Walking && s.Progress + 2 * Settlers.Speed < Settlers.SubTile);
+        ConstructionTests.Run(sim);
+        Assert.Equal(walker.Progress + 2 * Settlers.ShortSpeed, sim.Settlers.All[sim.Settlers.IndexOf(walker.Id)].Progress);
+        Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
+        // Crisis: the running cycle stops.
+        needs[3] = Households.ShortTicks[1] + Households.CrisisTicks[1] + 1;
+        Assert.Equal(0, Advance(40));
+        Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
+    }
+
+    [Fact]
     public void A_residence_pantry_is_filled_by_carriers_and_eaten_from()
     {
         var sim = Simulation.Create(TwoPlayers());

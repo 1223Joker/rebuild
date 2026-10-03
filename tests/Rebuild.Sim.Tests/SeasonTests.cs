@@ -140,7 +140,7 @@ public class SeasonTests
             if (fisher == 0 && sim.Tick >= 2 * season)
                 fisher = Build(sim, BuildingIds.Fisher, 1, (x, y) => FishAround(sim, x, y) >= 30);
             var s = (int)Calendar.SeasonAt(sim.Tick, SeasonLength.Short);
-            ConstructionTests.Run(sim);
+            ConstructionTests.RunFed(sim); // a Short worker would slow the cycles measured here
             int cycle = ConstructionTests.Get(sim, farm).Cycle;
             farmMax[s] = System.Math.Max(farmMax[s], cycle);
             if (cycle > 0 && (lastFarm == 0 || cycle < lastFarm)) farmStarts[s]++;
@@ -174,12 +174,12 @@ public class SeasonTests
         // A winter fisher cycle past 150 ticks is valid with seasons, invalid in an eternal summer.
         var sim = Simulation.Create(TwoPlayers(SeasonLength.Short));
         int season = Calendar.SeasonTicks(SeasonLength.Short);
-        while (sim.Tick < 3 * season) ConstructionTests.Run(sim);
+        while (sim.Tick < 3 * season) ConstructionTests.RunFed(sim);
         int fisher = Build(sim, BuildingIds.Fisher, 0, (x, y) => FishAround(sim, x, y) >= 4);
         for (int turns = 0; ConstructionTests.Get(sim, fisher).Cycle <= 150; turns++)
         {
             Assert.True(turns < 400, "fisher never worked");
-            ConstructionTests.Run(sim);
+            ConstructionTests.RunFed(sim);
         }
         Assert.Equal(Season.Winter, sim.Season);
         var save = sim.Save();
