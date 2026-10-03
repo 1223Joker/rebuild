@@ -209,7 +209,7 @@
 6. Before M3: run S1's Godot part — install the Godot **.NET** edition (the installed `/Applications/Godot.app` 4.7.2 is the standard build without C#) and export a test project for macOS and Windows — and spike S2 (rendering scale). Before M5: spike S3 (ENet transport).
 
 ## Blockers / waiting for user approval
-- None. Old remote branches: on 2026-10-03 (M2 step 13) this step's branch `claude/amazing-hopper-btzuh2` was fully merged into `main` and deleted after the push; if it is still listed, delete it in the GitHub UI.
+- None. Old remote branches: on 2026-10-03 (after M2 step 13) the remote still lists `claude/amazing-hopper-btzuh2`, `claude/amazing-hopper-ttuac1` and `claude/trusting-sagan-y5e49d` — all fully merged into `main`. Deleting remote branches from the agent session is refused by the git proxy (`git push --delete` → "remote end hung up"); delete them in the GitHub UI (Branches page).
 
 ## Dead ends (tried or rejected, and why)
 - Using Godot `FastNoiseLite` for the shared map: floats, not cross-platform deterministic → rejected ([ADR 0003](../decisions/0003-mapgen-determinism.md)); allowed for client cosmetics only.
