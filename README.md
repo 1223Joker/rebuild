@@ -24,7 +24,7 @@ dotnet run --project src/Rebuild.Tools -c Release -- mapgen --code RB-… --stat
 | `src/Rebuild.Sim/MapGen` | seed-based map generator + fairness validation ([docs/03-mapgen.md](docs/03-mapgen.md)) |
 | `src/Rebuild.Tools` | headless CLI: `probe`, `replay`, `sample-log`, `hashes`, `mapgen` |
 | `data/cultures/<id>/culture.json` | culture data, compiled into C# at build time |
-| `data/buildings.json` | building types (size, placement, territory, storage, carriers, cost, production cycle incl. the worker's tool), compiled into C# at build time |
+| `data/buildings.json` | building types (size, placement, territory, storage, carriers, cost, production cycle incl. the worker's tool and per-season work speed), compiled into C# at build time |
 | `data/goods.json` | good types and the start-castle stock, compiled into C# at build time |
 | `tests/` | xUnit/FsCheck tests and golden hashes/replays/map cases (`tests/golden/`) |
 | `tools/ci/` | CI helper scripts |

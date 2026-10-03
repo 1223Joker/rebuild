@@ -65,6 +65,8 @@ namespace Rebuild.Analyzers
             public string Plant = "None";
             public string Tool = "";
             public long Radius;
+            /// <summary>Work speed in percent per season (spring, summer, autumn, winter); null = 100 all year.</summary>
+            public long[]? Seasons;
         }
 
         /// <summary>Most input goods of one production building (the sim keeps one pile per input).</summary>
@@ -75,6 +77,9 @@ namespace Rebuild.Analyzers
         private const long MaxCycleTicks = 6000;
         /// <summary>Most output choices of one smith (one output pile each).</summary>
         private const int MaxOutputs = 16;
+        /// <summary>Season speed bounds in percent (0 = idle; World.ProductionDefinition.MinSeasonSpeed/MaxSeasonSpeed).</summary>
+        private const long MinSeasonSpeed = 25, MaxSeasonSpeed = 400;
+        private static readonly string[] SeasonNames = { "spring", "summer", "autumn", "winter" };
         /// <summary>Upper bound of a harvest radius in tiles.</summary>
         private const long MaxHarvestRadius = 32;
 
@@ -281,6 +286,20 @@ namespace Rebuild.Analyzers
                         p.Plant = "Tree";
                         break;
                     case "tool": p.Tool = GoodId((string)kv.Value!); break;
+                    case "seasons":
+                        // Work speed per season in percent, e.g. a farm { "autumn": 125, "winter": 0 }; unnamed seasons stay 100.
+                        p.Seasons = new long[] { 100, 100, 100, 100 };
+                        foreach (var season in (List<KeyValuePair<string, object?>>)kv.Value!)
+                        {
+                            int index = Array.IndexOf(SeasonNames, season.Key);
+                            if (index < 0) throw new FormatException("season must be spring, summer, autumn or winter");
+                            long speed = (long)season.Value!;
+                            if (speed != 0 && (speed < MinSeasonSpeed || speed > MaxSeasonSpeed))
+                                throw new FormatException("season speed of '" + season.Key + "' must be 0 or " + MinSeasonSpeed.ToString(CultureInfo.InvariantCulture)
+                                    + ".." + MaxSeasonSpeed.ToString(CultureInfo.InvariantCulture));
+                            p.Seasons[index] = speed;
+                        }
+                        break;
                     case "radius":
                         p.Radius = (long)kv.Value!;
                         if (p.Radius < 1 || p.Radius > MaxHarvestRadius) throw new FormatException("'radius' must be 1.." + MaxHarvestRadius.ToString(CultureInfo.InvariantCulture));
@@ -346,6 +365,8 @@ namespace Rebuild.Analyzers
                 sb.Append(" }");
             }
             if (p.Tool.Length != 0) sb.Append(", tool: (ushort)Rebuild.Sim.Goods.GoodIds.").Append(CultureDataGenerator.PascalCase(p.Tool));
+            if (p.Seasons != null)
+                sb.Append(", seasonSpeed: new int[] { ").Append(string.Join(", ", p.Seasons.Select(v => v.ToString(CultureInfo.InvariantCulture)))).Append(" }");
             sb.Append(")");
             return sb.ToString();
         }

@@ -42,6 +42,8 @@ Variety bonus (Rivermen only, §4): a home that ate ≥ 2 different food goods w
 ### 2.1 Calendar
 A match starts on the first day of spring. Season length is a lobby option ([04-game-modes](04-game-modes.md)): **Off** (eternal summer, no heating), Short 4 min, **Normal 6 min** (year = 24 min ≈ 2–4 winters per 45–90 min match), Long 9 min. The calendar is a pure function of the tick, so it needs no state of its own.
 
+As built (M2 step 13): `MatchSetup.Seasons` (`SeasonLength`, default Normal) and `src/Rebuild.Sim/World/Calendar.cs`; season effects on production are data (`"seasons"` per production in `data/buildings.json`, work speed in percent per season: farm autumn 125 / winter 0, fisher winter 50). A cycle ends when its elapsed ticks reach the current season's cycle length; with speed 0 no cycle starts, but one already running ends after its normal length (ASSUMPTION). Winter walking, the flood/drought hooks and heating are not built yet.
+
 | Season | Economy effects (baseline) |
 |---|---|
 | Spring | farms grow (normal yield); snowmelt can bring floods (§3) |

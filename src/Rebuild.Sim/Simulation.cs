@@ -27,7 +27,7 @@ public sealed class Simulation
     public const int TicksPerTurn = 2;
 
     private const uint SaveMagic = 0x56415342; // "BSAV" little-endian
-    private const ushort SaveFormatVersion = 11;
+    private const ushort SaveFormatVersion = 12;
 
     private readonly PlayerState[] _players;
     private readonly PlayerCultureTable?[] _cultureTables;
@@ -46,6 +46,9 @@ public sealed class Simulation
     public int RejectedCommands { get; private set; }
 
     public IReadOnlyList<PlayerState> Players => _players;
+
+    /// <summary>Season of the next tick (<see cref="Calendar"/>, lobby option <see cref="MatchSetup.Seasons"/>).</summary>
+    public Season Season => Calendar.SeasonAt(Tick, Setup.Seasons);
 
     /// <summary>The map (terrain, resources, starts); its object layer changes as production harvests (<see cref="MapChanges"/>).</summary>
     public MapData Map { get; }
@@ -192,7 +195,7 @@ public sealed class Simulation
         // Systems run here in a fixed order: construction, production, logistics matching, settlers (movement + jobs),
         // then (later milestones) combat, ...
         Construction.Step(Buildings, Territory);
-        Production.Step(Buildings, Map, Territory, MapChanges, Logistics, Settlers, Quotas, Statistics);
+        Production.Step(Buildings, Map, Territory, MapChanges, Logistics, Settlers, Quotas, Statistics, Season);
         Logistics.Match(Tick, Buildings, Settlers);
         Settlers.Step(Tick, Map, Territory, Buildings, Logistics, Statistics, EconomyRng, _pathfinder);
         Tick++;
@@ -316,6 +319,13 @@ public sealed class Simulation
         var logistics = Logistics.ReadFrom(r, map.Edge, count, buildings, settlers);
         var quotas = ProductionQuotas.ReadFrom(r, count);
         var statistics = ProductionStatistics.ReadFrom(r, count, tick);
+        // Production ran last at tick - 1 and ended every cycle that reached that season's length.
+        foreach (var b in buildings.All)
+        {
+            var p = b.Definition.Production;
+            if (p != null && b.Cycle > 0 && (tick == 0 || b.Cycle >= p.CycleTicksIn(Calendar.SeasonAt(tick - 1, setup.Seasons))))
+                throw new InvalidDataException("Work cycle longer than its season allows");
+        }
         if (!r.AtEnd) throw new InvalidDataException("Trailing data in save");
         return new Simulation(setup, map, mapHash, mapChanges, tick, players, economy, combat, monsters, rejected, territory, buildings, settlers, logistics, quotas, statistics);
     }

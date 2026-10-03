@@ -14,7 +14,7 @@ namespace Rebuild.Sim.Serialization;
 public sealed class CommandLog
 {
     private static readonly byte[] Magic = { (byte)'R', (byte)'B', (byte)'L', (byte)'G' };
-    public const ushort FormatVersion = 1;
+    public const ushort FormatVersion = 2;
 
     private readonly List<TurnBundle> _bundles = new();
 

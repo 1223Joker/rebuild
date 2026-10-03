@@ -25,7 +25,7 @@ Related: [01-architecture](01-architecture.md) · [02-networking §4 desync](02-
 | Culture balance | 10 matchups (4 mirror + 6 cross) as AI soak once the AI exists; before that, scripted build-order benchmarks per culture within ±15 % of baseline ([10-cultures §5](10-cultures.md)) | `Rebuild.Tools soak` | nightly from phase C |
 
 ## 3. Determinism tests in detail
-**Command log format (`.rblog`)**: header `{GameVersion, MapSpec, SlotTable, matchSeed}` + stream of `TurnBundle`s. The same format is written by every real match (host side) → any played game becomes a regression test.
+**Command log format (`.rblog`)**: header `{GameVersion, MapSpec, matchSeed, SlotTable, season length}` (format 2 since M2 step 13) + stream of `TurnBundle`s. The same format is written by every real match (host side) → any played game becomes a regression test.
 
 ```mermaid
 flowchart LR

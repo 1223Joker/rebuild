@@ -20,7 +20,9 @@ namespace Rebuild.Sim.World;
 /// plants its object on the nearest such tile at the end (<see cref="MapChanges.Plant"/>; nothing if none is left).
 /// A cycle only starts while the building's worker is inside (<see cref="Settlers.Working"/>; brought by
 /// <see cref="Logistics"/>, docs/06-economy.md §3).
-/// Every piled output unit is counted in <see cref="ProductionStatistics"/>.
+/// Every piled output unit is counted in <see cref="ProductionStatistics"/>. The season (<see cref="Calendar"/>) sets the
+/// work speed: a cycle ends once its elapsed ticks reach <see cref="ProductionDefinition.CycleTicksIn"/> of the current
+/// season, and none starts in a season where the building does not work (<see cref="ProductionDefinition.WorksIn"/>).
 /// <see cref="Logistics"/> refills the input piles to <see cref="InputTarget"/> and carries output units away.
 /// </summary>
 public static class Production
@@ -32,7 +34,7 @@ public static class Production
 
     /// <summary>Runs one tick of production.</summary>
     public static void Step(BuildingRegistry buildings, MapData map, Territory territory, MapChanges changes, Logistics logistics,
-        Settlers settlers, ProductionQuotas quotas, ProductionStatistics statistics)
+        Settlers settlers, ProductionQuotas quotas, ProductionStatistics statistics, Season season)
     {
         var all = buildings.All;
         int[]? reserved = null;
@@ -45,6 +47,7 @@ public static class Production
             var piles = buildings.PilesAt(i)!;
             if (b.Cycle == 0)
             {
+                if (!p.WorksIn(season)) continue;
                 working ??= settlers.Working(buildings);
                 if (!working[i]) continue;
                 reserved ??= logistics.ReservedOutput(buildings);
@@ -60,7 +63,7 @@ public static class Production
                 b = b with { Choice = choice };
             }
             int cycle = b.Cycle + 1;
-            if (cycle == p.CycleTicks)
+            if (cycle >= p.CycleTicksIn(season))
             {
                 cycle = 0;
                 if (p.Plant != MapObject.None)

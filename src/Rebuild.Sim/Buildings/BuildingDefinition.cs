@@ -145,6 +145,7 @@ public static class Harvest
 /// <see cref="Outputs"/> (data <c>"outputs"</c>) and one output pile per output; each cycle makes the one the owner's quota
 /// picks (World.ProductionQuotas). A cycle only runs while the building's worker is inside; the worker is an idle carrier
 /// that fetched the building's <see cref="Tool"/> from a storage, if it has one (World.Logistics, docs/06-economy.md §3).
+/// Its work speed depends on the season (<see cref="SeasonSpeed"/>, data <c>"seasons"</c>, docs/12-needs-seasons-weather.md §2.1).
 /// </summary>
 public sealed class ProductionDefinition
 {
@@ -154,8 +155,14 @@ public sealed class ProductionDefinition
     public const ushort NoTool = ushort.MaxValue;
 
     public ProductionDefinition(ushort[][] inputs, int[] inputAmounts, ushort output, int cycleTicks, HarvestSource harvest, int radius,
-        MapObject plant = MapObject.None, ushort[]? outputs = null, ushort tool = NoTool)
+        MapObject plant = MapObject.None, ushort[]? outputs = null, ushort tool = NoTool, int[]? seasonSpeed = null)
     {
+        if (seasonSpeed != null && seasonSpeed.Length != World.Calendar.SeasonsPerYear)
+            throw new System.ArgumentException("One speed per season", nameof(seasonSpeed));
+        if (seasonSpeed != null)
+            foreach (int speed in seasonSpeed)
+                if (speed != 0 && (speed < MinSeasonSpeed || speed > MaxSeasonSpeed))
+                    throw new System.ArgumentException($"Season speeds are 0 or {MinSeasonSpeed}..{MaxSeasonSpeed} %", nameof(seasonSpeed));
         if (outputs != null && (outputs.Length < 2 || outputs[0] != output || plant != MapObject.None))
             throw new System.ArgumentException("Output choices are at least two goods, the first being the output, and no planter", nameof(outputs));
         if (outputs != null)
@@ -181,7 +188,13 @@ public sealed class ProductionDefinition
         Radius = radius;
         Plant = plant;
         Tool = tool;
+        SeasonSpeed = seasonSpeed ?? new[] { 100, 100, 100, 100 };
     }
+
+    /// <summary>Lowest non-zero <see cref="SeasonSpeed"/> (a cycle takes at most 4× <see cref="CycleTicks"/>).</summary>
+    public const int MinSeasonSpeed = 25;
+    /// <summary>Highest <see cref="SeasonSpeed"/>.</summary>
+    public const int MaxSeasonSpeed = 400;
 
     /// <summary>First good of each input pile (at most two piles); the pile's only good unless it has alternatives.</summary>
     public IReadOnlyList<ushort> Inputs { get; }
@@ -208,6 +221,38 @@ public sealed class ProductionDefinition
     public MapObject Plant { get; }
     /// <summary>Tool good the worker takes from a storage on its way to the building (axe, saw, …), or <see cref="NoTool"/>.</summary>
     public ushort Tool { get; }
+
+    /// <summary>
+    /// Work speed in percent per season (index = <see cref="World.Season"/>; default 100): a cycle takes
+    /// <see cref="CycleTicksIn"/> ticks; 0 = no cycle starts in that season (a farm in winter), a running one still ends
+    /// after <see cref="CycleTicks"/> (ASSUMPTION).
+    /// </summary>
+    public IReadOnlyList<int> SeasonSpeed { get; }
+
+    /// <summary>
+    /// Ticks of a cycle in <paramref name="season"/>: <see cref="CycleTicks"/> × 100 / speed, rounded up; <see cref="CycleTicks"/>
+    /// at speed 0. A cycle ends at the first tick its elapsed ticks reach the current season's value, so a season change
+    /// shortens or lengthens the running cycle.
+    /// </summary>
+    public int CycleTicksIn(World.Season season)
+    {
+        int speed = SeasonSpeed[(int)season];
+        return speed == 0 ? CycleTicks : (CycleTicks * 100 + speed - 1) / speed;
+    }
+
+    /// <summary>True if a cycle may start in <paramref name="season"/> (speed above 0).</summary>
+    public bool WorksIn(World.Season season) => SeasonSpeed[(int)season] > 0;
+
+    /// <summary>Longest <see cref="CycleTicksIn"/> over all seasons (upper bound of a running cycle's elapsed ticks).</summary>
+    public int MaxCycleTicks
+    {
+        get
+        {
+            int max = CycleTicks;
+            for (int s = 0; s < World.Calendar.SeasonsPerYear; s++) max = System.Math.Max(max, CycleTicksIn((World.Season)s));
+            return max;
+        }
+    }
 
     /// <summary>Output index of <paramref name="good"/> (its pile is <see cref="Inputs"/>.Count + index), or -1 if the building does not make it.</summary>
     public int OutputIndexOf(int good)
