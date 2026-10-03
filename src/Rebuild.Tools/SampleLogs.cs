@@ -69,7 +69,8 @@ public static class SampleLogs
     /// <summary>
     /// M2 building script: both players place random building types around their castle, half at random
     /// tiles (mostly enemy/no-man's land, water or other buildings, so rejected) and half at the first valid
-    /// spot scanning from a random tile; they cancel random building ids, demolish own complete buildings or
+    /// spot scanning from a random tile (some of them woodcutters and stonecutters with trees or stone in reach, so production
+    /// runs); they cancel random building ids, demolish own complete buildings or
     /// random ids and send malformed payloads; valid placements pause while a slot has 4 open sites, so the
     /// castle stock completes buildings (towers extend the territory) until it runs out;
     /// player 1 leaves at 3/4. A shadow simulation runs along to find valid spots and building ids.
@@ -106,6 +107,8 @@ public static class SampleLogs
                         // Half aim at a valid spot while the slot has few open sites, so the castle stock completes some;
                         // with too many open sites every placement gets the invalid rotation 4.
                         bool full = OpenSites(sim, slot) >= MaxOpenSites;
+                        // Some valid placements are a woodcutter or stonecutter with trees or stone in reach, so production runs.
+                        if (kind >= 12) type = kind == 12 ? BuildingIds.Woodcutter : BuildingIds.Stonecutter;
                         if (kind >= 7 && !full) FindValidSpot(sim, slot, type, ref x, ref y);
                         byte rotation = (byte)rng.NextInt(5); // 4 is invalid
                         if (full) rotation = 4;
@@ -158,7 +161,10 @@ public static class SampleLogs
         return own.Count == 0 ? pick : own[pick % own.Count];
     }
 
-    /// <summary>Moves (x, y) to the first valid spot in row-major order from (x, y) within a 41² window around the slot's start.</summary>
+    /// <summary>
+    /// Moves (x, y) to the first valid spot in row-major order from (x, y) within a 41² window around the slot's start;
+    /// for a building that harvests, the spot must have a harvest object in reach.
+    /// </summary>
     private static void FindValidSpot(Simulation sim, byte slot, ushort type, ref int x, ref int y)
     {
         var start = sim.StartOf(slot)!.Value;
@@ -169,6 +175,10 @@ public static class SampleLogs
             int k = (offset + i) % (41 * 41);
             int tx = x0 + k % 41, ty = y0 + k / 41;
             if (BuildingPlacement.Check(sim.Map, sim.Territory, sim.Buildings, slot, type, tx, ty) != PlacementResult.Ok) continue;
+            var production = BuildingCatalog.All[type].Production;
+            if (production != null && production.Radius > 0
+                && Production.FindHarvest(sim.Map, sim.Territory, new Building(0, type, slot, tx, ty, 0, BuildingState.Complete, 0), production) < 0)
+                continue;
             x = tx;
             y = ty;
             return;

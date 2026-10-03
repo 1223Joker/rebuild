@@ -1,13 +1,13 @@
 {
-  "$comment": "Shared core buildings (docs/06-economy.md §1). Order = type index in PlaceBuilding commands. size S/M/L = 2x2/3x3/4x4 tile footprint; placement land = buildable tiles, mountain = mountain tiles (mines); territory = claim radius once complete; storage = holds a goods stock once complete; carriers = carriers homed at the building once complete (refilled 1 per 60 s; the start castle starts full); cost = construction materials. Costs are ASSUMPTIONS to be tuned in playtests.",
+  "$comment": "Shared core buildings (docs/06-economy.md §1). Order = type index in PlaceBuilding commands. size S/M/L = 2x2/3x3/4x4 tile footprint; placement land = buildable tiles, mountain = mountain tiles (mines); territory = claim radius once complete; storage = holds a goods stock once complete; carriers = carriers homed at the building once complete (refilled 1 per 60 s; the start castle starts full); cost = construction materials; production = work cycle of a complete building: optional inputs {good: amount} taken from its input piles at the start, optional harvest (tree/stone object within radius tiles of its centre in own territory, taken at the end), one output unit into its output pile after ticks (10 ticks = 1 s). Costs are ASSUMPTIONS to be tuned in playtests.",
   "buildings": [
     { "id": "castle", "name": "Castle", "size": "L", "placement": "land", "territory": 16, "storage": true, "carriers": 30, "cost": { "plank": 0, "stone": 0 }, "player_placeable": false },
     { "id": "storehouse", "name": "Storehouse", "size": "M", "placement": "land", "storage": true, "cost": { "plank": 4, "stone": 3 } },
     { "id": "residence", "name": "Residence", "size": "S", "placement": "land", "carriers": 10, "cost": { "plank": 2, "stone": 2 } },
-    { "id": "woodcutter", "name": "Woodcutter", "size": "S", "placement": "land", "cost": { "plank": 2, "stone": 0 } },
+    { "id": "woodcutter", "name": "Woodcutter", "size": "S", "placement": "land", "cost": { "plank": 2, "stone": 0 }, "production": { "harvest": "tree", "radius": 8, "output": "log", "ticks": 150 } },
     { "id": "forester", "name": "Forester", "size": "S", "placement": "land", "cost": { "plank": 2, "stone": 0 } },
-    { "id": "sawmill", "name": "Sawmill", "size": "M", "placement": "land", "cost": { "plank": 3, "stone": 2 } },
-    { "id": "stonecutter", "name": "Stonecutter", "size": "S", "placement": "land", "cost": { "plank": 2, "stone": 0 } },
+    { "id": "sawmill", "name": "Sawmill", "size": "M", "placement": "land", "cost": { "plank": 3, "stone": 2 }, "production": { "inputs": { "log": 1 }, "output": "plank", "ticks": 60 } },
+    { "id": "stonecutter", "name": "Stonecutter", "size": "S", "placement": "land", "cost": { "plank": 2, "stone": 0 }, "production": { "harvest": "stone", "radius": 8, "output": "stone", "ticks": 150 } },
     { "id": "fisher", "name": "Fisher", "size": "S", "placement": "land", "cost": { "plank": 2, "stone": 0 } },
     { "id": "hunter", "name": "Hunter", "size": "S", "placement": "land", "cost": { "plank": 2, "stone": 0 } },
     { "id": "farm", "name": "Farm", "size": "M", "placement": "land", "cost": { "plank": 3, "stone": 2 } },

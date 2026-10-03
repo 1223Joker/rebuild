@@ -53,39 +53,42 @@ public static class MapGenerator
         return new Builder(spec, attempt).Run();
     }
 
+    /// <summary>
+    /// Walkable/buildable flags of one tile: walkable = land with a slope ≤ 2 to its land neighbours; buildable =
+    /// also slope ≤ 1, not mountain and no object. Systems that remove objects refresh the tile with this.
+    /// </summary>
+    public static byte TileFlagsAt(MapData map, int x, int y)
+    {
+        int s = map.Edge, i = y * s + x;
+        if (map.Terrain[i] == (byte)Terrain.Water) return 0;
+        int slope = 0;
+        for (int dy = -1; dy <= 1; dy++)
+        {
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                int nx = x + dx, ny = y + dy;
+                if ((dx == 0 && dy == 0) || nx < 0 || ny < 0 || nx >= s || ny >= s) continue;
+                int j = ny * s + nx;
+                if (map.Terrain[j] == (byte)Terrain.Water) continue;
+                int d = map.Height[i] - map.Height[j];
+                if (d < 0) d = -d;
+                if (d > slope) slope = d;
+            }
+        }
+        byte flags = 0;
+        if (slope <= 2) flags |= (byte)TileFlags.Walkable;
+        if (slope <= 1 && map.Terrain[i] != (byte)Terrain.Mountain && map.Object[i] == (byte)MapObject.None)
+            flags |= (byte)TileFlags.Buildable;
+        return flags;
+    }
+
     /// <summary>Step 10: walkable/buildable flags and region ids from height, terrain and objects.</summary>
     public static void DeriveLayers(MapData map)
     {
         int s = map.Edge;
         for (int y = 0; y < s; y++)
-        {
             for (int x = 0; x < s; x++)
-            {
-                int i = y * s + x;
-                byte flags = 0;
-                if (map.Terrain[i] != (byte)Terrain.Water)
-                {
-                    int slope = 0;
-                    for (int dy = -1; dy <= 1; dy++)
-                    {
-                        for (int dx = -1; dx <= 1; dx++)
-                        {
-                            int nx = x + dx, ny = y + dy;
-                            if ((dx == 0 && dy == 0) || nx < 0 || ny < 0 || nx >= s || ny >= s) continue;
-                            int j = ny * s + nx;
-                            if (map.Terrain[j] == (byte)Terrain.Water) continue;
-                            int d = map.Height[i] - map.Height[j];
-                            if (d < 0) d = -d;
-                            if (d > slope) slope = d;
-                        }
-                    }
-                    if (slope <= 2) flags |= (byte)TileFlags.Walkable;
-                    if (slope <= 1 && map.Terrain[i] != (byte)Terrain.Mountain && map.Object[i] == (byte)MapObject.None)
-                        flags |= (byte)TileFlags.Buildable;
-                }
-                map.Flags[i] = flags;
-            }
-        }
+                map.Flags[y * s + x] = TileFlagsAt(map, x, y);
 
         var region = map.Region;
         System.Array.Fill(region, -1);

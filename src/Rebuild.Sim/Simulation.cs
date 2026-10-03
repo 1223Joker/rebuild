@@ -16,8 +16,8 @@ namespace Rebuild.Sim;
 /// The deterministic simulation: <c>State(n+1) = Step(State(n), Commands(n))</c> (docs/01-architecture.md §1).
 /// Single-threaded, integer-only. Holds match/player state, RNG streams, the generated map, territory,
 /// buildings, settlers and transport jobs; game systems are added from M2 on and must write their state in <see cref="WriteState"/>. The map is
-/// regenerated from <see cref="MatchSetup.Map"/> on create and load (only its hash is saved); systems that
-/// mutate map layers must serialize those layers themselves.
+/// regenerated from <see cref="MatchSetup.Map"/> on create and load (only its hash is saved); changes to its object
+/// layer (harvested trees and stone) are saved as <see cref="MapChanges"/>.
 /// </summary>
 public sealed class Simulation
 {
@@ -27,7 +27,7 @@ public sealed class Simulation
     public const int TicksPerTurn = 2;
 
     private const uint SaveMagic = 0x56415342; // "BSAV" little-endian
-    private const ushort SaveFormatVersion = 6;
+    private const ushort SaveFormatVersion = 7;
 
     private readonly PlayerState[] _players;
     private readonly PlayerCultureTable?[] _cultureTables;
@@ -47,21 +47,24 @@ public sealed class Simulation
 
     public IReadOnlyList<PlayerState> Players => _players;
 
-    /// <summary>The generated map (terrain, resources, starts); immutable until systems that change tiles exist.</summary>
+    /// <summary>The map (terrain, resources, starts); its object layer changes as production harvests (<see cref="MapChanges"/>).</summary>
     public MapData Map { get; }
-    /// <summary>Hash of <see cref="Map"/>; part of the state hash so peers with different maps desync at turn 0.</summary>
+    /// <summary>Hash of the generated map; part of the state hash so peers with different maps desync at turn 0.</summary>
     public ulong MapHash { get; }
+    /// <summary>Object-layer changes since generation (harvested trees and stone).</summary>
+    public MapChanges MapChanges { get; }
     public Territory Territory { get; }
     public BuildingRegistry Buildings { get; }
     public Settlers Settlers { get; }
     public Logistics Logistics { get; }
 
-    private Simulation(MatchSetup setup, MapData map, int tick, PlayerState[] players, Pcg32 economy, Pcg32 combat, Pcg32 monsters,
-        int rejected, Territory territory, BuildingRegistry buildings, Settlers settlers, Logistics logistics)
+    private Simulation(MatchSetup setup, MapData map, ulong mapHash, MapChanges mapChanges, int tick, PlayerState[] players, Pcg32 economy,
+        Pcg32 combat, Pcg32 monsters, int rejected, Territory territory, BuildingRegistry buildings, Settlers settlers, Logistics logistics)
     {
         Setup = setup;
         Map = map;
-        MapHash = map.ComputeHash();
+        MapHash = mapHash;
+        MapChanges = mapChanges;
         Territory = territory;
         Buildings = buildings;
         Settlers = settlers;
@@ -140,7 +143,7 @@ public sealed class Simulation
             if (door < 0) continue; // no free tile around the castle (not on a generated start plateau): no carriers
             for (int k = 0; k < b.Definition.Carriers; k++) settlers.Spawn(b.Owner, b.Id, door);
         }
-        return new Simulation(setup, map, 0, players,
+        return new Simulation(setup, map, map.ComputeHash(), new MapChanges(), 0, players,
             Pcg32.ForStream(setup.MatchSeed, RngStream.Economy),
             Pcg32.ForStream(setup.MatchSeed, RngStream.Combat),
             Pcg32.ForStream(setup.MatchSeed, RngStream.Monsters),
@@ -178,9 +181,10 @@ public sealed class Simulation
 
     private void StepTick()
     {
-        // Systems run here in a fixed order: construction, logistics matching, settlers (movement + jobs), then (later
-        // M2 steps) production, combat, ...
+        // Systems run here in a fixed order: construction, production, logistics matching, settlers (movement + jobs),
+        // then (later milestones) combat, ...
         Construction.Step(Buildings, Territory);
+        Production.Step(Buildings, Map, Territory, MapChanges, Logistics);
         Logistics.Match(Tick, Buildings, Settlers);
         Settlers.Step(Tick, Map, Territory, Buildings, Logistics, EconomyRng, _pathfinder);
         Tick++;
@@ -237,6 +241,7 @@ public sealed class Simulation
         w.WriteByte((byte)_players.Length);
         foreach (var p in _players) p.WriteTo(w);
         w.WriteUInt64(MapHash);
+        MapChanges.WriteTo(w, Map);
         Territory.WriteTo(w);
         Buildings.WriteTo(w);
         Settlers.WriteTo(w);
@@ -285,6 +290,7 @@ public sealed class Simulation
         try { map = GenerateMap(setup); }
         catch (System.ArgumentException e) { throw new InvalidDataException(e.Message, e); }
         if (map.ComputeHash() != mapHash) throw new InvalidDataException("Regenerated map does not match the saved map hash");
+        var mapChanges = MapChanges.ReadFrom(r, map);
         var territory = Territory.ReadFrom(r, map.Edge);
         foreach (var c in territory.Claims)
             if (c.Owner >= count) throw new InvalidDataException("Territory claim of an unknown slot");
@@ -292,6 +298,6 @@ public sealed class Simulation
         var settlers = Settlers.ReadFrom(r, map.Edge, count, buildings.NextId);
         var logistics = Logistics.ReadFrom(r, map.Edge, count, buildings, settlers);
         if (!r.AtEnd) throw new InvalidDataException("Trailing data in save");
-        return new Simulation(setup, map, tick, players, economy, combat, monsters, rejected, territory, buildings, settlers, logistics);
+        return new Simulation(setup, map, mapHash, mapChanges, tick, players, economy, combat, monsters, rejected, territory, buildings, settlers, logistics);
     }
 }

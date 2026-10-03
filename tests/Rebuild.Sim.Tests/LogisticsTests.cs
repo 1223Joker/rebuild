@@ -189,7 +189,7 @@ public class LogisticsTests
             (first + 0, 0),     // id 0
             (first + 4, 7),     // unknown owner
             (first + 5, 0xEE),  // carrier that does not exist or has another job
-            (first + 9, 7),     // a good other than plank/stone
+            (first + 9, 0xEE),  // unknown good
             (first + 11, 0),    // source id 0
             (first + 11, 3),    // source is the construction site (no stock)
             (first + 15, 0xEE), // unknown destination

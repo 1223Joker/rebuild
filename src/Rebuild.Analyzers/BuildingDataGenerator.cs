@@ -52,7 +52,26 @@ namespace Rebuild.Analyzers
             public bool PlayerPlaceable = true;
             public bool Storage;
             public long Carriers;
+            public Production? Production;
         }
+
+        private sealed class Production
+        {
+            public readonly List<KeyValuePair<string, long>> Inputs = new List<KeyValuePair<string, long>>();
+            public string Output = "";
+            public long Ticks;
+            public string Harvest = "None";
+            public long Radius;
+        }
+
+        /// <summary>Most input goods of one production building (the sim keeps one pile per input).</summary>
+        private const int MaxInputs = 2;
+        /// <summary>Upper bound of an input amount per cycle (= the input pile target, World.Production.InputTarget).</summary>
+        private const long MaxInputAmount = 4;
+        /// <summary>Upper bound of a work cycle in ticks (10 min; serialized as ushort).</summary>
+        private const long MaxCycleTicks = 6000;
+        /// <summary>Upper bound of a harvest radius in tiles.</summary>
+        private const long MaxHarvestRadius = 32;
 
         private static void Emit(SourceProductionContext ctx, ImmutableArray<FileData> files)
         {
@@ -103,7 +122,8 @@ namespace Rebuild.Analyzers
                   .Append(b.Stone.ToString(CultureInfo.InvariantCulture)).Append(", ")
                   .Append(b.PlayerPlaceable ? "true" : "false").Append(", ")
                   .Append(b.Storage ? "true" : "false").Append(", ")
-                  .Append(b.Carriers.ToString(CultureInfo.InvariantCulture)).AppendLine("),");
+                  .Append(b.Carriers.ToString(CultureInfo.InvariantCulture)).Append(", ")
+                  .Append(ProductionLiteral(b.Production)).AppendLine("),");
             }
             sb.AppendLine("    };");
             sb.AppendLine("}");
@@ -183,6 +203,7 @@ namespace Rebuild.Analyzers
                     case "player_placeable": b.PlayerPlaceable = (bool)kv.Value!; break;
                     case "storage": b.Storage = (bool)kv.Value!; break;
                     case "carriers": b.Carriers = Small(kv); break;
+                    case "production": b.Production = ReadProduction((List<KeyValuePair<string, object?>>)kv.Value!); break;
                     default: throw new FormatException("unknown field '" + kv.Key + "'");
                 }
             }
@@ -193,7 +214,77 @@ namespace Rebuild.Analyzers
             if (b.Size.Length == 0) throw new FormatException("'" + b.Id + "' has no size");
             if (b.Placement.Length == 0) throw new FormatException("'" + b.Id + "' has no placement");
             if (b.Name.Length == 0) b.Name = b.Id;
+            if (b.Production != null && b.Storage) throw new FormatException("'" + b.Id + "' cannot be both storage and production");
             return b;
+        }
+
+        private static Production ReadProduction(List<KeyValuePair<string, object?>> obj)
+        {
+            var p = new Production();
+            foreach (var kv in obj)
+            {
+                switch (kv.Key)
+                {
+                    case "inputs":
+                        foreach (var g in (List<KeyValuePair<string, object?>>)kv.Value!)
+                        {
+                            long amount = (long)g.Value!;
+                            if (amount < 1 || amount > MaxInputAmount) throw new FormatException("input '" + g.Key + "' must be 1.." + MaxInputAmount.ToString(CultureInfo.InvariantCulture));
+                            foreach (var other in p.Inputs)
+                                if (other.Key == g.Key) throw new FormatException("duplicate input '" + g.Key + "'");
+                            p.Inputs.Add(new KeyValuePair<string, long>(GoodId(g.Key), amount));
+                        }
+                        break;
+                    case "output": p.Output = GoodId((string)kv.Value!); break;
+                    case "ticks":
+                        p.Ticks = (long)kv.Value!;
+                        if (p.Ticks < 1 || p.Ticks > MaxCycleTicks) throw new FormatException("'ticks' must be 1.." + MaxCycleTicks.ToString(CultureInfo.InvariantCulture));
+                        break;
+                    case "harvest":
+                        switch ((string)kv.Value!)
+                        {
+                            case "tree": p.Harvest = "Tree"; break;
+                            case "stone": p.Harvest = "Stone"; break;
+                            default: throw new FormatException("harvest must be tree or stone");
+                        }
+                        break;
+                    case "radius":
+                        p.Radius = (long)kv.Value!;
+                        if (p.Radius < 1 || p.Radius > MaxHarvestRadius) throw new FormatException("'radius' must be 1.." + MaxHarvestRadius.ToString(CultureInfo.InvariantCulture));
+                        break;
+                    default: throw new FormatException("unknown production field '" + kv.Key + "'");
+                }
+            }
+            if (p.Output.Length == 0) throw new FormatException("production without 'output'");
+            if (p.Ticks == 0) throw new FormatException("production without 'ticks'");
+            if (p.Inputs.Count > MaxInputs) throw new FormatException("production has more than " + MaxInputs.ToString(CultureInfo.InvariantCulture) + " inputs");
+            if ((p.Harvest != "None") != (p.Radius > 0)) throw new FormatException("'harvest' and 'radius' go together");
+            return p;
+        }
+
+        /// <summary>Checks a good id's form; whether the good exists is checked by the C# compiler (GoodIds constant).</summary>
+        private static string GoodId(string id)
+        {
+            if (id.Length == 0) throw new FormatException("empty good id");
+            foreach (char ch in id)
+                if (!(ch >= 'a' && ch <= 'z') && !(ch >= '0' && ch <= '9') && ch != '_')
+                    throw new FormatException("good id '" + id + "' must be lower snake case");
+            return id;
+        }
+
+        private static string ProductionLiteral(Production? p)
+        {
+            if (p == null) return "null";
+            var sb = new StringBuilder("new ProductionDefinition(new ushort[] { ");
+            for (int i = 0; i < p.Inputs.Count; i++)
+                sb.Append(i == 0 ? "" : ", ").Append("(ushort)Rebuild.Sim.Goods.GoodIds.").Append(CultureDataGenerator.PascalCase(p.Inputs[i].Key));
+            sb.Append(" }, new int[] { ");
+            for (int i = 0; i < p.Inputs.Count; i++)
+                sb.Append(i == 0 ? "" : ", ").Append(p.Inputs[i].Value.ToString(CultureInfo.InvariantCulture));
+            sb.Append(" }, (ushort)Rebuild.Sim.Goods.GoodIds.").Append(CultureDataGenerator.PascalCase(p.Output)).Append(", ")
+              .Append(p.Ticks.ToString(CultureInfo.InvariantCulture)).Append(", Rebuild.Sim.MapGen.MapObject.").Append(p.Harvest).Append(", ")
+              .Append(p.Radius.ToString(CultureInfo.InvariantCulture)).Append(")");
+            return sb.ToString();
         }
 
         private static long Small(KeyValuePair<string, object?> kv)

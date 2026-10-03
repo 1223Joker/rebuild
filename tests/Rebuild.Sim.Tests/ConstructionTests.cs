@@ -249,7 +249,7 @@ public class ConstructionTests
         var w = new CanonicalWriter(1024);
         sim.Buildings.WriteTo(w);
         var bytes = w.ToArray();
-        const int stockFlag = 8 + 17 + 4; // nextId, count, first castle's fields + progress
+        const int stockFlag = 8 + 17 + 6; // nextId, count, first castle's fields + progress + cycle
         Assert.Equal(1, bytes[stockFlag]);
         foreach (byte flag in new byte[] { 0, 2 })
         {
@@ -269,14 +269,18 @@ public class ConstructionTests
     {
         var log = SampleLogs.BuildScript(1, 600);
         var sim = Simulation.Create(log.Setup);
-        int maxClaims = 0;
+        int maxClaims = 0, cycles = 0, completed = 0;
         foreach (var bundle in log.Bundles)
         {
             sim.ExecuteTurn(bundle);
             maxClaims = System.Math.Max(maxClaims, sim.Territory.Claims.Count);
+            cycles += sim.Buildings.All.Count(b => b.Cycle > 0);
+            completed += sim.Buildings.All.Count(b => b.Type != BuildingIds.Castle && b.State == BuildingState.Complete);
         }
-        Assert.Contains(sim.Buildings.All, b => b.Type != BuildingIds.Castle && b.State == BuildingState.Complete);
+        Assert.True(completed > 0, "no building was completed");
+        Assert.True(sim.MapChanges.Tiles.Count > 0, "nothing was harvested");
         Assert.True(maxClaims > 2, "no tower was completed");
+        Assert.True(cycles > 0, "no production cycle ran");
         Assert.All(sim.Buildings.All, b => Assert.True(Construction.IsConsistent(b)));
     }
 }

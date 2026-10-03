@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-10-03 — M0 done; **M1 Map generation first pass done**; **M2 step 1 (map in the sim, start assignment, territory) done**; **M2 step 2 (building data, start castle entity, PlaceBuilding/CancelConstruction) done**; **M2 step 3 (goods, castle stock, construction, Demolish) done**; **M2 step 4 (carriers, A* pathfinding, movement) done**; **M2 step 5 (logistics: transport jobs for construction materials) done** (2026-10-03). M1: full pipeline, F1–F11 validation with retries, share codes, `mapgen` CLI with PNG preview, 24 golden map hashes, nightly 1 000-seed workflow; 96 tests.
+**Last updated:** 2026-10-03 — M0 done; **M1 Map generation first pass done**; **M2 step 1 (map in the sim, start assignment, territory) done**; **M2 step 2 (building data, start castle entity, PlaceBuilding/CancelConstruction) done**; **M2 step 3 (goods, castle stock, construction, Demolish) done**; **M2 step 4 (carriers, A* pathfinding, movement) done**; **M2 step 5 (logistics: transport jobs for construction materials) done**; **M2 step 6 (production: woodcutter, sawmill, stonecutter; piles, cycles, harvesting, input requests, overflow) done** (2026-10-03). M1: full pipeline, F1–F11 validation with retries, share codes, `mapgen` CLI with PNG preview, 24 golden map hashes, nightly 1 000-seed workflow; 96 tests.
 
 ## Current phase / step
-**Implementation, milestone M2 Sim economy (headless)** ([09-roadmap](../09-roadmap.md)) — steps 1 (map in the sim + territory), 2 (building data + placement), 3 (goods + construction), 4 (carriers + A*) and 5 (logistics for construction) done; M0 Foundations and M1 Map generation complete. The user permitted coding on 2026-10-02 and chose "M0 directly, S1 folded in": S1's sim half is covered by M0; S1's Godot .NET export check moves to the start of M3. Process steps: [ORIGINAL-BRIEF.md §6](ORIGINAL-BRIEF.md).
+**Implementation, milestone M2 Sim economy (headless)** ([09-roadmap](../09-roadmap.md)) — steps 1 (map in the sim + territory), 2 (building data + placement), 3 (goods + construction), 4 (carriers + A*), 5 (logistics for construction) and 6 (first production buildings) done; M0 Foundations and M1 Map generation complete. The user permitted coding on 2026-10-02 and chose "M0 directly, S1 folded in": S1's sim half is covered by M0; S1's Godot .NET export check moves to the start of M3. Process steps: [ORIGINAL-BRIEF.md §6](ORIGINAL-BRIEF.md).
 
 ## Done
 - Step 0: git repo, [AGENTS.md](../../AGENTS.md), [CLAUDE.md](../../CLAUDE.md) (pointer), [ORIGINAL-BRIEF.md](ORIGINAL-BRIEF.md), this file.
@@ -119,6 +119,16 @@
 | Code review (`/code-review`, medium): 1 finding fixed — a save whose job pointed at a non-storage source loaded and later crashed with a `NullReferenceException` | done |
 | Tests / CI | 153 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112); float-ban and golden-version checks pass locally; **CI run 37088928969 green** on `main` (e8429d6): 4 runners × Debug/Release, `cross-os-hashes` (both new replay hashes identical everywhere) and `golden-version` pass |
 
+| M2 step 6 — production buildings (2026-10-03) | State |
+|---|---|
+| `"production"` in `data/buildings.json` (inputs ≤ 2, optional harvest tree/stone + radius, output, cycle ticks; RB0101 on bad data, unknown goods fail the build) → `ProductionDefinition`; woodcutter (tree → log, r 8, 15 s), sawmill (1 log → 1 plank, 6 s), stonecutter (stone → stone, r 8, 15 s), all ASSUMPTION | done |
+| `World/Production` (runs after construction, before logistics): complete production buildings own input piles + an output pile; a cycle starts with inputs present, a harvest object in reach on own territory and room in the output pile (pile + reserved + 1 ≤ 8), inputs taken at the start; at the end the nearest object loses a unit and one output unit is piled; no workers yet (ASSUMPTION) | done |
+| `World/MapChanges`: harvested tiles (tile, object, amount) as sim state, applied to the regenerated map on load (validated: was tree/stone, now empty or fewer stone units); freed tiles become buildable; `MapGenerator.TileFlagsAt` extracted (map hashes unchanged) | done |
+| Logistics: three passes per tick in building id order — site materials, production inputs (refill to 4 incl. units on the way), overflow (output pile → nearest storage); offers = storage stocks + output piles, never the requester itself; a carried unit whose destination is unreachable goes to the nearest storage not marked unreachable | done |
+| Save format 7 (building cycle + piles, map changes; load validates piles, cycle < cycle ticks, input pile + on the way ≤ 4, output pile + reserved + running cycle ≤ 8, live job sources = storage or matching producer); `GameVersion` 0.8.0; both golden replays regenerated; `m2-build.rblog` now places woodcutters/stonecutters with resources in reach so production runs | done |
+| Code review (`/code-review`, medium): 1 finding fixed — overflow carried to a storage that had become unreachable was dropped instead of going to another storage (regression test added) | done |
+| Tests / CI | 162 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112); float-ban and golden-version checks pass locally; CI: see below |
+
 ## In progress
 - Nothing.
 
@@ -126,7 +136,7 @@
 1. Keep CI green (`gh run list -R 1223Joker/rebuild`).
 2. M1 polish: tune `Dmin`, `Rf`, `Lmin` and the ASSUMPTION thresholds (F5/F6 minimums, fertile share, lair counts) when gameplay exists (spike S4 is done as part of M1; all spikes are allowed, user 2026-10-02).
 3. Run spike **S5** (headless logistics + HPA* + combat scale, [09-roadmap §2](../09-roadmap.md)) alongside the start of M2, so the 20 ms/tick budget is checked before the economy design hardens.
-4. Continue **M2 Sim economy (headless)** ([06-economy](../06-economy.md)): next step = **production buildings** (input/output piles, work cycles, woodcutter → sawmill → planks, quarry → stone) feeding logistics with output offers, input requests and storehouse overflow, then builders/diggers, player transport priorities, terrain costs + HPA*.
+4. Continue **M2 Sim economy (headless)** ([06-economy](../06-economy.md)): next step = **the remaining production chains** (forester planting trees, fisher/hunter/farm/waterworks → mill/bakery/pig farm/slaughterhouse, mines with food input and deposit depletion, smelters, toolsmith/weaponsmith with quotas) plus production statistics, then workers/specialists with tools, builders/diggers, player transport priorities, terrain costs + HPA*.
 5. Before M3: run S1's Godot part — install the Godot **.NET** edition (the installed `/Applications/Godot.app` 4.7.2 is the standard build without C#) and export a test project for macOS and Windows — and spike S2 (rendering scale). Before M5: spike S3 (ENet transport).
 
 ## Blockers / waiting for user approval
