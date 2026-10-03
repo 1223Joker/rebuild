@@ -14,7 +14,7 @@ public enum BuildingSize : byte
 /// <summary>Which tiles a building may stand on (docs/06-economy.md §1).</summary>
 public enum BuildingTerrain : byte
 {
-    /// <summary>Buildable land tiles (flat, no water/mountain/object).</summary>
+    /// <summary>Walkable plains/fertile tiles without objects; uneven sites are levelled by a digger first.</summary>
     Land,
     /// <summary>Walkable mountain tiles without objects (mines).</summary>
     Mountain,

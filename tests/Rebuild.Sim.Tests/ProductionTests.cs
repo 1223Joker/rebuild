@@ -282,18 +282,18 @@ public class ProductionTests
             return w.ToArray();
         }
 
-        // Map changes: count(4) then per tile tile(4) object(1) resource(1) amount(1).
+        // Map changes: count(4) then per tile tile(4) height(1) object(1) resource(1) amount(1).
         var changes = Encode(w => sim.MapChanges.WriteTo(w, sim.Map));
         MapData Fresh() => MapGenerator.Generate(sim.Setup.Map).Map!;
         MapChanges.ReadFrom(new CanonicalReader(changes), Fresh());
         int plain = Enumerable.Range(0, sim.Map.TileCount).First(t => sim.Map.Object[t] == (byte)MapObject.None && !sim.MapChanges.Tiles.Contains(t));
         var cases = new System.Action<byte[]>[]
         {
-            b => System.BitConverter.GetBytes(plain).CopyTo(b, 4),          // tile that never held a tree or stone
-            b => { b[8] = (byte)MapObject.Tree; b[10] = 1; },                   // tree back with an amount
-            b => b[8] = (byte)MapObject.Lair,                                   // tree turned into something else
-            b => b[10] = 3,                                                     // removed object with an amount
-            b => b[9] = (byte)Resource.Fish,                                    // resource appeared
+            b => { System.BitConverter.GetBytes(plain).CopyTo(b, 4); b[8] = sim.Map.Height[plain]; }, // tile that never held a tree or stone
+            b => { b[9] = (byte)MapObject.Tree; b[11] = 1; },                   // tree back with an amount
+            b => b[9] = (byte)MapObject.Lair,                                   // tree turned into something else
+            b => b[11] = 3,                                                     // removed object with an amount
+            b => b[10] = (byte)Resource.Fish,                                    // resource appeared
             b => System.BitConverter.GetBytes(sim.Map.TileCount).CopyTo(b, 4), // outside the map
         };
         foreach (var corrupt in cases)
@@ -454,11 +454,11 @@ public class ProductionTests
         MapChanges.ReadFrom(new CanonicalReader(changes), Fresh());
         var cases = new System.Action<byte[]>[]
         {
-            b => b[10] = 0,                                // fish left but amount 0
-            b => b[10] = 200,                              // more fish than generated
-            b => b[9] = (byte)Resource.Coal,               // fish turned into coal
-            b => b[8] = (byte)MapObject.Tree,              // tree appeared on water
-            b => { b[9] = (byte)Resource.None; b[10] = 1; }, // fish gone but an amount left
+            b => b[11] = 0,                                // fish left but amount 0
+            b => b[11] = 200,                              // more fish than generated
+            b => b[10] = (byte)Resource.Coal,               // fish turned into coal
+            b => b[9] = (byte)MapObject.Tree,              // tree appeared on water
+            b => { b[10] = (byte)Resource.None; b[11] = 1; }, // fish gone but an amount left
         };
         foreach (var corrupt in cases)
         {
@@ -637,11 +637,11 @@ public class ProductionTests
         MapChanges.ReadFrom(new CanonicalReader(changes), Fresh());
         var cases = new System.Action<byte[]>[]
         {
-            b => b[10] = 0,                                  // coal left but amount 0
-            b => b[10] = 200,                                // more coal than generated
-            b => b[9] = (byte)Resource.Gold,                 // coal turned into gold
-            b => b[8] = (byte)MapObject.Stone,               // stone appeared on the deposit
-            b => { b[9] = (byte)Resource.None; b[10] = 1; }, // coal gone but an amount left
+            b => b[11] = 0,                                  // coal left but amount 0
+            b => b[11] = 200,                                // more coal than generated
+            b => b[10] = (byte)Resource.Gold,                 // coal turned into gold
+            b => b[9] = (byte)MapObject.Stone,               // stone appeared on the deposit
+            b => { b[10] = (byte)Resource.None; b[11] = 1; }, // coal gone but an amount left
         };
         foreach (var corrupt in cases)
         {
@@ -795,13 +795,13 @@ public class ProductionTests
         int deposit = Find((m, t) => m.Terrain[t] == (byte)Terrain.Mountain && m.Resource[t] != (byte)Resource.None);
         var cases = new System.Action<byte[]>[]
         {
-            b => b[10] = 1,                                                  // planted tree with an amount
-            b => b[9] = (byte)Resource.Fish,                                 // resource appeared with it
-            b => b[8] = (byte)MapObject.Game,                                // game appeared instead
-            b => System.BitConverter.GetBytes(water).CopyTo(b, 4),           // tree in the water
-            b => System.BitConverter.GetBytes(mountain).CopyTo(b, 4),        // tree on a mountain
-            b => System.BitConverter.GetBytes(deposit).CopyTo(b, 4),         // tree on an ore deposit
-            b => System.BitConverter.GetBytes(steep).CopyTo(b, 4),           // tree on a slope too steep to plant on
+            b => b[11] = 1, // planted tree with an amount
+            b => b[10] = (byte)Resource.Fish, // resource appeared with it
+            b => b[9] = (byte)MapObject.Game, // game appeared instead
+            b => { System.BitConverter.GetBytes(water).CopyTo(b, 4); b[8] = map.Height[water]; }, // tree in the water
+            b => { System.BitConverter.GetBytes(mountain).CopyTo(b, 4); b[8] = map.Height[mountain]; }, // tree on a mountain
+            b => { System.BitConverter.GetBytes(deposit).CopyTo(b, 4); b[8] = map.Height[deposit]; }, // tree on an ore deposit
+            b => { System.BitConverter.GetBytes(steep).CopyTo(b, 4); b[8] = map.Height[steep]; }, // tree on a slope too steep to plant on
         };
         foreach (var corrupt in cases)
         {

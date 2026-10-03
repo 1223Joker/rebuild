@@ -20,9 +20,10 @@ public enum BuildingState : byte
 /// progress of a site (all 0 once complete). <see cref="Cycle"/> is the elapsed work-cycle ticks of a complete
 /// production building (0 = no cycle running; <see cref="Production"/>); <see cref="Choice"/> is the index in
 /// <see cref="ProductionDefinition.Outputs"/> the running cycle makes (picked at its start by a smith's quota; 0 when idle).
+/// <see cref="DigLeft"/> is the digger work a site still needs before its footprint is level (<see cref="Construction.DigWork"/>; 0 = level).
 /// </summary>
 public readonly record struct Building(int Id, ushort Type, byte Owner, int X, int Y, byte Rotation, BuildingState State, int ClaimId,
-    int DeliveredPlanks = 0, int DeliveredStone = 0, int WorkDone = 0, int Cycle = 0, int Choice = 0)
+    int DeliveredPlanks = 0, int DeliveredStone = 0, int WorkDone = 0, int Cycle = 0, int Choice = 0, int DigLeft = 0)
 {
     public BuildingDefinition Definition => BuildingCatalog.All[Type];
 
@@ -153,12 +154,12 @@ public sealed class BuildingRegistry
     }
 
     /// <summary>Adds a building and returns its id. Throws if the footprint is not free (callers validate first).</summary>
-    public int Add(ushort type, byte owner, int x, int y, byte rotation, BuildingState state, int claimId)
+    public int Add(ushort type, byte owner, int x, int y, byte rotation, BuildingState state, int claimId, int digLeft = 0)
     {
         if (type >= BuildingCatalog.All.Count) throw new System.ArgumentOutOfRangeException(nameof(type));
         if (rotation > MaxRotation) throw new System.ArgumentOutOfRangeException(nameof(rotation));
         if (!IsFootprintFree(x, y, BuildingCatalog.All[type].Side)) throw new System.InvalidOperationException("Footprint is not free");
-        var b = new Building(NextId++, type, owner, x, y, rotation, state, claimId);
+        var b = new Building(NextId++, type, owner, x, y, rotation, state, claimId, DigLeft: digLeft);
         _buildings.Add(b);
         _stocks.Add(NewStock(b));
         _piles.Add(NewPiles(b));
@@ -216,6 +217,7 @@ public sealed class BuildingRegistry
             w.WriteUInt16((ushort)b.WorkDone);
             w.WriteUInt16((ushort)b.Cycle);
             w.WriteByte((byte)b.Choice);
+            w.WriteUInt16((ushort)b.DigLeft);
             var stock = _stocks[i];
             w.WriteByte(stock == null ? (byte)0 : (byte)1);
             if (stock != null)
@@ -242,7 +244,7 @@ public sealed class BuildingRegistry
         for (int i = 0; i < count; i++)
         {
             var b = new Building(r.ReadInt32(), r.ReadUInt16(), r.ReadByte(), r.ReadUInt16(), r.ReadUInt16(), r.ReadByte(),
-                (BuildingState)r.ReadByte(), r.ReadInt32(), r.ReadByte(), r.ReadByte(), r.ReadUInt16(), r.ReadUInt16(), r.ReadByte());
+                (BuildingState)r.ReadByte(), r.ReadInt32(), r.ReadByte(), r.ReadByte(), r.ReadUInt16(), r.ReadUInt16(), r.ReadByte(), r.ReadUInt16());
             if (b.Id <= lastId || b.Id >= nextId || b.Type >= BuildingCatalog.All.Count || b.Owner >= playerCount
                 || b.Rotation > MaxRotation || b.State > BuildingState.Complete || !reg.IsFootprintFree(b.X, b.Y, b.Definition.Side))
                 throw new InvalidDataException("Invalid building");

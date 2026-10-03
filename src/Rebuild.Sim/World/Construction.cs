@@ -1,5 +1,6 @@
 using Rebuild.Sim.Buildings;
 using Rebuild.Sim.Goods;
+using Rebuild.Sim.MapGen;
 
 namespace Rebuild.Sim.World;
 
@@ -11,7 +12,10 @@ namespace Rebuild.Sim.World;
 /// (a worker with a <see cref="BuilderTool"/>, brought by <see cref="Logistics"/> once delivered material waits to be
 /// worked in; it leaves again when that is done and nothing is on the way, so stalled sites do not hold every hammer) is inside, at the worker speed of its home
 /// (Short −25 %, Crisis stops, as <see cref="Production"/>); on completion the builder comes out as a carrier and takes the
-/// hammer to storage. ponytail: no digger — placement already demands flat land, so there is nothing to level.
+/// hammer to storage. A land site on uneven ground is levelled first: a digger (a worker with a <see cref="DiggerTool"/>,
+/// requested at once) works <see cref="Building.DigLeft"/> ticks inside, then the footprint drops or rises to
+/// <see cref="LevelOf"/> in one go (<see cref="MapChanges.Level"/>) and the digger takes the shovel back; material is
+/// delivered meanwhile, the builder comes after.
 /// </summary>
 public static class Construction
 {
@@ -20,11 +24,42 @@ public static class Construction
     /// <summary>Tool a site's builder takes.</summary>
     public const ushort BuilderTool = GoodIds.Hammer;
 
+    /// <summary>Tool a site's digger takes.</summary>
+    public const ushort DiggerTool = GoodIds.Shovel;
+    /// <summary>Dig ticks per height level a footprint tile moves (1 s, ASSUMPTION).</summary>
+    public const int DigTicksPerLevel = 10;
+
+    /// <summary>Height a footprint is levelled to: the midpoint of its lowest and highest tile, rounded down.</summary>
+    public static int LevelOf(MapData map, int x, int y, int side)
+    {
+        int min = 255, max = 0;
+        for (int ty = y; ty < y + side; ty++)
+            for (int tx = x; tx < x + side; tx++)
+            {
+                int h = map.Height[map.Index(tx, ty)];
+                if (h < min) min = h;
+                if (h > max) max = h;
+            }
+        return (min + max) / 2;
+    }
+
+    /// <summary>Digger ticks a site of <paramref name="type"/> at (x, y) needs: <see cref="DigTicksPerLevel"/> per level each footprint tile moves; 0 for mines.</summary>
+    public static int DigWork(MapData map, int type, int x, int y)
+    {
+        var def = BuildingCatalog.All[type];
+        if (def.Terrain != BuildingTerrain.Land) return 0;
+        int level = LevelOf(map, x, y, def.Side), work = 0;
+        for (int ty = y; ty < y + def.Side; ty++)
+            for (int tx = x; tx < x + def.Side; tx++)
+                work += System.Math.Abs(map.Height[map.Index(tx, ty)] - level) * DigTicksPerLevel;
+        return work;
+    }
+
     /// <summary>Total build ticks of a building type.</summary>
     public static int TotalWork(BuildingDefinition def) => def.CostTotal * WorkTicksPerMaterial;
 
     /// <summary>Runs one tick of construction.</summary>
-    public static void Step(int tick, BuildingRegistry buildings, Territory territory, Settlers settlers, Logistics logistics)
+    public static void Step(int tick, BuildingRegistry buildings, MapData map, MapChanges mapChanges, Territory territory, Settlers settlers, Logistics logistics)
     {
         var all = buildings.All;
         bool[]? working = null;
@@ -37,6 +72,16 @@ public static class Construction
             working ??= settlers.Working(buildings);
             states ??= settlers.WorkerHomeStates(buildings);
             if (!working[i] || states[i] == NeedState.Crisis || (states[i] == NeedState.Short && tick % Production.ShortSkipEvery == 0)) continue;
+            if (b.DigLeft > 0)
+            {
+                if (b.DigLeft == 1)
+                {
+                    logistics.ReleaseWorker(buildings, settlers, b.Id); // still a dig site: the digger takes its shovel back
+                    mapChanges.Level(map, b.X, b.Y, def.Side);
+                }
+                buildings.Update(i, b with { DigLeft = b.DigLeft - 1 });
+                continue;
+            }
             if (b.WorkDone < (b.DeliveredPlanks + b.DeliveredStone) * WorkTicksPerMaterial)
                 b = b with { WorkDone = b.WorkDone + 1 };
             else if (!logistics.HasDeliveryTo(b.Id))
@@ -89,10 +134,10 @@ public static class Construction
     {
         var def = b.Definition;
         if (b.State == BuildingState.Complete)
-            return b.DeliveredPlanks == 0 && b.DeliveredStone == 0 && b.WorkDone == 0 && (b.ClaimId != 0) == (def.TerritoryRadius > 0)
+            return b.DigLeft == 0 && b.DeliveredPlanks == 0 && b.DeliveredStone == 0 && b.WorkDone == 0 && (b.ClaimId != 0) == (def.TerritoryRadius > 0)
                 && b.Cycle >= 0 && b.Cycle < (def.Production?.MaxCycleTicks ?? 1)
                 && b.Choice >= 0 && b.Choice < (b.Cycle > 0 ? def.Production!.Outputs.Count : 1);
-        return b.ClaimId == 0 && b.Cycle == 0 && b.Choice == 0 && b.DeliveredPlanks <= def.CostPlanks && b.DeliveredStone <= def.CostStone
+        return b.ClaimId == 0 && b.Cycle == 0 && b.Choice == 0 && (b.DigLeft == 0 || b.WorkDone == 0) && b.DeliveredPlanks <= def.CostPlanks && b.DeliveredStone <= def.CostStone
             && b.WorkDone <= (b.DeliveredPlanks + b.DeliveredStone) * WorkTicksPerMaterial && b.WorkDone < TotalWork(def);
     }
 

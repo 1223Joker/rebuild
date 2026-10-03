@@ -185,12 +185,15 @@ public static class SampleLogs
         return n;
     }
 
-    /// <summary>The <paramref name="pick"/>-th (mod count) complete building of the slot, or <paramref name="pick"/> if it has none.</summary>
+    /// <summary>
+    /// The <paramref name="pick"/>-th (mod count) complete building of the slot except foresters (spared so planting
+    /// stays covered), or <paramref name="pick"/> if it has none.
+    /// </summary>
     private static int PickOwnComplete(Simulation sim, byte slot, int pick)
     {
         var own = new List<int>();
         foreach (var b in sim.Buildings.All)
-            if (b.Owner == slot && b.State == BuildingState.Complete) own.Add(b.Id);
+            if (b.Owner == slot && b.State == BuildingState.Complete && b.Type != BuildingIds.Forester) own.Add(b.Id);
         return own.Count == 0 ? pick : own[pick % own.Count];
     }
 

@@ -27,7 +27,7 @@ public sealed class Simulation
     public const int TicksPerTurn = 2;
 
     private const uint SaveMagic = 0x56415342; // "BSAV" little-endian
-    private const ushort SaveFormatVersion = 16;
+    private const ushort SaveFormatVersion = 17;
 
     private readonly PlayerState[] _players;
     private readonly PlayerCultureTable?[] _cultureTables;
@@ -194,7 +194,7 @@ public sealed class Simulation
     {
         // Systems run here in a fixed order: construction, production, households, logistics matching, settlers (movement + jobs),
         // then (later milestones) combat, ...
-        Construction.Step(Tick, Buildings, Territory, Settlers, Logistics);
+        Construction.Step(Tick, Buildings, Map, MapChanges, Territory, Settlers, Logistics);
         Production.Step(Tick, Buildings, Map, Territory, MapChanges, Logistics, Settlers, Quotas, Statistics, Season);
         Households.Step(Map.Edge, Buildings, Settlers, Logistics, Statistics, Season);
         Logistics.Match(Tick, Buildings, Settlers, Season);
@@ -228,7 +228,7 @@ public sealed class Simulation
                 break;
             case CommandType.PlaceBuilding:
                 BuildingCommands.TryReadPlace(c, out ushort type, out int x, out int y, out byte rotation);
-                Buildings.Add(type, c.Slot, x, y, rotation, BuildingState.ConstructionSite, claimId: 0);
+                Buildings.Add(type, c.Slot, x, y, rotation, BuildingState.ConstructionSite, claimId: 0, Construction.DigWork(Map, type, x, y));
                 break;
             case CommandType.CancelConstruction:
                 BuildingCommands.TryReadId(c, out int id);

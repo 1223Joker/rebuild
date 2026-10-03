@@ -4,6 +4,7 @@ using Rebuild.Sim.Buildings;
 using Rebuild.Sim.Commands;
 using Rebuild.Sim.Core;
 using Rebuild.Sim.Goods;
+using Rebuild.Sim.MapGen;
 using Rebuild.Sim.Match;
 using Rebuild.Sim.Serialization;
 using Rebuild.Sim.World;
@@ -230,6 +231,124 @@ public class ConstructionTests
         Assert.Equal(hammers, CastleStock(sim, 0, GoodIds.Hammer));
     }
 
+    /// <summary>First spot of <paramref name="type"/> in slot 0's territory whose placement gives <paramref name="result"/> and that passes <paramref name="accept"/>.</summary>
+    private static (int X, int Y) FindSpotWhere(Simulation sim, int type, PlacementResult result, System.Func<int, int, bool> accept)
+    {
+        for (int y = 0; y < sim.Map.Edge; y++)
+            for (int x = 0; x < sim.Map.Edge; x++)
+                if (BuildingPlacement.Check(sim.Map, sim.Territory, sim.Buildings, 0, type, x, y) == result && accept(x, y)) return (x, y);
+        throw new Xunit.Sdk.XunitException($"No {result} spot for {BuildingCatalog.All[type].Id}");
+    }
+
+    /// <summary>Gives slot 0 a radius-30 claim around its start: beyond the flat start plateau, where land is uneven.</summary>
+    private static void Widen(Simulation sim)
+    {
+        var s = sim.StartOf(0)!.Value;
+        sim.Territory.AddClaim(0, s.X, s.Y, 30);
+    }
+
+    private static int Shovels(Simulation sim) =>
+        CastleStock(sim, 0, GoodIds.Shovel)
+        + sim.Settlers.All.Count(s => s.Kind == SettlerKind.Worker && sim.Buildings.TryGet(s.WorkplaceId, out var b) && b.State == BuildingState.ConstructionSite)
+        + sim.Logistics.All.Count(j => j.Good == GoodIds.Shovel);
+
+    [Fact]
+    public void An_uneven_site_is_levelled_by_a_digger_before_it_is_built()
+    {
+        var sim = Simulation.Create(TwoPlayers());
+        Widen(sim);
+        int shovels = CastleStock(sim, 0, GoodIds.Shovel);
+        var (x, y) = FindSpotWhere(sim, BuildingIds.Residence, PlacementResult.Ok, (x, y) => Construction.DigWork(sim.Map, BuildingIds.Residence, x, y) > 0);
+        int work = Construction.DigWork(sim.Map, BuildingIds.Residence, x, y);
+        int level = Construction.LevelOf(sim.Map, x, y, 2);
+        Run(sim, BuildingCommands.Place(0, 0, BuildingIds.Residence, (ushort)x, (ushort)y));
+        int id = sim.Buildings.All.Last().Id;
+        Assert.Equal(work, Get(sim, id).DigLeft);
+        Run(sim);
+        Assert.Single(sim.Logistics.All, j => j.Kind == JobKind.Employ && j.DestinationId == id && j.Good == GoodIds.Shovel); // a digger at once
+        bool saved = false;
+        for (int turns = 0; Get(sim, id).DigLeft > 0; turns++)
+        {
+            Assert.True(turns < 1000, "site never levelled");
+            Assert.Equal(0, Get(sim, id).WorkDone); // nothing is built before the site is level
+            Assert.DoesNotContain(sim.Logistics.All, j => j.Kind == JobKind.Employ && j.Good == GoodIds.Hammer);
+            Assert.Equal(shovels, Shovels(sim));
+            if (!saved && HasBuilder(sim, id))
+            {
+                Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash()); // a digger inside a site loads
+                saved = true;
+            }
+            Run(sim);
+        }
+        Assert.True(saved);
+        for (int ty = y; ty < y + 2; ty++)
+            for (int tx = x; tx < x + 2; tx++)
+                Assert.Equal(level, sim.Map.Height[sim.Map.Index(tx, ty)]);
+        Assert.Contains(sim.Logistics.All, j => (j.Kind, j.Good, j.SourceId) == (JobKind.Transport, GoodIds.Shovel, id)); // the digger came out
+        Assert.NotEmpty(sim.MapChanges.Tiles);
+        var loaded = Simulation.Load(sim.Save());
+        Assert.Equal(sim.ComputeHash(), loaded.ComputeHash()); // levelled heights load
+        Assert.Equal(sim.Map.Flags, loaded.Map.Flags);
+        RunUntilComplete(sim, id);
+        RunUntilNoJobs(sim);
+        Assert.Equal(shovels, CastleStock(sim, 0, GoodIds.Shovel));
+    }
+
+    [Fact]
+    public void Two_foresters_leave_shovels_for_diggers()
+    {
+        var sim = Simulation.Create(TwoPlayers());
+        int a = Place(sim, 0, BuildingIds.Forester), b = Place(sim, 0, BuildingIds.Forester, 1);
+        RunUntilComplete(sim, a);
+        RunUntilComplete(sim, b); // both foresters keep a shovel
+        Widen(sim);
+        var (x, y) = FindSpotWhere(sim, BuildingIds.Residence, PlacementResult.Ok, (x, y) => Construction.DigWork(sim.Map, BuildingIds.Residence, x, y) > 0);
+        Run(sim, BuildingCommands.Place(0, 2, BuildingIds.Residence, (ushort)x, (ushort)y));
+        int id = sim.Buildings.All.Last().Id;
+        for (int turns = 0; Get(sim, id).DigLeft > 0; turns++)
+        {
+            Assert.True(turns < 1000, "no shovel left for the digger");
+            Run(sim);
+        }
+    }
+
+    [Fact]
+    public void Placement_accepts_gentle_slopes_but_not_steep_levelling()
+    {
+        var sim = Simulation.Create(TwoPlayers());
+        var (fx, fy, _) = sim.StartOf(0)!.Value;
+        Assert.Equal(0, Construction.DigWork(sim.Map, BuildingIds.Residence, fx + 4, fy + 4)); // the start plateau is flat
+        Widen(sim);
+        bool Sloped(int x, int y) => !sim.Map.IsBuildable(sim.Map.Index(x, y)) || !sim.Map.IsBuildable(sim.Map.Index(x + 1, y + 1));
+        FindSpotWhere(sim, BuildingIds.Residence, PlacementResult.Ok, Sloped); // too steep to build on before levelling
+        FindSpotWhere(sim, BuildingIds.Storehouse, PlacementResult.TooSteep, (_, _) => true);
+    }
+
+    [Fact]
+    public void Height_changes_off_plains_are_rejected_on_load()
+    {
+        var sim = Simulation.Create(TwoPlayers());
+        MapData Fresh() => MapGenerator.Generate(sim.Setup.Map).Map!;
+        var map = Fresh();
+        int plains = Enumerable.Range(0, map.TileCount).First(t => map.Terrain[t] == (byte)Terrain.Plains);
+        int water = Enumerable.Range(0, map.TileCount).First(t => map.Terrain[t] == (byte)Terrain.Water);
+        byte[] Change(int tile, byte height)
+        {
+            var w = new CanonicalWriter(16);
+            w.WriteInt32(1);
+            w.WriteInt32(tile);
+            w.WriteByte(height);
+            w.WriteByte(map.Object[tile]);
+            w.WriteByte(map.Resource[tile]);
+            w.WriteByte(map.Amount[tile]);
+            return w.ToArray();
+        }
+        var levelled = Fresh();
+        MapChanges.ReadFrom(new CanonicalReader(Change(plains, (byte)(map.Height[plains] + 1))), levelled);
+        Assert.Equal(map.Height[plains] + 1, levelled.Height[plains]);
+        Assert.Throws<InvalidDataException>(() => MapChanges.ReadFrom(new CanonicalReader(Change(water, (byte)(map.Height[water] + 1))), Fresh()));
+    }
+
     [Fact]
     public void A_completed_tower_extends_the_territory()
     {
@@ -355,7 +474,7 @@ public class ConstructionTests
         var w = new CanonicalWriter(1024);
         sim.Buildings.WriteTo(w);
         var bytes = w.ToArray();
-        const int stockFlag = 8 + 17 + 7; // nextId, count, first castle's fields + progress + cycle + choice
+        const int stockFlag = 8 + 17 + 9; // nextId, count, first castle's fields + progress + cycle + choice + dig
         Assert.Equal(1, bytes[stockFlag]);
         foreach (byte flag in new byte[] { 0, 2 })
         {

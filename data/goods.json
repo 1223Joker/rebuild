@@ -22,7 +22,7 @@
     { "id": "axe", "name": "Axe", "start": 3 },
     { "id": "saw", "name": "Saw", "start": 1 },
     { "id": "pickaxe", "name": "Pickaxe", "start": 3 },
-    { "id": "shovel", "name": "Shovel", "start": 2 },
+    { "id": "shovel", "name": "Shovel", "start": 4 },
     { "id": "hammer", "name": "Hammer", "start": 4 },
     { "id": "scythe", "name": "Scythe", "start": 1 },
     { "id": "fishing_rod", "name": "Fishing rod", "start": 1 },

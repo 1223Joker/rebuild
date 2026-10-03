@@ -171,9 +171,13 @@ public sealed class Logistics
     internal static bool TakesWorker(in Building b) =>
         b.State == BuildingState.ConstructionSite || b.Definition.Production != null;
 
-    /// <summary>Tool of a building's worker: a site's builder takes <see cref="Construction.BuilderTool"/>, else the production's tool.</summary>
+    /// <summary>
+    /// Tool of a building's worker: a site's digger takes <see cref="Construction.DiggerTool"/> while it is not level, its builder
+    /// <see cref="Construction.BuilderTool"/>, else the production's tool.
+    /// </summary>
     internal static ushort ToolOf(in Building b) =>
-        b.State == BuildingState.ConstructionSite ? Construction.BuilderTool : b.Definition.Production?.Tool ?? ProductionDefinition.NoTool;
+        b.State != BuildingState.ConstructionSite ? b.Definition.Production?.Tool ?? ProductionDefinition.NoTool
+        : b.DigLeft > 0 ? Construction.DiggerTool : Construction.BuilderTool;
 
     /// <summary>Whether each building, by list index, has its worker inside or on the way.</summary>
     private bool[] Staffed(BuildingRegistry buildings, Settlers settlers)
@@ -265,8 +269,8 @@ public sealed class Logistics
             // Workers (and builders): the tool from the nearest storage holding it, or straight to the building without a tool.
             var b = all[i];
             if (!TakesWorker(b) || staffed[i] || noCarrier[b.Owner] || IsUnreachable(b.Id)) continue;
-            if (b.State == BuildingState.ConstructionSite && b.WorkDone == (b.DeliveredPlanks + b.DeliveredStone) * Construction.WorkTicksPerMaterial)
-                continue; // a builder only once delivered material waits to be worked in
+            if (b.State == BuildingState.ConstructionSite && b.DigLeft == 0 && b.WorkDone == (b.DeliveredPlanks + b.DeliveredStone) * Construction.WorkTicksPerMaterial)
+                continue; // a digger at once, a builder only once delivered material waits to be worked in
             ushort tool = ToolOf(b);
             int source = i;
             if (tool != ProductionDefinition.NoTool)
