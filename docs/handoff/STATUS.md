@@ -117,7 +117,7 @@
 | Placeholder supply (1 unit/site/s straight from storage) and the planks-before-stone rule removed; idle carriers without a job still wander | done |
 | Save format 6 (settler `JobId`, jobs, back-offs; load validates ids, owners, goods, live sources being storages, one-to-one carrier links, no over-delivery); `GameVersion` 0.7.0; both golden replays regenerated; `m2-build.rblog` placements beyond 4 open sites now use the invalid rotation 4 | done |
 | Code review (`/code-review`, medium): 1 finding fixed — a save whose job pointed at a non-storage source loaded and later crashed with a `NullReferenceException` | done |
-| Tests / CI | 153 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112); float-ban and golden-version checks pass locally; CI: see below |
+| Tests / CI | 153 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112); float-ban and golden-version checks pass locally; **CI run 37088928969 green** on `main` (e8429d6): 4 runners × Debug/Release, `cross-os-hashes` (both new replay hashes identical everywhere) and `golden-version` pass |
 
 ## In progress
 - Nothing.
@@ -130,7 +130,7 @@
 5. Before M3: run S1's Godot part — install the Godot **.NET** edition (the installed `/Applications/Godot.app` 4.7.2 is the standard build without C#) and export a test project for macOS and Windows — and spike S2 (rendering scale). Before M5: spike S3 (ENet transport).
 
 ## Blockers / waiting for user approval
-- Deleting old remote branches (e.g. `claude/amazing-hopper-tq38xc`, fully merged into `main`) is refused by the cloud session's git proxy (HTTP 403; a session may only push its own branch and `main`); delete them in the GitHub UI.
+- Deleting old remote branches (`claude/amazing-hopper-tq38xc`, `claude/amazing-hopper-s87jxe`, `claude/amazing-hopper-p2ghnv`, all fully merged into `main`) is not possible from the cloud session (git proxy HTTP 403 earlier; on 2026-10-03 the session's permission policy blocked the delete); delete them in the GitHub UI.
 
 ## Dead ends (tried or rejected, and why)
 - Using Godot `FastNoiseLite` for the shared map: floats, not cross-platform deterministic → rejected ([ADR 0003](../decisions/0003-mapgen-determinism.md)); allowed for client cosmetics only.
