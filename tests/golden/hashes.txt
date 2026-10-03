@@ -1,10 +1,10 @@
 # Expected output of `rebuild-tools hashes tests/golden`; identical on every OS/CPU/configuration.
 # Change only together with a GameVersion bump (map lines: MapGenerator.Version bump); enforced by
 # tools/ci/check-golden-version.sh (docs/08-testing.md §3).
-version 0.28.0+a8aa749c46c054a4
+version 0.29.0+a8aa749c46c054a4
 probe 33c88e85bfc149f8
 replay m0-meta.rblog 3000 206e2fc284c6390f
-replay m2-build.rblog 600 c444633d7c01fded
+replay m2-build.rblog 600 c45eb0ee84acaffb
 generator 1
 map s2-equalized 1 9ca13f4c37341a1a
 map s2-mirror 1 30ae44ce3cd1b713

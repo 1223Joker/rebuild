@@ -43,7 +43,8 @@ public readonly record struct Settler(int Id, SettlerKind Kind, byte Owner, int 
 /// population. Settlers walk
 /// on walkable tiles of their owner's territory that no building covers, along A* paths (<see cref="Pathfinder"/>) at
 /// <see cref="Speed"/> sub-tile units per tick (<see cref="ShortSpeed"/> from a Short home, <see cref="WinterPercent"/> of it in
-/// winter); diagonal steps cost 14/10 of a straight step. Settlers never collide;
+/// winter); diagonal steps cost 14/10 of a straight step, and a step takes longer by the <see cref="TerrainFactor"/> of the
+/// tile entered (the same factor A* uses). Settlers never collide;
 /// a settler covered by a newly placed building is put at that building's door. Workers stay inside their workplace
 /// except field workers walking to and from their resource (sent by <see cref="Production"/> via <see cref="SendTo"/>) and come
 /// out as carriers taking their tool to a storage when it is demolished.
@@ -136,7 +137,8 @@ public sealed class Settlers
     {
         var s = _settlers[index];
         var path = _paths[index];
-        if (pathfinder.FindPath(t => IsPassable(map, territory, buildings, s.Owner, t), s.Tile, goal, MaxExpansionsPerSearch, path) <= 0)
+        if (pathfinder.FindPath(t => IsPassable(map, territory, buildings, s.Owner, t), s.Tile, goal, MaxExpansionsPerSearch, path,
+                t => TerrainFactor(map, t)) <= 0)
         {
             path.Clear();
             return false;
@@ -228,6 +230,15 @@ public sealed class Settlers
         return map.IsWalkable(t) && buildings.AtTile(t) == 0 ? t : -1;
     }
 
+    /// <summary>
+    /// Terrain factor of a tile in tenths (docs/06-economy.md §6): mountain ("hill") 20, a tree ("forest") 15, other land 10.
+    /// </summary>
+    public static int TerrainFactor(MapData map, int tile) =>
+        map.Terrain[tile] == (byte)Terrain.Mountain ? 20 : map.Object[tile] == (byte)MapObject.Tree ? 15 : 10;
+
+    /// <summary>Longest step in sub-tile units: a diagonal step onto a factor-20 tile.</summary>
+    public const int MaxStep = DiagonalStep * 2;
+
     /// <summary>Whether a settler of <paramref name="owner"/> may enter the tile.</summary>
     public static bool IsPassable(MapData map, Territory territory, BuildingRegistry buildings, byte owner, int tile) =>
         map.IsWalkable(tile) && buildings.AtTile(tile) == 0 && territory.OwnerAt(tile) == owner;
@@ -258,7 +269,7 @@ public sealed class Settlers
             {
                 int next = path[path.Count - 1];
                 bool diagonal = next % _edge != s.Tile % _edge && next / _edge != s.Tile / _edge;
-                int cost = diagonal ? DiagonalStep : SubTile;
+                int cost = (diagonal ? DiagonalStep : SubTile) * TerrainFactor(map, next) / 10;
                 int speed = Households.HomeState(buildings, s.HomeId) == NeedState.Supplied ? Speed : ShortSpeed;
                 int progress = s.Progress + (season == Season.Winter ? speed * WinterPercent / 100 : speed);
                 if (progress < cost)
@@ -313,7 +324,7 @@ public sealed class Settlers
         {
             byte owner = s.Owner;
             cost = pathfinder.FindPath(t => IsPassable(map, territory, buildings, owner, t), s.Tile, y * _edge + x,
-                MaxExpansionsPerSearch, path);
+                MaxExpansionsPerSearch, path, t => TerrainFactor(map, t));
             expansions = pathfinder.Expansions;
         }
         if (cost <= 0)
@@ -410,7 +421,7 @@ public sealed class Settlers
             }
             bool walking = s.State == SettlerState.Walking;
             if (walking != (length > 0)
-                || (walking ? s.Progress >= DiagonalStep || s.WaitTicks != 0 : s.Progress != 0 || s.WaitTicks > MinIdleTicks + IdleTicksRange))
+                || (walking ? s.Progress >= MaxStep || s.WaitTicks != 0 : s.Progress != 0 || s.WaitTicks > MinIdleTicks + IdleTicksRange))
                 throw new InvalidDataException("Settler state does not match its path");
             if (s.Kind == SettlerKind.Worker && (s.WaitTicks != 0 || s.JobId != 0))
                 throw new InvalidDataException("A worker neither waits nor has a transport job");

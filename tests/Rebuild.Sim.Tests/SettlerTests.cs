@@ -64,20 +64,30 @@ public class SettlerTests
         Assert.True(pf.FindPath(_ => true, 0, 63 * 64 + 63, 100000, path) > 0);
     }
 
-    [Fact]
-    public void Astar_cost_equals_dijkstra_on_random_grids()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Astar_cost_equals_dijkstra_on_random_grids(bool terrain)
     {
         var rng = new Pcg32(42, 7);
         var pf = new Pathfinder(24);
         var path = new List<int>();
+        int[] factors = { 10, 15, 20 };
         for (int round = 0; round < 200; round++)
         {
             var open = new bool[24 * 24];
-            for (int i = 0; i < open.Length; i++) open[i] = rng.NextInt(100) >= 30;
+            var factor = new int[open.Length];
+            for (int i = 0; i < open.Length; i++)
+            {
+                open[i] = rng.NextInt(100) >= 30;
+                factor[i] = terrain ? factors[rng.NextInt(3)] : 10;
+            }
             int start = rng.NextInt(open.Length);
             int goal = rng.NextInt(open.Length);
-            int cost = pf.FindPath(t => open[t], start, goal, 1 << 20, path);
-            Assert.Equal(Dijkstra(open, 24, start, goal), cost);
+            int cost = terrain
+                ? pf.FindPath(t => open[t], start, goal, 1 << 20, path, t => factor[t])
+                : pf.FindPath(t => open[t], start, goal, 1 << 20, path);
+            Assert.Equal(Dijkstra(open, factor, 24, start, goal), cost);
             if (cost > 0)
             {
                 // The path is a chain of passable neighbours ending at the goal and its step costs add up.
@@ -87,7 +97,7 @@ public class SettlerTests
                     Assert.True(open[t]);
                     int dx = System.Math.Abs(t % 24 - prev % 24), dy = System.Math.Abs(t / 24 - prev / 24);
                     Assert.True(dx <= 1 && dy <= 1 && dx + dy > 0);
-                    sum += dx + dy == 2 ? 14 : 10;
+                    sum += (dx + dy == 2 ? 14 : 10) * factor[t] / 10;
                     prev = t;
                 }
                 Assert.Equal(goal, prev);
@@ -96,8 +106,8 @@ public class SettlerTests
         }
     }
 
-    /// <summary>Reference: Dijkstra with the same moves (8 neighbours, no corner cutting, start exempt).</summary>
-    private static int Dijkstra(bool[] open, int edge, int start, int goal)
+    /// <summary>Reference: Dijkstra with the same moves (8 neighbours, no corner cutting, start exempt, step × factor of the tile entered / 10).</summary>
+    private static int Dijkstra(bool[] open, int[] factor, int edge, int start, int goal)
     {
         if (start == goal) return 0;
         if (!open[goal]) return -1;
@@ -121,7 +131,7 @@ public class SettlerTests
                     int n = ny * edge + nx;
                     if (!open[n]) continue;
                     if (dx != 0 && dy != 0 && (!open[y * edge + nx] || !open[ny * edge + x])) continue;
-                    int d = dist[best] + (dx != 0 && dy != 0 ? 14 : 10);
+                    int d = dist[best] + (dx != 0 && dy != 0 ? 14 : 10) * factor[n] / 10;
                     if (d < dist[n]) dist[n] = d;
                 }
         }
@@ -174,6 +184,43 @@ public class SettlerTests
     }
 
     [Fact]
+    public void Terrain_factors_follow_the_tile()
+    {
+        var map = Simulation.Create(TwoPlayers()).Map;
+        for (int t = 0; t < map.TileCount; t++)
+        {
+            int expected = map.Terrain[t] == (byte)MapGen.Terrain.Mountain ? 20 : map.Object[t] == (byte)MapGen.MapObject.Tree ? 15 : 10;
+            Assert.Equal(expected, Settlers.TerrainFactor(map, t));
+        }
+        Assert.Equal(716, Settlers.MaxStep);
+    }
+
+    [Fact]
+    public void Walkers_take_longer_to_enter_forest_and_mountain_tiles()
+    {
+        // A woodcutter's worker walks to trees, so some walker enters a forest tile.
+        var sim = Simulation.Create(TwoPlayers());
+        ProductionTests.Woodcutter(sim, trees: 12);
+        int slowed = 0;
+        for (int turn = 0; turn < 1500 && slowed == 0; turn++)
+        {
+            RunTicks(sim, Simulation.TicksPerTurn);
+            for (int i = 0; i < sim.Settlers.All.Count; i++)
+            {
+                var s = sim.Settlers.All[i];
+                if (s.State != SettlerState.Walking) continue;
+                int next = sim.Settlers.PathAt(i)[0], edge = sim.Map.Edge;
+                bool diagonal = next % edge != s.Tile % edge && next / edge != s.Tile / edge;
+                int step = diagonal ? Settlers.DiagonalStep : Settlers.SubTile;
+                // Progress stays below the step scaled by the factor of the tile entered; above the plain step only on slow tiles.
+                Assert.InRange(s.Progress, 0, step * Settlers.TerrainFactor(sim.Map, next) / 10 - 1);
+                if (s.Progress >= step) slowed++;
+            }
+        }
+        Assert.True(slowed > 0);
+    }
+
+    [Fact]
     public void Walkers_advance_at_most_one_tile_per_turn_and_keep_bounded_progress()
     {
         // Speed 64 per tick: a straight step takes 4 ticks, a diagonal one 358 / 64 → 6 ticks, so a 2-tick turn moves ≤ 1 tile.
@@ -188,7 +235,7 @@ public class SettlerTests
             {
                 int prev = last[s.Id], edge = sim.Map.Edge;
                 Assert.True(System.Math.Abs(s.Tile % edge - prev % edge) <= 1 && System.Math.Abs(s.Tile / edge - prev / edge) <= 1);
-                Assert.InRange(s.Progress, 0, Settlers.DiagonalStep - 1);
+                Assert.InRange(s.Progress, 0, Settlers.MaxStep - 1);
                 if (s.Tile != prev) steps++;
                 last[s.Id] = s.Tile;
             }

@@ -610,7 +610,7 @@ public sealed class Logistics
     {
         byte owner = s.Owner;
         int cost = pathfinder.FindPath(t => Settlers.IsPassable(map, territory, buildings, owner, t), s.Tile, goal,
-            MaxExpansionsPerSearch, path);
+            MaxExpansionsPerSearch, path, t => Settlers.TerrainFactor(map, t));
         budget -= pathfinder.Expansions;
         if (cost <= 0)
         {

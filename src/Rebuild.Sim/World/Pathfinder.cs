@@ -3,8 +3,8 @@ using System.Collections.Generic;
 namespace Rebuild.Sim.World;
 
 /// <summary>
-/// A* on the square tile grid (docs/06-economy.md §6): 8 neighbours, octile integer costs 10/14, no corner
-/// cutting (a diagonal step needs both orthogonal neighbours passable), octile heuristic, binary min-heap ordered
+/// A* on the square tile grid (docs/06-economy.md §6): 8 neighbours, octile integer costs 10/14 scaled by the terrain
+/// factor of the tile entered (tenths, ≥ 10, so the octile heuristic stays admissible), no corner cutting (a diagonal step needs both orthogonal neighbours passable), octile heuristic, binary min-heap ordered
 /// by <c>(f, h, tile)</c> so ties break identically everywhere. Search work is bounded by a node-expansion limit,
 /// never by time. The start tile is exempt from passability (a settler may stand on a tile that just became
 /// blocked and walk off it). Scratch arrays are reused between searches; they are not sim state.
@@ -52,8 +52,10 @@ public sealed class Pathfinder
     /// <paramref name="passable"/> holds and writes it to <paramref name="path"/> (excluding the start, ending with
     /// the goal). Returns its cost, or -1 if the goal is not passable or not reached within
     /// <paramref name="maxExpansions"/> expanded nodes. A path to the start itself is empty with cost 0.
+    /// <paramref name="factor"/> gives the terrain factor of a tile in tenths (≥ 10; null = 10 everywhere).
     /// </summary>
-    public int FindPath(System.Func<int, bool> passable, int start, int goal, int maxExpansions, List<int> path)
+    public int FindPath(System.Func<int, bool> passable, int start, int goal, int maxExpansions, List<int> path,
+        System.Func<int, int>? factor = null)
     {
         path.Clear();
         Expansions = 0;
@@ -85,7 +87,8 @@ public sealed class Pathfinder
                 if (_seen[next] == _search && _closed[next]) continue;
                 if (!passable(next)) continue;
                 if (d >= 4 && (!passable(y * _edge + nx) || !passable(ny * _edge + x))) continue;
-                int g = _g[tile] + (d < 4 ? StraightCost : DiagonalCost);
+                int step = d < 4 ? StraightCost : DiagonalCost;
+                int g = _g[tile] + (factor == null ? step : step * factor(next) / 10);
                 if (_seen[next] == _search && g >= _g[next]) continue;
                 Visit(next, g, tile);
                 int h = Heuristic(next, goal);
