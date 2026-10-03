@@ -42,7 +42,8 @@ public readonly record struct Settler(int Id, SettlerKind Kind, byte Owner, int 
 /// (settlers homed there, carriers and workers, fewer than its <c>beds</c>; the start castle starts full), so beds cap the
 /// population. Settlers walk
 /// on walkable tiles of their owner's territory that no building covers, along A* paths (<see cref="Pathfinder"/>) at
-/// <see cref="Speed"/> sub-tile units per tick; diagonal steps cost 14/10 of a straight step. Settlers never collide;
+/// <see cref="Speed"/> sub-tile units per tick (<see cref="ShortSpeed"/> from a Short home, <see cref="WinterPercent"/> of it in
+/// winter); diagonal steps cost 14/10 of a straight step. Settlers never collide;
 /// a settler covered by a newly placed building is put at that building's door. Workers stay inside their workplace
 /// (they do not walk to their resources yet, ASSUMPTION) and come out as carriers taking their tool to a storage when it
 /// is demolished.
@@ -63,6 +64,8 @@ public sealed class Settlers
     public const int Speed = 64;
     /// <summary>Speed of a settler whose home is Short or worse (−15 %, docs/12-needs-seasons-weather.md §1.3).</summary>
     public const int ShortSpeed = Speed * 85 / 100;
+    /// <summary>Walking speed in winter, in percent (−20 % on snow, docs/12-needs-seasons-weather.md §2.1).</summary>
+    public const int WinterPercent = 80;
     /// <summary>Wander targets lie within this Chebyshev distance of the home door (placeholder behaviour).</summary>
     public const int WanderRadius = 6;
     /// <summary>Idle wait after a walk: <see cref="MinIdleTicks"/> + random [0, <see cref="IdleTicksRange"/>).</summary>
@@ -202,7 +205,7 @@ public sealed class Settlers
 
     /// <summary>Runs one tick of spawning and movement. <paramref name="tick"/> is the tick being simulated.</summary>
     public void Step(int tick, MapData map, Territory territory, BuildingRegistry buildings, Logistics logistics,
-        ProductionStatistics statistics, Pcg32 rng, Pathfinder pathfinder)
+        ProductionStatistics statistics, Pcg32 rng, Pathfinder pathfinder, Season season)
     {
         if (tick % SpawnIntervalTicks == 0) Refill(map, buildings);
         int budget = ExpansionBudgetPerTick;
@@ -227,7 +230,8 @@ public sealed class Settlers
                 int next = path[path.Count - 1];
                 bool diagonal = next % _edge != s.Tile % _edge && next / _edge != s.Tile / _edge;
                 int cost = diagonal ? DiagonalStep : SubTile;
-                int progress = s.Progress + (Households.HomeState(buildings, s.HomeId) == NeedState.Supplied ? Speed : ShortSpeed);
+                int speed = Households.HomeState(buildings, s.HomeId) == NeedState.Supplied ? Speed : ShortSpeed;
+                int progress = s.Progress + (season == Season.Winter ? speed * WinterPercent / 100 : speed);
                 if (progress < cost)
                 {
                     s = s with { Progress = progress };

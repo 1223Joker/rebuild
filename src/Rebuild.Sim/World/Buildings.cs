@@ -38,7 +38,7 @@ public readonly record struct Building(int Id, ushort Type, byte Owner, int X, i
 /// (<see cref="BuildingDefinition.IsStorage"/>) own a goods stock, one count per good in <see cref="GoodCatalog"/>;
 /// complete production buildings (<see cref="BuildingDefinition.Production"/>) own piles: one per input, then one output
 /// pile per <see cref="ProductionDefinition.Outputs"/> entry. Complete homes (<see cref="BuildingDefinition.Beds"/> &gt; 0)
-/// own <see cref="Households"/> need counters, and those without a stock two pantry piles (food, water) as their piles.
+/// own <see cref="Households"/> need counters, and those without a stock three pantry piles (food, water, fuel) as their piles.
 /// </summary>
 public sealed class BuildingRegistry
 {
@@ -113,7 +113,7 @@ public sealed class BuildingRegistry
     /// <summary>Whether the building is a complete home (has beds).</summary>
     public static bool IsHome(in Building b) => b.State == BuildingState.Complete && b.Definition.Beds > 0;
 
-    /// <summary>Whether the building is a complete home without a stock, eating from two pantry piles.</summary>
+    /// <summary>Whether the building is a complete home without a stock, eating from its pantry piles.</summary>
     public static bool HasPantry(in Building b) => IsHome(b) && !b.Definition.IsStorage;
 
     private static int[]? NewNeeds(in Building b) => IsHome(b) ? new int[Households.CounterCount] : null;
@@ -123,7 +123,7 @@ public sealed class BuildingRegistry
 
     private static int[]? NewPiles(in Building b) =>
         b.State == BuildingState.Complete && b.Definition.Production is { } p ? new int[p.Inputs.Count + p.Outputs.Count]
-        : HasPantry(b) ? new int[2] : null;
+        : HasPantry(b) ? new int[Households.NeedCount] : null;
 
     /// <summary>
     /// Replaces the building at list index <paramref name="index"/> (same id and footprint; systems only). A storage
@@ -284,10 +284,12 @@ public sealed class BuildingRegistry
             {
                 // Due counters stay below their period, or at it while a unit is unpaid; unpaid ticks only while one is due.
                 for (int k = 0; k < needs.Length; k++) needs[k] = r.ReadInt32();
-                for (int need = 0; need < 2; need++)
-                    if (needs[need] < 0 || needs[need] > Households.Period(need) || needs[2 + need] < 0
-                        || (needs[2 + need] > 0 && needs[need] != Households.Period(need)))
+                for (int need = 0; need < Households.NeedCount; need++)
+                {
+                    int period = Households.Period(b, need), unpaid = needs[Households.NeedCount + need];
+                    if (needs[need] < 0 || needs[need] > period || unpaid < 0 || (unpaid > 0 && needs[need] != period))
                         throw new InvalidDataException("Invalid need counters");
+                }
             }
             if (b.ClaimId != 0)
             {

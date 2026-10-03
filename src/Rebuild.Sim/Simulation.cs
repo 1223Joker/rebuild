@@ -27,7 +27,7 @@ public sealed class Simulation
     public const int TicksPerTurn = 2;
 
     private const uint SaveMagic = 0x56415342; // "BSAV" little-endian
-    private const ushort SaveFormatVersion = 14;
+    private const ushort SaveFormatVersion = 15;
 
     private readonly PlayerState[] _players;
     private readonly PlayerCultureTable?[] _cultureTables;
@@ -196,9 +196,9 @@ public sealed class Simulation
         // then (later milestones) combat, ...
         Construction.Step(Buildings, Territory);
         Production.Step(Tick, Buildings, Map, Territory, MapChanges, Logistics, Settlers, Quotas, Statistics, Season);
-        Households.Step(Map.Edge, Buildings, Settlers, Logistics, Statistics);
-        Logistics.Match(Tick, Buildings, Settlers);
-        Settlers.Step(Tick, Map, Territory, Buildings, Logistics, Statistics, EconomyRng, _pathfinder);
+        Households.Step(Map.Edge, Buildings, Settlers, Logistics, Statistics, Season);
+        Logistics.Match(Tick, Buildings, Settlers, Season);
+        Settlers.Step(Tick, Map, Territory, Buildings, Logistics, Statistics, EconomyRng, _pathfinder, Season);
         Tick++;
         Statistics.Advance(Tick);
     }

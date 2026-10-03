@@ -94,7 +94,7 @@ public class ConstructionTests
     internal static void RunFed(Simulation sim)
     {
         for (int i = 0; i < sim.Buildings.All.Count; i++)
-            if (sim.Buildings.NeedsAt(i) is { } n) n[0] = n[1] = 0;
+            if (sim.Buildings.NeedsAt(i) is { } n) n[0] = n[1] = n[Households.Heat] = 0;
         Run(sim);
     }
 

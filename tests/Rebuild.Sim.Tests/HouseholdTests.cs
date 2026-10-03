@@ -9,12 +9,12 @@ using Xunit;
 
 namespace Rebuild.Sim.Tests;
 
-/// <summary>Food and water of homes, pantries and shortage states (docs/12-needs-seasons-weather.md §1.2–1.3).</summary>
+/// <summary>Food, water and heat of homes, pantries and shortage states (docs/12-needs-seasons-weather.md §1.2–1.3, §2.2).</summary>
 public class HouseholdTests
 {
-    private static MatchSetup TwoPlayers() => new(
+    private static MatchSetup TwoPlayers(SeasonLength seasons = SeasonLength.Normal) => new(
         new MapSpec(1, MapSize.Small, 2), 1,
-        new[] { new SlotInfo(SlotKind.Human, 0, "rivermen"), new SlotInfo(SlotKind.Ai, 1, "rivermen") });
+        new[] { new SlotInfo(SlotKind.Human, 0, "rivermen"), new SlotInfo(SlotKind.Ai, 1, "rivermen") }, seasons);
 
     private static void RunTicks(Simulation sim, int ticks)
     {
@@ -73,7 +73,7 @@ public class HouseholdTests
         // 30 carriers: one water per 4 800 / 30 = 160 ticks, one food per 6 000 / 30 = 200 ticks.
         RunTicks(sim, 200);
         Assert.Equal((9, 10, 10, 29), (stock[GoodIds.Fish], stock[GoodIds.Meat], stock[GoodIds.Bread], stock[GoodIds.Water]));
-        Assert.Equal(new[] { 0, 30 * 200 - Households.WaterTicks, 0, 0 }, sim.Buildings.NeedsOf(sim.Buildings.All[0].Id));
+        Assert.Equal(new[] { 0, 30 * 200 - Households.WaterTicks, 0, 0, 0, 0 }, sim.Buildings.NeedsOf(sim.Buildings.All[0].Id));
         // The food good held most is eaten next (ties: data order): meat, then bread, then fish again.
         RunTicks(sim, 400);
         Assert.Equal((9, 9, 9), (stock[GoodIds.Fish], stock[GoodIds.Meat], stock[GoodIds.Bread]));
@@ -135,7 +135,7 @@ public class HouseholdTests
         var needs = sim.Buildings.NeedsAt(0)!;
         sim.Buildings.StockAt(0)![GoodIds.Water] = 0;
         needs[1] = Households.WaterTicks;
-        needs[3] = Households.ShortTicks[1];
+        needs[4] = Households.ShortTicks[1];
         Assert.Equal(30, Advance(40)); // work −25 %: every 4th tick skipped
         Assert.Equal(NeedState.Short, Households.StateAt(sim.Buildings, 0));
         // Its carriers walk −15 %.
@@ -144,7 +144,7 @@ public class HouseholdTests
         Assert.Equal(walker.Progress + 2 * Settlers.ShortSpeed, sim.Settlers.All[sim.Settlers.IndexOf(walker.Id)].Progress);
         Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
         // Crisis: the running cycle stops.
-        needs[3] = Households.ShortTicks[1] + Households.CrisisTicks[1] + 1;
+        needs[4] = Households.ShortTicks[1] + Households.CrisisTicks[1] + 1;
         Assert.Equal(0, Advance(40));
         Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
     }
@@ -155,12 +155,12 @@ public class HouseholdTests
         var sim = Simulation.Create(TwoPlayers());
         sim.Buildings.StockAt(0)![GoodIds.Water] += 100; // enough for the castle for the whole test
         int residence = Build(sim, BuildingIds.Residence);
-        Assert.Equal(new[] { 0, 0 }, sim.Buildings.PilesOf(residence));
+        Assert.Equal(new[] { 0, 0, 0 }, sim.Buildings.PilesOf(residence));
         Assert.Equal(new int[Households.CounterCount], sim.Buildings.NeedsOf(residence));
         long eaten = sim.Statistics.TotalConsumed(0, GoodIds.Water);
         RunTicks(sim, 300);
-        // Both pantry piles are full; water handed over counts as consumed.
-        Assert.Equal(new[] { Households.PantryTarget, Households.PantryTarget }, sim.Buildings.PilesOf(residence));
+        // Food and water piles are full (fuel waits for autumn); water handed over counts as consumed.
+        Assert.Equal(new[] { Households.PantryTarget, Households.PantryTarget, 0 }, sim.Buildings.PilesOf(residence));
         Assert.True(sim.Statistics.TotalConsumed(0, GoodIds.Water) >= eaten + Households.PantryTarget);
         Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
         // Its first carrier (tick 600 + spawns) eats; the pantry is refilled.
@@ -183,10 +183,12 @@ public class HouseholdTests
         var needs = sim.Buildings.NeedsAt(0)!;
         foreach (var bad in new[]
                  {
-                     new[] { -1, 0, 0, 0 },
-                     new[] { Households.FoodTicks + 1, 0, 0, 0 },
-                     new[] { 0, 5, 0, 1 }, // unpaid water while none is due
-                     new[] { 0, Households.WaterTicks, 0, -1 },
+                     new[] { -1, 0, 0, 0, 0, 0 },
+                     new[] { Households.FoodTicks + 1, 0, 0, 0, 0, 0 },
+                     new[] { 0, 5, 0, 0, 1, 0 }, // unpaid water while none is due
+                     new[] { 0, Households.WaterTicks, 0, 0, -1, 0 },
+                     new[] { 0, 0, 601, 0, 0, 0 }, // castle (L): one fuel per 600 ticks
+                     new[] { 0, 0, 5, 0, 0, 1 }, // cold while no fuel is due
                  })
         {
             var saved = needs.ToArray();
@@ -194,7 +196,66 @@ public class HouseholdTests
             Assert.Throws<InvalidDataException>(() => Simulation.Load(sim.Save()));
             saved.CopyTo(needs, 0);
         }
-        new[] { 0, Households.WaterTicks, 0, 7 }.CopyTo(needs, 0); // water due and unpaid for 7 ticks
+        new[] { 0, Households.WaterTicks, 0, 0, 7, 0 }.CopyTo(needs, 0); // water due and unpaid for 7 ticks
         Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
+    }
+
+    [Fact]
+    public void The_castle_burns_fuel_in_winter_gets_cold_without_it_and_warms_up_in_spring()
+    {
+        var sim = Simulation.Create(TwoPlayers(SeasonLength.Short)); // winter = ticks 7 200 … 9 599
+        var stock = sim.Buildings.StockAt(0)!;
+        var needs = sim.Buildings.NeedsAt(0)!;
+        stock[GoodIds.Fish] += 100;
+        stock[GoodIds.Water] += 100;
+        stock[GoodIds.Log] = 1;
+        RunTicks(sim, 7200);
+        Assert.Equal((Season.Winter, 1, 0), (sim.Season, stock[GoodIds.Log], needs[Households.Heat]));
+        // The castle (L) burns one fuel per 600 ticks.
+        Assert.Equal(600, Households.Period(sim.Buildings.All[0], Households.Heat));
+        RunTicks(sim, 600);
+        Assert.Equal((0, 0), (stock[GoodIds.Log], needs[Households.Heat]));
+        Assert.Equal(1, sim.Statistics.TotalConsumed(0, GoodIds.Log));
+        // No fuel: the next one stays unpaid and the castle goes Short after 60 s.
+        RunTicks(sim, 600 + Households.ShortTicks[Households.Heat]);
+        Assert.Equal(NeedState.Short, Households.StateAt(sim.Buildings, 0));
+        Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
+        // One coal warms it at once.
+        stock[GoodIds.Coal] = 1;
+        RunTicks(sim, 2);
+        Assert.Equal((NeedState.Supplied, 0), (Households.StateAt(sim.Buildings, 0), stock[GoodIds.Coal]));
+        // Cold again until spring, whose first tick ends it.
+        RunTicks(sim, 9600 - sim.Tick + 2);
+        Assert.Equal((Season.Spring, NeedState.Supplied, 0, 0),
+            (sim.Season, Households.StateAt(sim.Buildings, 0), needs[Households.Heat], needs[Households.NeedCount + Households.Heat]));
+    }
+
+    [Fact]
+    public void A_residence_stockpiles_fuel_from_autumn_and_settlers_walk_slower_in_winter()
+    {
+        var sim = Simulation.Create(TwoPlayers(SeasonLength.Short));
+        var stock = sim.Buildings.StockAt(0)!;
+        stock[GoodIds.Fish] += 100;
+        stock[GoodIds.Water] += 150;
+        stock[GoodIds.Log] = 20;
+        int residence = Build(sim, BuildingIds.Residence);
+        int index = sim.Buildings.IndexOf(residence);
+        Assert.Equal(1200, Households.Period(sim.Buildings.All[index], Households.Heat)); // S: one fuel per 2 min
+        RunTicks(sim, 300);
+        Assert.Equal(0, sim.Buildings.PilesOf(residence)![Households.Heat]); // no fuel in spring and summer
+        RunTicks(sim, 4800 - sim.Tick + 300);
+        Assert.Equal(Season.Autumn, sim.Season);
+        Assert.Equal(Households.PantryTarget, sim.Buildings.PilesOf(residence)![Households.Heat]);
+        Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
+        // Winter: supplied settlers walk −20 % on snow and the residence burns its fuel.
+        RunTicks(sim, 7200 - sim.Tick);
+        Assert.Equal(Season.Winter, sim.Season);
+        var walker = sim.Settlers.All.First(s => s.Owner == 0 && s.State == SettlerState.Walking && s.Progress + 2 * Settlers.Speed < Settlers.SubTile
+            && Households.HomeState(sim.Buildings, s.HomeId) == NeedState.Supplied);
+        ConstructionTests.Run(sim);
+        Assert.Equal(walker.Progress + 2 * (Settlers.Speed * Settlers.WinterPercent / 100), sim.Settlers.All[sim.Settlers.IndexOf(walker.Id)].Progress);
+        RunTicks(sim, 2400 - 2);
+        Assert.Equal(NeedState.Supplied, Households.StateAt(sim.Buildings, index));
+        Assert.True(sim.Statistics.TotalConsumed(0, GoodIds.Log) >= 2 + 2); // pantry hand-overs + castle burns
     }
 }

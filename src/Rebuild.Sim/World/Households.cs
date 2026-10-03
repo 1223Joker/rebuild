@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Rebuild.Sim.Buildings;
 using Rebuild.Sim.Goods;
 
 namespace Rebuild.Sim.World;
@@ -20,7 +21,7 @@ public enum NeedState : byte
 }
 
 /// <summary>
-/// Food and water of every home (docs/12-needs-seasons-weather.md §1.2–1.3), run every tick after production and before
+/// Food, water and winter heat of every home (docs/12-needs-seasons-weather.md §1.2–1.3, §2.2), run every tick after production and before
 /// logistics. A home is a complete building with beds (<see cref="Buildings.BuildingDefinition.Beds"/>); its occupants
 /// are the settlers it homes, carriers and workers (§1.1). A settler whose home is gone is homeless: every tick it takes a
 /// free bed in the owner's home nearest to it (<see cref="Logistics.SectorDistance"/>, ties lower id) if there is one;
@@ -32,6 +33,9 @@ public enum NeedState : byte
 /// <see cref="Logistics"/> refills to <see cref="PantryTarget"/> (a storage home's stock: to <see cref="StockTarget"/>, from other storages). An unpaid unit stays due (no backlog: the counter stops at
 /// the period) and its unpaid ticks count up until a unit is eaten; they set the <see cref="NeedState"/>, the worse need wins.
 /// Units eaten from a stock count as consumed (<see cref="ProductionStatistics"/>); pantry units counted at hand-over.
+/// Heat is a third need: only in winter, and per occupied home rather than per settler, its due counter grows by one per
+/// tick and one fuel unit (log or coal) burns per <see cref="Period"/>; outside winter its counters are cleared. Logistics
+/// fills fuel only in autumn and winter (§2.2 stockpiling).
 /// </summary>
 public static class Households
 {
@@ -46,10 +50,10 @@ public static class Households
     /// beds / 4) (docs §1.3 with beds for occupants; castle 7).
     /// </summary>
     public static int StockTarget(in Building b) => System.Math.Max(PantryTarget, b.Definition.Beds / 4);
-    /// <summary>Unpaid ticks until Short, per need (food 60 s, water 30 s).</summary>
-    public static readonly int[] ShortTicks = { 600, 300 };
-    /// <summary>Further unpaid ticks until Crisis, per need (food 180 s, water 120 s).</summary>
-    public static readonly int[] CrisisTicks = { 1800, 1200 };
+    /// <summary>Unpaid ticks until Short, per need (food 60 s, water 30 s, heat 60 s).</summary>
+    public static readonly int[] ShortTicks = { 600, 300, 600 };
+    /// <summary>Further unpaid ticks until Crisis, per need (food 180 s, water 120 s, heat 180 s).</summary>
+    public static readonly int[] CrisisTicks = { 1800, 1200, 1800 };
     /// <summary>Ticks between two occupants leaving a home in Crisis (60 s).</summary>
     public const int LeaveIntervalTicks = 600;
     /// <summary>Ticks a homeless settler looks for a free bed before it leaves (120 s).</summary>
@@ -58,14 +62,40 @@ public static class Households
     /// <summary>Food goods (ponytail: fixed list; culture data when a second culture needs other food).</summary>
     public static readonly ushort[] FoodGoods = { (ushort)GoodIds.Fish, (ushort)GoodIds.Meat, (ushort)GoodIds.Bread };
     public static readonly ushort[] WaterGoods = { (ushort)GoodIds.Water };
-    /// <summary>Goods per need: 0 food, 1 water (pantry pile index).</summary>
-    public static readonly ushort[][] NeedGoods = { FoodGoods, WaterGoods };
-    private static readonly int[] Periods = { FoodTicks, WaterTicks };
+    /// <summary>
+    /// Fuel goods (§2.2). ponytail: every unit pays one heat point (docs: coal 2) — add heat values with the culture fuel
+    /// data (M8–M10), which needs a pantry pile that remembers its goods.
+    /// </summary>
+    public static readonly ushort[] FuelGoods = { (ushort)GoodIds.Log, (ushort)GoodIds.Coal };
+    /// <summary>Goods per need: 0 food, 1 water, 2 heat (pantry pile index).</summary>
+    public static readonly ushort[][] NeedGoods = { FoodGoods, WaterGoods, FuelGoods };
+    /// <summary>Needs per home: food, water, heat.</summary>
+    public const int NeedCount = 3;
+    /// <summary>Index of the heat need.</summary>
+    public const int Heat = 2;
 
-    /// <summary>Need counters of a home: due ticks for food and water, then unpaid ticks for food and water.</summary>
-    public const int CounterCount = 4;
+    /// <summary>Need counters of a home: due ticks per need, then unpaid ticks per need.</summary>
+    public const int CounterCount = 2 * NeedCount;
 
-    public static int Period(int need) => Periods[need];
+    /// <summary>
+    /// Due ticks per unit of the need at home <paramref name="b"/>: food and water per settler, heat per building by size
+    /// (S 1 fuel per 2 min, M per 90 s, L per 60 s; §2.2, ponytail: from the size instead of a data field until a culture
+    /// differs).
+    /// </summary>
+    public static int Period(in Building b, int need) => need switch
+    {
+        0 => FoodTicks,
+        1 => WaterTicks,
+        _ => b.Definition.Size switch { BuildingSize.Small => 1200, BuildingSize.Medium => 900, _ => 600 },
+    };
+
+    /// <summary>Need of a good a home eats (0 food, 1 water, 2 heat), or -1.</summary>
+    public static int NeedOf(int good)
+    {
+        for (int need = 0; need < NeedCount; need++)
+            if (System.Array.IndexOf(NeedGoods[need], (ushort)good) >= 0) return need;
+        return -1;
+    }
 
     /// <summary>State of one need from its unpaid ticks.</summary>
     public static NeedState StateOf(int need, int unpaid) =>
@@ -75,10 +105,14 @@ public static class Households
     public static NeedState StateAt(BuildingRegistry buildings, int index)
     {
         var n = buildings.NeedsAt(index);
-        if (n == null) return NeedState.Supplied;
-        var food = StateOf(0, n[2]);
-        var water = StateOf(1, n[3]);
-        return food > water ? food : water;
+        var worst = NeedState.Supplied;
+        if (n == null) return worst;
+        for (int need = 0; need < NeedCount; need++)
+        {
+            var state = StateOf(need, n[NeedCount + need]);
+            if (state > worst) worst = state;
+        }
+        return worst;
     }
 
     /// <summary>Worst need state of home <paramref name="homeId"/> (Supplied if it is gone: homeless settlers eat nothing).</summary>
@@ -88,8 +122,9 @@ public static class Households
         return index < 0 ? NeedState.Supplied : StateAt(buildings, index);
     }
 
-    /// <summary>Runs one tick of re-housing, eating and drinking.</summary>
-    public static void Step(int edge, BuildingRegistry buildings, Settlers settlers, Logistics logistics, ProductionStatistics statistics)
+    /// <summary>Runs one tick of re-housing, eating, drinking and (in winter) heating.</summary>
+    public static void Step(int edge, BuildingRegistry buildings, Settlers settlers, Logistics logistics, ProductionStatistics statistics,
+        Season season)
     {
         var all = buildings.All;
         var occupants = settlers.Occupants(buildings);
@@ -117,18 +152,25 @@ public static class Households
             var n = buildings.NeedsAt(i);
             if (n == null) continue;
             bool leave = false;
-            for (int need = 0; need < 2; need++)
+            for (int need = 0; need < NeedCount; need++)
             {
-                n[need] += occupants[i];
-                if (n[need] < Periods[need]) continue;
-                if (TryEat(buildings, i, need, statistics))
+                if (need == Heat && season != Season.Winter)
                 {
-                    n[need] -= Periods[need];
-                    n[2 + need] = 0;
+                    // Outside winter nothing burns and the cold is over.
+                    n[Heat] = n[NeedCount + Heat] = 0;
                     continue;
                 }
-                n[need] = Periods[need];
-                int crisis = ++n[2 + need] - ShortTicks[need] - CrisisTicks[need];
+                n[need] += need == Heat ? (occupants[i] > 0 ? 1 : 0) : occupants[i];
+                int period = Period(all[i], need);
+                if (n[need] < period) continue;
+                if (TryEat(buildings, i, need, statistics))
+                {
+                    n[need] -= period;
+                    n[NeedCount + need] = 0;
+                    continue;
+                }
+                n[need] = period;
+                int crisis = ++n[NeedCount + need] - ShortTicks[need] - CrisisTicks[need];
                 if (crisis >= 0 && crisis % LeaveIntervalTicks == 0) leave = true;
             }
             if (leave) Leave(buildings, settlers, logistics, all[i].Id);
