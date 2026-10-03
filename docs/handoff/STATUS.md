@@ -127,7 +127,7 @@
 | Logistics: three passes per tick in building id order — site materials, production inputs (refill to 4 incl. units on the way), overflow (output pile → nearest storage); offers = storage stocks + output piles, never the requester itself; a carried unit whose destination is unreachable goes to the nearest storage not marked unreachable | done |
 | Save format 7 (building cycle + piles, map changes; load validates piles, cycle < cycle ticks, input pile + on the way ≤ 4, output pile + reserved + running cycle ≤ 8, live job sources = storage or matching producer); `GameVersion` 0.8.0; both golden replays regenerated; `m2-build.rblog` now places woodcutters/stonecutters with resources in reach so production runs | done |
 | Code review (`/code-review`, medium): 1 finding fixed — overflow carried to a storage that had become unreachable was dropped instead of going to another storage (regression test added) | done |
-| Tests / CI | 162 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112); float-ban and golden-version checks pass locally; CI: see below |
+| Tests / CI | 162 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112); float-ban and golden-version checks pass locally; **CI run 37092501976 green** on `main` (f90bde2): 4 runners × Debug/Release, `cross-os-hashes` (both new replay hashes identical everywhere) and `golden-version` pass |
 
 ## In progress
 - Nothing.
@@ -140,7 +140,7 @@
 5. Before M3: run S1's Godot part — install the Godot **.NET** edition (the installed `/Applications/Godot.app` 4.7.2 is the standard build without C#) and export a test project for macOS and Windows — and spike S2 (rendering scale). Before M5: spike S3 (ENet transport).
 
 ## Blockers / waiting for user approval
-- Deleting old remote branches (`claude/amazing-hopper-tq38xc`, `claude/amazing-hopper-s87jxe`, `claude/amazing-hopper-p2ghnv`, all fully merged into `main`) is not possible from the cloud session (git proxy HTTP 403 earlier; on 2026-10-03 the session's permission policy blocked the delete); delete them in the GitHub UI.
+- Deleting old remote branches (`claude/amazing-hopper-tq38xc`, `claude/amazing-hopper-s87jxe`, `claude/amazing-hopper-p2ghnv`, and any other merged `claude/amazing-hopper-*` branch still listed, all fully merged into `main`) is not possible from the cloud session (git proxy HTTP 403 earlier; on 2026-10-03 the session's permission policy blocked the delete); delete them in the GitHub UI.
 
 ## Dead ends (tried or rejected, and why)
 - Using Godot `FastNoiseLite` for the shared map: floats, not cross-platform deterministic → rejected ([ADR 0003](../decisions/0003-mapgen-determinism.md)); allowed for client cosmetics only.
