@@ -98,7 +98,7 @@
 | `CancelConstruction` refunds delivered materials; new `Demolish` (i32 id; own complete building, not the castle) removes building, stock and claim | done |
 | Save format 4 (progress + stocks, load validates consistency); `GameVersion` 0.5.0; both golden replays regenerated, `m2-build.rblog` now also demolishes and completes buildings (open valid sites capped at 4 per player) | done |
 | Code review (`/code-review`, medium) | no findings |
-| Tests / CI | 137 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112); float-ban, golden-version and hash comparison scripts pass locally; CI: see below |
+| Tests / CI | 137 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112); float-ban, golden-version and hash comparison scripts pass locally; **CI run 37080692692 green** on `main` (c40b5cd): 4 runners × Debug/Release, `cross-os-hashes` (both new replay hashes identical everywhere) and `golden-version` pass |
 
 ## In progress
 - Nothing.
