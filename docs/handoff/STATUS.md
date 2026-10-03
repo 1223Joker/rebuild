@@ -285,7 +285,7 @@
 2. M1 polish: tune `Dmin`, `Rf`, `Lmin` and the ASSUMPTION thresholds (F5/F6 minimums, fertile share, lair counts) when gameplay exists (spike S4 is done as part of M1; all spikes are allowed, user 2026-10-02).
 3. Run spike **S5** (headless logistics + HPA* + combat scale, [09-roadmap §2](../09-roadmap.md)) alongside the start of M2, so the 20 ms/tick budget is checked before the economy design hardens.
 4. Continue **M2 Sim economy (headless)** ([06-economy](../06-economy.md)): next step = heating of workplaces (smiths/smelters self-heating; homes are heated since step 19, [12-needs-seasons-weather](../12-needs-seasons-weather.md) §2.2), workers walking to their resources, player transport priorities, terrain costs + HPA*.
-5. Queued user requests: none (both 2026-10-03 requests done in M2 step 14).
+5. Queued user requests: **terrain levels** (user, 2026-10-03, after M2 step 20) — give the sim terrain height levels that construction changes: a site on uneven ground is levelled first by a **digger** (carrier + shovel, skipped in M2 step 20 because there was nothing to level), then built; placement then accepts gently sloped land instead of only flat-enough tiles. Needs a height layer in the sim state (map changes / save format + `GameVersion` bump) and a design note in [06-economy](../06-economy.md) §4 before coding. (Both earlier 2026-10-03 requests are done in M2 step 14.)
 6. Before M3: run S1's Godot part — install the Godot **.NET** edition (the installed `/Applications/Godot.app` 4.7.2 is the standard build without C#) and export a test project for macOS and Windows — and spike S2 (rendering scale). Before M5: spike S3 (ENet transport).
 
 ## Blockers / waiting for user approval
