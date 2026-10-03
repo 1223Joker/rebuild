@@ -37,7 +37,8 @@ public readonly record struct Building(int Id, ushort Type, byte Owner, int X, i
 /// wall off a passage between them (ASSUMPTION, docs/06-economy.md §1). Complete storage buildings
 /// (<see cref="BuildingDefinition.IsStorage"/>) own a goods stock, one count per good in <see cref="GoodCatalog"/>;
 /// complete production buildings (<see cref="BuildingDefinition.Production"/>) own piles: one per input, then one output
-/// pile per <see cref="ProductionDefinition.Outputs"/> entry.
+/// pile per <see cref="ProductionDefinition.Outputs"/> entry. Complete homes (<see cref="BuildingDefinition.Carriers"/> &gt; 0)
+/// own <see cref="Households"/> need counters, and those without a stock two pantry piles (food, water) as their piles.
 /// </summary>
 public sealed class BuildingRegistry
 {
@@ -55,6 +56,8 @@ public sealed class BuildingRegistry
     private readonly List<int[]?> _stocks = new();
     /// <summary>Input piles then output piles per building, parallel to <see cref="_buildings"/>; null unless complete production.</summary>
     private readonly List<int[]?> _piles = new();
+    /// <summary>Need counters per building (<see cref="Households.CounterCount"/>), parallel to <see cref="_buildings"/>; null unless a complete home.</summary>
+    private readonly List<int[]?> _needs = new();
 
     public BuildingRegistry(int edge)
     {
@@ -97,11 +100,30 @@ public sealed class BuildingRegistry
     /// <summary>Mutable piles by list index (systems only).</summary>
     internal int[]? PilesAt(int index) => _piles[index];
 
+    /// <summary>Need counters of a home (see <see cref="Households"/>), or null.</summary>
+    public IReadOnlyList<int>? NeedsOf(int id)
+    {
+        int index = IndexOf(id);
+        return index >= 0 ? _needs[index] : null;
+    }
+
+    /// <summary>Mutable need counters by list index (systems only).</summary>
+    internal int[]? NeedsAt(int index) => _needs[index];
+
+    /// <summary>Whether the building is a complete home (has beds).</summary>
+    public static bool IsHome(in Building b) => b.State == BuildingState.Complete && b.Definition.Carriers > 0;
+
+    /// <summary>Whether the building is a complete home without a stock, eating from two pantry piles.</summary>
+    public static bool HasPantry(in Building b) => IsHome(b) && !b.Definition.IsStorage;
+
+    private static int[]? NewNeeds(in Building b) => IsHome(b) ? new int[Households.CounterCount] : null;
+
     private static int[]? NewStock(in Building b) =>
         b.State == BuildingState.Complete && b.Definition.IsStorage ? new int[GoodCatalog.All.Count] : null;
 
     private static int[]? NewPiles(in Building b) =>
-        b.State == BuildingState.Complete && b.Definition.Production is { } p ? new int[p.Inputs.Count + p.Outputs.Count] : null;
+        b.State == BuildingState.Complete && b.Definition.Production is { } p ? new int[p.Inputs.Count + p.Outputs.Count]
+        : HasPantry(b) ? new int[2] : null;
 
     /// <summary>
     /// Replaces the building at list index <paramref name="index"/> (same id and footprint; systems only). A storage
@@ -115,6 +137,7 @@ public sealed class BuildingRegistry
         _buildings[index] = b;
         _stocks[index] ??= NewStock(b);
         _piles[index] ??= NewPiles(b);
+        _needs[index] ??= NewNeeds(b);
     }
 
     /// <summary>Whether a footprint lies inside the map and keeps <see cref="Margin"/> to every other footprint.</summary>
@@ -139,6 +162,7 @@ public sealed class BuildingRegistry
         _buildings.Add(b);
         _stocks.Add(NewStock(b));
         _piles.Add(NewPiles(b));
+        _needs.Add(NewNeeds(b));
         Stamp(b, b.Id);
         return b.Id;
     }
@@ -152,6 +176,7 @@ public sealed class BuildingRegistry
         _buildings.RemoveAt(index);
         _stocks.RemoveAt(index);
         _piles.RemoveAt(index);
+        _needs.RemoveAt(index);
         return true;
     }
 
@@ -170,7 +195,7 @@ public sealed class BuildingRegistry
         return -1;
     }
 
-    /// <summary>Canonical state: next id, then every building with its construction/cycle progress, stock and piles (the occupancy grid is derived).</summary>
+    /// <summary>Canonical state: next id, then every building with its construction/cycle progress, stock, piles and need counters (the occupancy grid is derived).</summary>
     public void WriteTo(CanonicalWriter w)
     {
         w.WriteInt32(NextId);
@@ -198,6 +223,9 @@ public sealed class BuildingRegistry
             var piles = _piles[i];
             if (piles != null)
                 foreach (int n in piles) w.WriteByte((byte)n);
+            var needs = _needs[i];
+            if (needs != null)
+                foreach (int n in needs) w.WriteInt32(n);
         }
     }
 
@@ -236,7 +264,12 @@ public sealed class BuildingRegistry
                     if ((stock[g] = r.ReadInt32()) < 0) throw new InvalidDataException("Negative stock");
             }
             var piles = NewPiles(b);
-            if (piles != null)
+            if (piles != null && b.Definition.Production == null)
+            {
+                for (int k = 0; k < piles.Length; k++)
+                    if ((piles[k] = r.ReadByte()) > Households.PantryTarget) throw new InvalidDataException("Invalid pantry pile");
+            }
+            else if (piles != null)
             {
                 // Input piles never exceed the refill target; the output pile is checked against reservations by Logistics
                 // and stays empty for a planter, which produces no good.
@@ -245,6 +278,16 @@ public sealed class BuildingRegistry
                 for (int k = 0; k < piles.Length; k++)
                     if ((piles[k] = r.ReadByte()) > (k < p.Inputs.Count ? Production.InputTarget : outputCap))
                         throw new InvalidDataException("Invalid production pile");
+            }
+            var needs = NewNeeds(b);
+            if (needs != null)
+            {
+                // Due counters stay below their period, or at it while a unit is unpaid; unpaid ticks only while one is due.
+                for (int k = 0; k < needs.Length; k++) needs[k] = r.ReadInt32();
+                for (int need = 0; need < 2; need++)
+                    if (needs[need] < 0 || needs[need] > Households.Period(need) || needs[2 + need] < 0
+                        || (needs[2 + need] > 0 && needs[need] != Households.Period(need)))
+                        throw new InvalidDataException("Invalid need counters");
             }
             if (b.ClaimId != 0)
             {
@@ -256,6 +299,7 @@ public sealed class BuildingRegistry
             reg._buildings.Add(b);
             reg._stocks.Add(stock);
             reg._piles.Add(piles);
+            reg._needs.Add(needs);
             reg.Stamp(b, b.Id);
         }
         reg.NextId = nextId;

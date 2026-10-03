@@ -27,7 +27,7 @@ public sealed class Simulation
     public const int TicksPerTurn = 2;
 
     private const uint SaveMagic = 0x56415342; // "BSAV" little-endian
-    private const ushort SaveFormatVersion = 12;
+    private const ushort SaveFormatVersion = 13;
 
     private readonly PlayerState[] _players;
     private readonly PlayerCultureTable?[] _cultureTables;
@@ -192,10 +192,11 @@ public sealed class Simulation
 
     private void StepTick()
     {
-        // Systems run here in a fixed order: construction, production, logistics matching, settlers (movement + jobs),
+        // Systems run here in a fixed order: construction, production, households, logistics matching, settlers (movement + jobs),
         // then (later milestones) combat, ...
         Construction.Step(Buildings, Territory);
         Production.Step(Buildings, Map, Territory, MapChanges, Logistics, Settlers, Quotas, Statistics, Season);
+        Households.Step(Buildings, Settlers, Statistics);
         Logistics.Match(Tick, Buildings, Settlers);
         Settlers.Step(Tick, Map, Territory, Buildings, Logistics, Statistics, EconomyRng, _pathfinder);
         Tick++;

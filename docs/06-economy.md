@@ -61,7 +61,7 @@ flowchart LR
   WS -->|sword| BK[Barracks] -->|soldier| MIL[Towers / Castle]
   GS -->|gold| MIL
 ```
-As built (M2 step 3): [data/goods.json](../data/goods.json) lists 28 goods — the 18 below plus one good per tool kind (axe, saw, pickaxe, shovel, hammer, scythe, fishing rod, hunting bow, cleaver, bucket) instead of a tool family with sub-types — with each good's start-castle stock (ASSUMPTION: 40 planks, 30 stone, 10 each of fish/meat/bread, a few tools). It is compiled into `GoodCatalog`/`GoodIds` (error RB0102 on bad data); its hash is part of `GameVersion`.
+As built (M2 step 3): [data/goods.json](../data/goods.json) lists 28 goods — the 18 below plus one good per tool kind (axe, saw, pickaxe, shovel, hammer, scythe, fishing rod, hunting bow, cleaver, bucket) instead of a tool family with sub-types — with each good's start-castle stock (ASSUMPTION: 40 planks, 30 stone, 10 each of fish/meat/bread, 30 water since M2 step 15, a few tools). It is compiled into `GoodCatalog`/`GoodIds` (error RB0102 on bad data); its hash is part of `GameVersion`.
 
 Goods (21 shared): log, plank, stone, fish, meat, grain, flour, water, bread, pig, coal, iron ore, gold ore, iron, gold, sword, spear, bow (arrows abstracted into bow), + culture goods ([10-cultures](10-cultures.md)), + tools (axe, saw, pickaxe, shovel, hammer, scythe, rod, bow, cleaver, bucket → tracked as one "tool" family with sub-type).
 

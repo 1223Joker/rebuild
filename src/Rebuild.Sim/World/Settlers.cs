@@ -109,6 +109,13 @@ public sealed class Settlers
     /// <summary>Replaces the settler at list index <paramref name="index"/> (same id; systems only).</summary>
     internal void Replace(int index, in Settler s) => _settlers[index] = s;
 
+    /// <summary>Removes the settler at list index <paramref name="index"/> from the map (it must have no job).</summary>
+    internal void RemoveAt(int index)
+    {
+        _settlers.RemoveAt(index);
+        _paths.RemoveAt(index);
+    }
+
     /// <summary>Gives the idle carrier at list index <paramref name="index"/> a transport job; it starts on its next step.</summary>
     internal void AssignJob(int index, int jobId) => _settlers[index] = _settlers[index] with { JobId = jobId, WaitTicks = 0 };
 
@@ -267,7 +274,7 @@ public sealed class Settlers
         return s with { State = SettlerState.Walking, Progress = 0 };
     }
 
-    /// <summary>Spawns one carrier at every complete building homing fewer carriers than its data allows.</summary>
+    /// <summary>Spawns one carrier at every complete building homing fewer carriers than its data allows, unless it is short of food or water (<see cref="Households"/>).</summary>
     private void Refill(MapData map, BuildingRegistry buildings)
     {
         var all = buildings.All;
@@ -280,7 +287,7 @@ public sealed class Settlers
         for (int i = 0; i < all.Count; i++)
         {
             var b = all[i];
-            if (b.State != BuildingState.Complete || homed[i] >= b.Definition.Carriers) continue;
+            if (b.State != BuildingState.Complete || homed[i] >= b.Definition.Carriers || Households.StateAt(buildings, i) != NeedState.Supplied) continue;
             int door = DoorOf(b, map, buildings);
             if (door >= 0) Spawn(b.Owner, b.Id, door);
         }

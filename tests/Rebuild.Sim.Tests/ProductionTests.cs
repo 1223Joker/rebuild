@@ -81,8 +81,7 @@ public class ProductionTests
         {
             n += sim.Buildings.StockOf(b.Id)?[good] ?? 0;
             var piles = sim.Buildings.PilesOf(b.Id);
-            if (piles == null) continue;
-            var p = b.Definition.Production!;
+            if (piles == null || b.Definition.Production is not { } p) continue;
             for (int k = 0; k < p.Inputs.Count; k++)
                 if (p.Alternatives[k].Count == 1 && p.Inputs[k] == good) n += piles[k];
             int o = p.OutputIndexOf(good);
@@ -150,6 +149,7 @@ public class ProductionTests
         var sim = Simulation.Create(TwoPlayers());
         int id = Woodcutter(sim, trees: 14);
         var stock = sim.Buildings.StockAt(CastleIndex(sim))!;
+        foreach (int g in Food.Append(GoodIds.Water)) stock[g] = 0; // nothing eaten makes room
         int capacity = BuildingCatalog.All[BuildingIds.Castle].StorageCapacity;
         stock[GoodIds.Stone] += capacity - 2 - stock.Sum(); // room for two more units
         int cycle = ConstructionTests.Get(sim, id).Definition.Production!.CycleTicks;
@@ -354,7 +354,7 @@ public class ProductionTests
         Assert.Equal((byte)Terrain.Water, sim.Map.Terrain[nearest]);
         int amount = sim.Map.Amount[nearest];
         Assert.True(amount >= 2);
-        int fish = Units(sim, 0, GoodIds.Fish);
+        int fish = Units(sim, 0, GoodIds.Fish) + Eaten(sim, GoodIds.Fish);
         int cycle = b.Definition.Production!.CycleTicks;
         RunTicks(sim, cycle + 2);
         Assert.Equal((byte)Resource.Fish, sim.Map.Resource[nearest]);
@@ -367,7 +367,7 @@ public class ProductionTests
         Assert.Equal(sim.Map.Amount, loaded.Map.Amount);
         RunTicks(sim, cycle * (amount - 1));
         Assert.Equal(((byte)Resource.None, (byte)0), (sim.Map.Resource[nearest], sim.Map.Amount[nearest]));
-        Assert.Equal(fish + amount, Units(sim, 0, GoodIds.Fish));
+        Assert.Equal(fish + amount, Units(sim, 0, GoodIds.Fish) + Eaten(sim, GoodIds.Fish));
         loaded = Simulation.Load(sim.Save());
         Assert.Equal(sim.ComputeHash(), loaded.ComputeHash());
         Assert.Equal(sim.Map.Resource, loaded.Map.Resource);
@@ -381,10 +381,10 @@ public class ProductionTests
         ConstructionTests.RunUntilComplete(sim, id);
         var b = ConstructionTests.Get(sim, id);
         int game = ObjectsAround(sim, 0, BuildingIds.Hunter, b.X, b.Y);
-        int meat = Units(sim, 0, GoodIds.Meat);
+        int meat = Units(sim, 0, GoodIds.Meat) + Eaten(sim, GoodIds.Meat);
         RunTicks(sim, 2 * b.Definition.Production!.CycleTicks + 2);
         Assert.Equal(game - 2, ObjectsAround(sim, 0, BuildingIds.Hunter, b.X, b.Y));
-        Assert.Equal(meat + 2, Units(sim, 0, GoodIds.Meat));
+        Assert.Equal(meat + 2, Units(sim, 0, GoodIds.Meat) + Eaten(sim, GoodIds.Meat));
         Assert.All(sim.MapChanges.Tiles, t => Assert.Equal((byte)MapObject.None, sim.Map.Object[t]));
         Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
     }
@@ -404,10 +404,10 @@ public class ProductionTests
         int water = Build(BuildingIds.Waterworks, (x, y) => ObjectsAround(sim, 0, BuildingIds.Waterworks, x, y) >= 1);
         int mill = Build(BuildingIds.Mill, (_, _) => true);
         int bakery = Build(BuildingIds.Bakery, (_, _) => true);
-        int bread = Units(sim, 0, GoodIds.Bread);
+        int bread = Units(sim, 0, GoodIds.Bread) + Eaten(sim, GoodIds.Bread);
         int grainCycle = ConstructionTests.Get(sim, farm).Definition.Production!.CycleTicks;
         RunTicks(sim, 8 * grainCycle);
-        int made = Units(sim, 0, GoodIds.Bread) - bread;
+        int made = Units(sim, 0, GoodIds.Bread) + Eaten(sim, GoodIds.Bread) - bread;
         Assert.InRange(made, 4, (int)sim.Statistics.TotalProduced(0, GoodIds.Grain)); // at most one loaf per grain; the chain needs a few cycles to fill
         Assert.Empty(sim.MapChanges.Tiles); // fertile land and water are not used up
         Assert.True(Units(sim, 0, GoodIds.Water) > 0);
@@ -418,7 +418,7 @@ public class ProductionTests
     }
 
     [Theory]
-    [InlineData(BuildingIds.PigFarm, GoodIds.Grain, GoodIds.Water, GoodIds.Pig)]
+    [InlineData(BuildingIds.PigFarm, GoodIds.Water, GoodIds.Grain, GoodIds.Pig)]
     [InlineData(BuildingIds.IronSmelter, GoodIds.IronOre, GoodIds.Coal, GoodIds.Iron)]
     [InlineData(BuildingIds.GoldSmelter, GoodIds.GoldOre, GoodIds.Coal, GoodIds.Gold)]
     public void A_two_input_building_consumes_one_of_each_input_per_unit(ushort type, int a, int b, int output)
@@ -435,7 +435,7 @@ public class ProductionTests
         int running = Consumed(sim, id);
         Assert.Equal(6, made + running);
         Assert.Equal(0, Units(sim, 0, b));
-        Assert.Equal(10 - 6, Units(sim, 0, a));
+        if (a != GoodIds.Water) Assert.Equal(10 - 6, Units(sim, 0, a)); // the castle drinks water too
         Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
     }
 
@@ -527,6 +527,9 @@ public class ProductionTests
     /// <summary>Food goods; mines no longer eat any (user, 2026-10-03).</summary>
     private static readonly int[] Food = { GoodIds.Fish, GoodIds.Meat, GoodIds.Bread };
 
+    /// <summary>Units of a good slot 0 consumed so far; in these tests only the castle eats them (<see cref="Households"/>).</summary>
+    private static int Eaten(Simulation sim, int good) => (int)sim.Statistics.TotalConsumed(0, good);
+
     /// <summary>Places and completes a mine with its deposit in reach on the first seed whose start area allows it.</summary>
     private static (Simulation Sim, int Id) Mine(ushort type)
     {
@@ -569,7 +572,7 @@ public class ProductionTests
     public void A_mine_digs_its_deposit_without_food(ushort type, int output, Resource ore)
     {
         var (sim, id) = Mine(type);
-        int food = Food.Sum(g => Units(sim, 0, g));
+        int food = Food.Sum(g => Units(sim, 0, g) + Eaten(sim, g));
         var b = ConstructionTests.Get(sim, id);
         var p = b.Definition.Production!;
         int nearest = Production.FindHarvest(sim.Map, sim.Territory, b, p);
@@ -585,7 +588,7 @@ public class ProductionTests
         // Every dug unit came from the deposit, nearest tile first; no food was touched.
         int dug = Units(sim, 0, output) - before;
         Assert.InRange(dug, 2, 4);
-        Assert.Equal(food, Food.Sum(g => Units(sim, 0, g)));
+        Assert.Equal(food, Food.Sum(g => Units(sim, 0, g) + Eaten(sim, g)));
         Assert.Equal(System.Math.Max(0, amount - dug), sim.Map.Amount[nearest]);
         Assert.Contains(nearest, sim.MapChanges.Tiles);
         Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());

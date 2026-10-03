@@ -8,7 +8,7 @@
     { "id": "meat", "name": "Meat", "start": 10 },
     { "id": "grain", "name": "Grain", "start": 0 },
     { "id": "flour", "name": "Flour", "start": 0 },
-    { "id": "water", "name": "Water", "start": 0 },
+    { "id": "water", "name": "Water", "start": 30 },
     { "id": "bread", "name": "Bread", "start": 10 },
     { "id": "pig", "name": "Pig", "start": 0 },
     { "id": "coal", "name": "Coal", "start": 0 },

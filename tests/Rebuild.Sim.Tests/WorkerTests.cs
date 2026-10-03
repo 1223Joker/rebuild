@@ -128,8 +128,8 @@ public class WorkerTests
         // Mid-walk saves keep the tool-less job.
         Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
         ConstructionTests.RunUntilWorking(sim, id);
-        Assert.Equal(stock.Where((_, g) => g != GoodIds.Plank && g != GoodIds.Stone),
-            CastleStock(sim).Where((_, g) => g != GoodIds.Plank && g != GoodIds.Stone));
+        bool Tool(int g) => g != GoodIds.Plank && g != GoodIds.Stone && g != GoodIds.Water && !Households.FoodGoods.Contains((ushort)g);
+        Assert.Equal(stock.Where((_, g) => Tool(g)), CastleStock(sim).Where((_, g) => Tool(g)));
         Assert.Equal(0, sim.Statistics.TotalConsumed(0, GoodIds.Axe));
     }
 

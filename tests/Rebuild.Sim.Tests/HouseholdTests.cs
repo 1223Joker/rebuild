@@ -1,0 +1,131 @@
+using System.IO;
+using System.Linq;
+using Rebuild.Sim.Buildings;
+using Rebuild.Sim.Commands;
+using Rebuild.Sim.Goods;
+using Rebuild.Sim.Match;
+using Rebuild.Sim.World;
+using Xunit;
+
+namespace Rebuild.Sim.Tests;
+
+/// <summary>Food and water of homes, pantries and shortage states (docs/12-needs-seasons-weather.md §1.2–1.3).</summary>
+public class HouseholdTests
+{
+    private static MatchSetup TwoPlayers() => new(
+        new MapSpec(1, MapSize.Small, 2), 1,
+        new[] { new SlotInfo(SlotKind.Human, 0, "rivermen"), new SlotInfo(SlotKind.Ai, 1, "rivermen") });
+
+    private static void RunTicks(Simulation sim, int ticks)
+    {
+        for (int i = 0; i < ticks / Simulation.TicksPerTurn; i++) ConstructionTests.Run(sim);
+    }
+
+    private static int CastleCarriers(Simulation sim) =>
+        sim.Settlers.All.Count(s => s.Kind == SettlerKind.Carrier && s.HomeId == sim.Buildings.All[0].Id);
+
+    [Fact]
+    public void The_castle_eats_and_drinks_from_its_stock()
+    {
+        var sim = Simulation.Create(TwoPlayers());
+        var stock = sim.Buildings.StockAt(0)!;
+        Assert.Equal((10, 10, 10, 30), (stock[GoodIds.Fish], stock[GoodIds.Meat], stock[GoodIds.Bread], stock[GoodIds.Water]));
+        // 30 carriers: one water per 4 800 / 30 = 160 ticks, one food per 6 000 / 30 = 200 ticks.
+        RunTicks(sim, 200);
+        Assert.Equal((9, 10, 10, 29), (stock[GoodIds.Fish], stock[GoodIds.Meat], stock[GoodIds.Bread], stock[GoodIds.Water]));
+        Assert.Equal(new[] { 0, 30 * 200 - Households.WaterTicks, 0, 0 }, sim.Buildings.NeedsOf(sim.Buildings.All[0].Id));
+        // The food good held most is eaten next (ties: data order): meat, then bread, then fish again.
+        RunTicks(sim, 400);
+        Assert.Equal((9, 9, 9), (stock[GoodIds.Fish], stock[GoodIds.Meat], stock[GoodIds.Bread]));
+        Assert.Equal(1, sim.Statistics.TotalConsumed(0, GoodIds.Fish));
+        Assert.Equal(3, sim.Statistics.TotalConsumed(0, GoodIds.Water)); // 600 ticks: 3 × 160 + 120
+        Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
+    }
+
+    [Fact]
+    public void Without_water_a_home_goes_short_then_into_crisis_and_recovers_when_water_arrives()
+    {
+        var sim = Simulation.Create(TwoPlayers());
+        var stock = sim.Buildings.StockAt(0)!;
+        stock[GoodIds.Water] = 0;
+        // The first water is due at tick 160 and stays unpaid.
+        RunTicks(sim, 160 + Households.ShortTicks[1]);
+        Assert.Equal(NeedState.Short, Households.StateAt(sim.Buildings, 0));
+        Assert.Equal(NeedState.Supplied, Households.StateAt(sim.Buildings, 1)); // the other castle still has water
+        RunTicks(sim, Households.CrisisTicks[1] - 2);
+        Assert.Equal((NeedState.Short, 30), (Households.StateAt(sim.Buildings, 0), CastleCarriers(sim)));
+        RunTicks(sim, 2); // enters Crisis: the first occupant leaves at once, the next one 60 s later
+        Assert.Equal((NeedState.Crisis, 29), (Households.StateAt(sim.Buildings, 0), CastleCarriers(sim)));
+        int lastId = sim.Settlers.All.Where(s => s.Owner == 0 && s.JobId == 0).Max(s => s.Id);
+        RunTicks(sim, Households.LeaveIntervalTicks);
+        Assert.Equal(28, CastleCarriers(sim));
+        Assert.DoesNotContain(sim.Settlers.All, s => s.Id == lastId); // the highest id without a job leaves
+        Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
+        // No carrier spawned while short (spawn ticks 600 … 2 400 passed); one water ends the shortage at once and refilling resumes.
+        RunTicks(sim, Settlers.SpawnIntervalTicks - 2);
+        Assert.Equal(28, CastleCarriers(sim));
+        stock[GoodIds.Water] = 50;
+        RunTicks(sim, 2);
+        Assert.Equal(NeedState.Supplied, Households.StateAt(sim.Buildings, 0));
+        Assert.Equal(49, stock[GoodIds.Water]);
+        RunTicks(sim, Settlers.SpawnIntervalTicks);
+        Assert.Equal(29, CastleCarriers(sim));
+    }
+
+    [Fact]
+    public void A_residence_pantry_is_filled_by_carriers_and_eaten_from()
+    {
+        var sim = Simulation.Create(TwoPlayers());
+        sim.Buildings.StockAt(0)![GoodIds.Water] += 100; // enough for the castle for the whole test
+        var s0 = sim.StartOf(0)!.Value;
+        (int X, int Y) spot = (-1, -1);
+        for (int y = s0.Y - 14; y <= s0.Y + 14 && spot.X < 0; y++)
+            for (int x = s0.X - 14; x <= s0.X + 14 && spot.X < 0; x++)
+                if (BuildingPlacement.Check(sim.Map, sim.Territory, sim.Buildings, 0, BuildingIds.Residence, x, y) == PlacementResult.Ok)
+                    spot = (x, y);
+        ConstructionTests.Run(sim, BuildingCommands.Place(0, 0, BuildingIds.Residence, spot.X, spot.Y));
+        int residence = sim.Buildings.All.Last().Id;
+        ConstructionTests.RunUntilComplete(sim, residence);
+        Assert.Equal(new[] { 0, 0 }, sim.Buildings.PilesOf(residence));
+        Assert.Equal(new int[Households.CounterCount], sim.Buildings.NeedsOf(residence));
+        long eaten = sim.Statistics.TotalConsumed(0, GoodIds.Water);
+        RunTicks(sim, 300);
+        // Both pantry piles are full; water handed over counts as consumed.
+        Assert.Equal(new[] { Households.PantryTarget, Households.PantryTarget }, sim.Buildings.PilesOf(residence));
+        Assert.True(sim.Statistics.TotalConsumed(0, GoodIds.Water) >= eaten + Households.PantryTarget);
+        Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
+        // Its first carrier (tick 600 + spawns) eats; the pantry is refilled.
+        RunTicks(sim, Settlers.SpawnIntervalTicks + Households.WaterTicks);
+        Assert.True(sim.Settlers.All.Count(s => s.HomeId == residence) >= 2);
+        Assert.Equal(NeedState.Supplied, Households.StateAt(sim.Buildings, sim.Buildings.IndexOf(residence)));
+        Assert.True(sim.Buildings.NeedsOf(residence)![1] < Households.WaterTicks);
+        var piles = sim.Buildings.PilesOf(residence)!;
+        Assert.All(piles, n => Assert.InRange(n, 0, Households.PantryTarget));
+        sim.Buildings.PilesAt(sim.Buildings.IndexOf(residence))![0] = Households.PantryTarget + 1;
+        Assert.Throws<InvalidDataException>(() => Simulation.Load(sim.Save()));
+    }
+
+    [Fact]
+    public void Inconsistent_need_counters_and_pantries_fail_to_load()
+    {
+        var sim = Simulation.Create(TwoPlayers());
+        RunTicks(sim, 20);
+        Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
+        var needs = sim.Buildings.NeedsAt(0)!;
+        foreach (var bad in new[]
+                 {
+                     new[] { -1, 0, 0, 0 },
+                     new[] { Households.FoodTicks + 1, 0, 0, 0 },
+                     new[] { 0, 5, 0, 1 }, // unpaid water while none is due
+                     new[] { 0, Households.WaterTicks, 0, -1 },
+                 })
+        {
+            var saved = needs.ToArray();
+            bad.CopyTo(needs, 0);
+            Assert.Throws<InvalidDataException>(() => Simulation.Load(sim.Save()));
+            saved.CopyTo(needs, 0);
+        }
+        new[] { 0, Households.WaterTicks, 0, 7 }.CopyTo(needs, 0); // water due and unpaid for 7 ticks
+        Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
+    }
+}

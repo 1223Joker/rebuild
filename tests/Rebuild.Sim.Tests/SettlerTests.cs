@@ -4,6 +4,7 @@ using System.Linq;
 using Rebuild.Sim.Buildings;
 using Rebuild.Sim.Commands;
 using Rebuild.Sim.Core;
+using Rebuild.Sim.Goods;
 using Rebuild.Sim.Match;
 using Rebuild.Sim.Serialization;
 using Rebuild.Sim.World;
@@ -228,6 +229,9 @@ public class SettlerTests
             for (int x = s0.X - 14; x <= s0.X + 14 && spot.X < 0; x++)
                 if (BuildingPlacement.Check(sim.Map, sim.Territory, sim.Buildings, 0, BuildingIds.Residence, x, y) == PlacementResult.Ok)
                     spot = (x, y);
+        var stock = sim.Buildings.StockAt(0)!;
+        stock[GoodIds.Water] += 60; // 12 min of food and water for 40 settlers (Households)
+        stock[GoodIds.Bread] += 40;
         sim.ExecuteTurn(new TurnBundle(sim.Turn, new[] { BuildingCommands.Place(0, 0, BuildingIds.Residence, spot.X, spot.Y) }));
         int residence = sim.Buildings.All.Last().Id;
         RunTicks(sim, Settlers.SpawnIntervalTicks); // carriers bring 4 units, each worked in for 20 ticks
