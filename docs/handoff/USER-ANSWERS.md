@@ -59,3 +59,4 @@ Every answer, instruction or preference the user gives, recorded as close to the
 | 2026-10-03 | Next step (scheduled task, 4th run) | — (unprompted) | Same prompt as the 2nd run — done as M2 step 4 (carriers, A* pathfinding, movement). |
 | 2026-10-03 | Next step (scheduled task, 5th run) | — (unprompted) | Same prompt as the 2nd run — done as M2 step 5 (logistics: transport jobs for construction materials). |
 | 2026-10-03 | Next step (scheduled task, 6th run) | — (unprompted) | Same prompt as the 2nd run — done as M2 step 6 (production: woodcutter, sawmill, stonecutter). |
+| 2026-10-03 | Next step (scheduled task, 7th run) | — (unprompted) | Same prompt as the 2nd run — done as M2 step 7 (food chain and smelters: fisher, hunter, farm, waterworks, mill, bakery, pig farm, slaughterhouse, iron/gold smelter). |

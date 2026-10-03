@@ -25,7 +25,7 @@ public class ProductionTests
         for (int i = 0; i < ticks / Simulation.TicksPerTurn; i++) Run(sim);
     }
 
-    /// <summary>Harvest objects within the building type's radius around a footprint at (x, y) on the slot's territory.</summary>
+    /// <summary>Tiles offering the harvest source within the building type's radius around a footprint at (x, y) on the slot's territory.</summary>
     private static int ObjectsAround(Simulation sim, byte slot, int type, int x, int y)
     {
         var def = BuildingCatalog.All[type];
@@ -36,7 +36,7 @@ public class ProductionTests
             {
                 if ((uint)tx >= (uint)edge || (uint)ty >= (uint)edge) continue;
                 int dx = tx - b.CenterX, dy = ty - b.CenterY, t = ty * edge + tx;
-                if (dx * dx + dy * dy <= r * r && sim.Map.Object[t] == (byte)def.Production.Harvest && sim.Territory.OwnerAt(t) == slot) n++;
+                if (dx * dx + dy * dy <= r * r && Harvest.Matches(sim.Map, t, def.Production.Harvest) && sim.Territory.OwnerAt(t) == slot) n++;
             }
         return n;
     }
@@ -93,14 +93,14 @@ public class ProductionTests
     public void Production_is_compiled_from_data()
     {
         var wood = BuildingCatalog.All[BuildingIds.Woodcutter].Production!;
-        Assert.Equal((MapObject.Tree, 8, (ushort)GoodIds.Log, 0), (wood.Harvest, wood.Radius, wood.Output, wood.Inputs.Count));
+        Assert.Equal((HarvestSource.Tree, 8, (ushort)GoodIds.Log, 0), (wood.Harvest, wood.Radius, wood.Output, wood.Inputs.Count));
         var saw = BuildingCatalog.All[BuildingIds.Sawmill].Production!;
-        Assert.Equal((MapObject.None, (ushort)GoodIds.Plank), (saw.Harvest, saw.Output));
+        Assert.Equal((HarvestSource.None, (ushort)GoodIds.Plank), (saw.Harvest, saw.Output));
         Assert.Equal(new[] { (ushort)GoodIds.Log }, saw.Inputs);
         Assert.Equal(new[] { 1 }, saw.InputAmounts);
         Assert.Equal(0, saw.InputIndexOf(GoodIds.Log));
         Assert.Equal(-1, saw.InputIndexOf(GoodIds.Plank));
-        Assert.Equal(MapObject.Stone, BuildingCatalog.All[BuildingIds.Stonecutter].Production!.Harvest);
+        Assert.Equal(HarvestSource.Stone, BuildingCatalog.All[BuildingIds.Stonecutter].Production!.Harvest);
         Assert.Null(BuildingCatalog.All[BuildingIds.Castle].Production);
         Assert.All(BuildingCatalog.All.Where(d => d.Production != null), d => Assert.False(d.IsStorage));
     }
@@ -247,7 +247,7 @@ public class ProductionTests
             return w.ToArray();
         }
 
-        // Map changes: count(4) then per tile tile(4) object(1) amount(1).
+        // Map changes: count(4) then per tile tile(4) object(1) resource(1) amount(1).
         var changes = Encode(w => sim.MapChanges.WriteTo(w, sim.Map));
         MapData Fresh() => MapGenerator.Generate(sim.Setup.Map).Map!;
         MapChanges.ReadFrom(new CanonicalReader(changes), Fresh());
@@ -257,7 +257,8 @@ public class ProductionTests
             b => System.BitConverter.GetBytes(plain).CopyTo(b, 4),          // tile that never held a tree or stone
             b => b[8] = (byte)MapObject.Tree,                                   // tree still standing
             b => b[8] = (byte)MapObject.Lair,                                   // tree turned into something else
-            b => b[9] = 3,                                                      // removed object with an amount
+            b => b[10] = 3,                                                     // removed object with an amount
+            b => b[9] = (byte)Resource.Fish,                                    // resource appeared
             b => System.BitConverter.GetBytes(sim.Map.TileCount).CopyTo(b, 4), // outside the map
         };
         foreach (var corrupt in cases)
@@ -274,6 +275,162 @@ public class ProductionTests
         Assert.Equal(sim.Buildings.PilesOf(id)![0], buildings[^1]);
         Assert.Throws<InvalidDataException>(() =>
             BuildingRegistry.ReadFrom(new CanonicalReader(over), sim.Map.Edge, sim.Players.Count, sim.Territory));
+    }
+
+    [Fact]
+    public void Food_and_metal_production_is_compiled_from_data()
+    {
+        (HarvestSource, int, ushort) Source(ushort type)
+        {
+            var p = BuildingCatalog.All[type].Production!;
+            Assert.Empty(p.Inputs);
+            return (p.Harvest, p.Radius, p.Output);
+        }
+        Assert.Equal((HarvestSource.Fish, 6, (ushort)GoodIds.Fish), Source(BuildingIds.Fisher));
+        Assert.Equal((HarvestSource.Game, 10, (ushort)GoodIds.Meat), Source(BuildingIds.Hunter));
+        Assert.Equal((HarvestSource.Fertile, 4, (ushort)GoodIds.Grain), Source(BuildingIds.Farm));
+        Assert.Equal((HarvestSource.Water, 4, (ushort)GoodIds.Water), Source(BuildingIds.Waterworks));
+
+        void Chain(ushort type, ushort output, params int[] inputs)
+        {
+            var p = BuildingCatalog.All[type].Production!;
+            Assert.Equal((HarvestSource.None, 0, output), (p.Harvest, p.Radius, p.Output));
+            Assert.Equal(inputs.Select(g => (ushort)g), p.Inputs);
+            Assert.All(p.InputAmounts, a => Assert.Equal(1, a));
+        }
+        Chain(BuildingIds.Mill, GoodIds.Flour, GoodIds.Grain);
+        Chain(BuildingIds.Bakery, GoodIds.Bread, GoodIds.Flour, GoodIds.Water);
+        Chain(BuildingIds.PigFarm, GoodIds.Pig, GoodIds.Grain, GoodIds.Water);
+        Chain(BuildingIds.Slaughterhouse, GoodIds.Meat, GoodIds.Pig);
+        Chain(BuildingIds.IronSmelter, GoodIds.Iron, GoodIds.IronOre, GoodIds.Coal);
+        Chain(BuildingIds.GoldSmelter, GoodIds.Gold, GoodIds.GoldOre, GoodIds.Coal);
+        Assert.True(Harvest.IsConsumed(HarvestSource.Fish) && Harvest.IsConsumed(HarvestSource.Game));
+        Assert.False(Harvest.IsConsumed(HarvestSource.Water) || Harvest.IsConsumed(HarvestSource.Fertile) || Harvest.IsConsumed(HarvestSource.None));
+    }
+
+    [Fact]
+    public void A_fisher_catches_fish_until_the_water_is_empty()
+    {
+        var sim = Simulation.Create(TwoPlayers());
+        int id = Place(sim, 0, BuildingIds.Fisher, 0, (x, y) => ObjectsAround(sim, 0, BuildingIds.Fisher, x, y) >= 1);
+        ConstructionTests.RunUntilComplete(sim, id);
+        var b = ConstructionTests.Get(sim, id);
+        int nearest = Production.FindHarvest(sim.Map, sim.Territory, b, b.Definition.Production!);
+        Assert.Equal((byte)Terrain.Water, sim.Map.Terrain[nearest]);
+        int amount = sim.Map.Amount[nearest];
+        Assert.True(amount >= 2);
+        int fish = Units(sim, 0, GoodIds.Fish);
+        int cycle = b.Definition.Production!.CycleTicks;
+        RunTicks(sim, cycle + 2);
+        Assert.Equal((byte)Resource.Fish, sim.Map.Resource[nearest]);
+        Assert.Equal(amount - 1, sim.Map.Amount[nearest]);
+        Assert.Contains(nearest, sim.MapChanges.Tiles);
+        // A partly fished tile survives save and load.
+        var loaded = Simulation.Load(sim.Save());
+        Assert.Equal(sim.ComputeHash(), loaded.ComputeHash());
+        Assert.Equal(sim.Map.Resource, loaded.Map.Resource);
+        Assert.Equal(sim.Map.Amount, loaded.Map.Amount);
+        RunTicks(sim, cycle * (amount - 1));
+        Assert.Equal(((byte)Resource.None, (byte)0), (sim.Map.Resource[nearest], sim.Map.Amount[nearest]));
+        Assert.Equal(fish + amount, Units(sim, 0, GoodIds.Fish));
+        loaded = Simulation.Load(sim.Save());
+        Assert.Equal(sim.ComputeHash(), loaded.ComputeHash());
+        Assert.Equal(sim.Map.Resource, loaded.Map.Resource);
+    }
+
+    [Fact]
+    public void A_hunter_hunts_game_into_meat()
+    {
+        var sim = Simulation.Create(TwoPlayers());
+        int id = Place(sim, 0, BuildingIds.Hunter, 0, (x, y) => ObjectsAround(sim, 0, BuildingIds.Hunter, x, y) >= 2);
+        ConstructionTests.RunUntilComplete(sim, id);
+        var b = ConstructionTests.Get(sim, id);
+        int game = ObjectsAround(sim, 0, BuildingIds.Hunter, b.X, b.Y);
+        int meat = Units(sim, 0, GoodIds.Meat);
+        RunTicks(sim, 2 * b.Definition.Production!.CycleTicks + 2);
+        Assert.Equal(game - 2, ObjectsAround(sim, 0, BuildingIds.Hunter, b.X, b.Y));
+        Assert.Equal(meat + 2, Units(sim, 0, GoodIds.Meat));
+        Assert.All(sim.MapChanges.Tiles, t => Assert.Equal((byte)MapObject.None, sim.Map.Object[t]));
+        Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
+    }
+
+    [Fact]
+    public void Farm_waterworks_mill_and_bakery_turn_fertile_land_and_water_into_bread()
+    {
+        var sim = Simulation.Create(TwoPlayers());
+        ushort seq = 0;
+        int Build(ushort type, System.Func<int, int, bool> accept)
+        {
+            int id = Place(sim, 0, type, seq++, accept);
+            ConstructionTests.RunUntilComplete(sim, id);
+            return id;
+        }
+        int farm = Build(BuildingIds.Farm, (x, y) => ObjectsAround(sim, 0, BuildingIds.Farm, x, y) >= 1);
+        int water = Build(BuildingIds.Waterworks, (x, y) => ObjectsAround(sim, 0, BuildingIds.Waterworks, x, y) >= 1);
+        int mill = Build(BuildingIds.Mill, (_, _) => true);
+        int bakery = Build(BuildingIds.Bakery, (_, _) => true);
+        int bread = Units(sim, 0, GoodIds.Bread);
+        int grainCycle = ConstructionTests.Get(sim, farm).Definition.Production!.CycleTicks;
+        RunTicks(sim, 8 * grainCycle);
+        int made = Units(sim, 0, GoodIds.Bread) - bread;
+        Assert.InRange(made, 4, 8); // at most one loaf per grain; the chain needs a few cycles to fill
+        Assert.Empty(sim.MapChanges.Tiles); // fertile land and water are not used up
+        Assert.True(Units(sim, 0, GoodIds.Water) > 0);
+        Assert.InRange(sim.Buildings.PilesOf(bakery)![1] + sim.Logistics.All.Count(j => j.DestinationId == bakery && j.Good == GoodIds.Water),
+            0, Production.InputTarget);
+        Assert.True(sim.Buildings.TryGet(water, out _) && sim.Buildings.TryGet(mill, out _));
+        Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
+    }
+
+    [Theory]
+    [InlineData(BuildingIds.PigFarm, GoodIds.Grain, GoodIds.Water, GoodIds.Pig)]
+    [InlineData(BuildingIds.IronSmelter, GoodIds.IronOre, GoodIds.Coal, GoodIds.Iron)]
+    [InlineData(BuildingIds.GoldSmelter, GoodIds.GoldOre, GoodIds.Coal, GoodIds.Gold)]
+    public void A_two_input_building_consumes_one_of_each_input_per_unit(ushort type, int a, int b, int output)
+    {
+        var sim = Simulation.Create(TwoPlayers());
+        int id = Place(sim, 0, type, 0, (_, _) => true);
+        ConstructionTests.RunUntilComplete(sim, id);
+        var stock = sim.Buildings.StockAt(CastleIndex(sim))!;
+        stock[a] = 10;
+        stock[b] = 6; // the scarcer input limits the output
+        int before = Units(sim, 0, output);
+        RunTicks(sim, 10 * BuildingCatalog.All[type].Production!.CycleTicks);
+        int made = Units(sim, 0, output) - before;
+        int running = Consumed(sim, id);
+        Assert.Equal(6, made + running);
+        Assert.Equal(0, Units(sim, 0, b));
+        Assert.Equal(10 - 6, Units(sim, 0, a));
+        Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
+    }
+
+    [Fact]
+    public void Corrupt_fish_changes_are_rejected_on_load()
+    {
+        var sim = Simulation.Create(TwoPlayers());
+        int id = Place(sim, 0, BuildingIds.Fisher, 0, (x, y) => ObjectsAround(sim, 0, BuildingIds.Fisher, x, y) >= 1);
+        ConstructionTests.RunUntilComplete(sim, id);
+        RunTicks(sim, ConstructionTests.Get(sim, id).Definition.Production!.CycleTicks + 2);
+        Assert.Single(sim.MapChanges.Tiles);
+        var w = new CanonicalWriter(64);
+        sim.MapChanges.WriteTo(w, sim.Map);
+        var changes = w.ToArray();
+        MapData Fresh() => MapGenerator.Generate(sim.Setup.Map).Map!;
+        MapChanges.ReadFrom(new CanonicalReader(changes), Fresh());
+        var cases = new System.Action<byte[]>[]
+        {
+            b => b[10] = 0,                                // fish left but amount 0
+            b => b[10] = 200,                              // more fish than generated
+            b => b[9] = (byte)Resource.Coal,               // fish turned into coal
+            b => b[8] = (byte)MapObject.Tree,              // tree appeared on water
+            b => { b[9] = (byte)Resource.None; b[10] = 1; }, // fish gone but an amount left
+        };
+        foreach (var corrupt in cases)
+        {
+            var bad = (byte[])changes.Clone();
+            corrupt(bad);
+            Assert.Throws<InvalidDataException>(() => MapChanges.ReadFrom(new CanonicalReader(bad), Fresh()));
+        }
     }
 
     [Fact]

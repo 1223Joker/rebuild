@@ -75,14 +75,54 @@ public sealed class BuildingDefinition
 }
 
 /// <summary>
+/// What a production cycle needs within its radius on own territory (data/buildings.json <c>"harvest"</c>,
+/// docs/06-economy.md §4). Map objects and the fish resource lose one unit per cycle; terrain is only required.
+/// </summary>
+public enum HarvestSource : byte
+{
+    None,
+    /// <summary>Tree object; felled by the cycle.</summary>
+    Tree,
+    /// <summary>Stone outcrop object; loses one unit of <see cref="MapData.Amount"/>.</summary>
+    Stone,
+    /// <summary>Game animal object; hunted (removed) by the cycle.</summary>
+    Game,
+    /// <summary>Fish resource on a water tile; loses one unit of <see cref="MapData.Amount"/>.</summary>
+    Fish,
+    /// <summary>Any water tile; not consumed (waterworks).</summary>
+    Water,
+    /// <summary>Any fertile tile; not consumed (farm fields, ASSUMPTION until fields are sown).</summary>
+    Fertile,
+}
+
+/// <summary>Tile tests for <see cref="HarvestSource"/>.</summary>
+public static class Harvest
+{
+    /// <summary>True if <paramref name="tile"/> currently offers <paramref name="source"/>.</summary>
+    public static bool Matches(MapData map, int tile, HarvestSource source) => source switch
+    {
+        HarvestSource.Tree => map.Object[tile] == (byte)MapObject.Tree,
+        HarvestSource.Stone => map.Object[tile] == (byte)MapObject.Stone,
+        HarvestSource.Game => map.Object[tile] == (byte)MapObject.Game,
+        HarvestSource.Fish => map.Resource[tile] == (byte)Resource.Fish && map.Terrain[tile] == (byte)Terrain.Water,
+        HarvestSource.Water => map.Terrain[tile] == (byte)Terrain.Water,
+        HarvestSource.Fertile => map.Terrain[tile] == (byte)Terrain.Fertile,
+        _ => false,
+    };
+
+    /// <summary>True if a cycle takes one unit of the source from the map (objects and resources, not terrain).</summary>
+    public static bool IsConsumed(HarvestSource source) => source is >= HarvestSource.Tree and <= HarvestSource.Fish;
+}
+
+/// <summary>
 /// Work cycle of a production building (data/buildings.json <c>"production"</c>): at the start it takes
 /// <see cref="InputAmounts"/>[k] units of <see cref="Inputs"/>[k] from its input piles; after <see cref="CycleTicks"/> ticks
-/// it takes one <see cref="Harvest"/> object within <see cref="Radius"/> tiles (if any) and puts one <see cref="Output"/>
-/// unit into its output pile (World.Production).
+/// it takes one unit of the <see cref="Harvest"/> source within <see cref="Radius"/> tiles (if any and consumed) and puts
+/// one <see cref="Output"/> unit into its output pile (World.Production).
 /// </summary>
 public sealed class ProductionDefinition
 {
-    public ProductionDefinition(ushort[] inputs, int[] inputAmounts, ushort output, int cycleTicks, MapObject harvest, int radius)
+    public ProductionDefinition(ushort[] inputs, int[] inputAmounts, ushort output, int cycleTicks, HarvestSource harvest, int radius)
     {
         if (inputs.Length != inputAmounts.Length) throw new System.ArgumentException("One amount per input", nameof(inputAmounts));
         Inputs = inputs;
@@ -100,8 +140,8 @@ public sealed class ProductionDefinition
     public ushort Output { get; }
     /// <summary>Ticks of one work cycle.</summary>
     public int CycleTicks { get; }
-    /// <summary>Map object a cycle takes (tree, stone), or <see cref="MapObject.None"/>.</summary>
-    public MapObject Harvest { get; }
+    /// <summary>What a cycle needs in reach (tree, stone, game, fish, water, fertile land), or <see cref="HarvestSource.None"/>.</summary>
+    public HarvestSource Harvest { get; }
     /// <summary>Harvest radius in tiles around the building centre (0 without harvest).</summary>
     public int Radius { get; }
 

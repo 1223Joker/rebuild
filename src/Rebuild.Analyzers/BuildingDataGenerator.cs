@@ -245,7 +245,11 @@ namespace Rebuild.Analyzers
                         {
                             case "tree": p.Harvest = "Tree"; break;
                             case "stone": p.Harvest = "Stone"; break;
-                            default: throw new FormatException("harvest must be tree or stone");
+                            case "game": p.Harvest = "Game"; break;
+                            case "fish": p.Harvest = "Fish"; break;
+                            case "water": p.Harvest = "Water"; break;
+                            case "fertile": p.Harvest = "Fertile"; break;
+                            default: throw new FormatException("harvest must be tree, stone, game, fish, water or fertile");
                         }
                         break;
                     case "radius":
@@ -282,7 +286,7 @@ namespace Rebuild.Analyzers
             for (int i = 0; i < p.Inputs.Count; i++)
                 sb.Append(i == 0 ? "" : ", ").Append(p.Inputs[i].Value.ToString(CultureInfo.InvariantCulture));
             sb.Append(" }, (ushort)Rebuild.Sim.Goods.GoodIds.").Append(CultureDataGenerator.PascalCase(p.Output)).Append(", ")
-              .Append(p.Ticks.ToString(CultureInfo.InvariantCulture)).Append(", Rebuild.Sim.MapGen.MapObject.").Append(p.Harvest).Append(", ")
+              .Append(p.Ticks.ToString(CultureInfo.InvariantCulture)).Append(", Rebuild.Sim.Buildings.HarvestSource.").Append(p.Harvest).Append(", ")
               .Append(p.Radius.ToString(CultureInfo.InvariantCulture)).Append(")");
             return sb.ToString();
         }

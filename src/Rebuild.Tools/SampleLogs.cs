@@ -69,8 +69,8 @@ public static class SampleLogs
     /// <summary>
     /// M2 building script: both players place random building types around their castle, half at random
     /// tiles (mostly enemy/no-man's land, water or other buildings, so rejected) and half at the first valid
-    /// spot scanning from a random tile (some of them woodcutters and stonecutters with trees or stone in reach, so production
-    /// runs); they cancel random building ids, demolish own complete buildings or
+    /// spot scanning from a random tile (some of them woodcutters, stonecutters, fishers, hunters, farms and waterworks with
+    /// their harvest source in reach, so production runs); they cancel random building ids, demolish own complete buildings or
     /// random ids and send malformed payloads; valid placements pause while a slot has 4 open sites, so the
     /// castle stock completes buildings (towers extend the territory) until it runs out;
     /// player 1 leaves at 3/4. A shadow simulation runs along to find valid spots and building ids.
@@ -107,8 +107,8 @@ public static class SampleLogs
                         // Half aim at a valid spot while the slot has few open sites, so the castle stock completes some;
                         // with too many open sites every placement gets the invalid rotation 4.
                         bool full = OpenSites(sim, slot) >= MaxOpenSites;
-                        // Some valid placements are a woodcutter or stonecutter with trees or stone in reach, so production runs.
-                        if (kind >= 12) type = kind == 12 ? BuildingIds.Woodcutter : BuildingIds.Stonecutter;
+                        // Some valid placements are a woodcutter or another harvester with its source in reach, so production runs.
+                        if (kind >= 12) type = kind == 12 ? BuildingIds.Woodcutter : Harvesters[turn % Harvesters.Length];
                         if (kind >= 7 && !full) FindValidSpot(sim, slot, type, ref x, ref y);
                         byte rotation = (byte)rng.NextInt(5); // 4 is invalid
                         if (full) rotation = 4;
@@ -144,6 +144,10 @@ public static class SampleLogs
 
     private const int MaxOpenSites = 4;
 
+    /// <summary>Harvesting buildings besides the woodcutter that the build script places with their source in reach.</summary>
+    private static readonly ushort[] Harvesters =
+        { BuildingIds.Stonecutter, BuildingIds.Fisher, BuildingIds.Hunter, BuildingIds.Farm, BuildingIds.Waterworks };
+
     private static int OpenSites(Simulation sim, byte slot)
     {
         int n = 0;
@@ -163,7 +167,7 @@ public static class SampleLogs
 
     /// <summary>
     /// Moves (x, y) to the first valid spot in row-major order from (x, y) within a 41² window around the slot's start;
-    /// for a building that harvests, the spot must have a harvest object in reach.
+    /// for a building that harvests, the spot must have its harvest source in reach.
     /// </summary>
     private static void FindValidSpot(Simulation sim, byte slot, ushort type, ref int x, ref int y)
     {

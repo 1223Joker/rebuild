@@ -16,8 +16,8 @@ namespace Rebuild.Sim;
 /// The deterministic simulation: <c>State(n+1) = Step(State(n), Commands(n))</c> (docs/01-architecture.md §1).
 /// Single-threaded, integer-only. Holds match/player state, RNG streams, the generated map, territory,
 /// buildings, settlers and transport jobs; game systems are added from M2 on and must write their state in <see cref="WriteState"/>. The map is
-/// regenerated from <see cref="MatchSetup.Map"/> on create and load (only its hash is saved); changes to its object
-/// layer (harvested trees and stone) are saved as <see cref="MapChanges"/>.
+/// regenerated from <see cref="MatchSetup.Map"/> on create and load (only its hash is saved); changes to its object and
+/// resource layers (harvested trees, stone, game and fish) are saved as <see cref="MapChanges"/>.
 /// </summary>
 public sealed class Simulation
 {
@@ -27,7 +27,7 @@ public sealed class Simulation
     public const int TicksPerTurn = 2;
 
     private const uint SaveMagic = 0x56415342; // "BSAV" little-endian
-    private const ushort SaveFormatVersion = 7;
+    private const ushort SaveFormatVersion = 8;
 
     private readonly PlayerState[] _players;
     private readonly PlayerCultureTable?[] _cultureTables;
