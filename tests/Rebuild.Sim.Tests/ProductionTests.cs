@@ -27,7 +27,7 @@ public class ProductionTests
     }
 
     /// <summary>Tiles offering the harvest source within the building type's radius around a footprint at (x, y) on the slot's territory.</summary>
-    private static int ObjectsAround(Simulation sim, byte slot, int type, int x, int y)
+    internal static int ObjectsAround(Simulation sim, byte slot, int type, int x, int y)
     {
         var def = BuildingCatalog.All[type];
         var b = new Building(1, (ushort)type, slot, x, y, 0, BuildingState.Complete, 0);
@@ -64,7 +64,7 @@ public class ProductionTests
     }
 
     /// <summary>Places and completes a woodcutter with at least <paramref name="trees"/> trees in reach.</summary>
-    private static int Woodcutter(Simulation sim, int trees, ushort seq = 0)
+    internal static int Woodcutter(Simulation sim, int trees, ushort seq = 0)
     {
         int id = Place(sim, 0, BuildingIds.Woodcutter, seq, (x, y) => ObjectsAround(sim, 0, BuildingIds.Woodcutter, x, y) >= trees);
         ConstructionTests.RunUntilComplete(sim, id);

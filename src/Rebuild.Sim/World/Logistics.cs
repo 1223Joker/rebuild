@@ -336,10 +336,11 @@ public sealed class Logistics
     /// <summary>
     /// Advances the job of an idle carrier whose wait is over (called by <see cref="Settlers.Step"/>): checks that source
     /// and destination still fit, picks up or hands over at the target door, or plans the walk there within
-    /// <paramref name="budget"/> (no search while it is used up; the carrier retries next tick).
+    /// <paramref name="budget"/> (no search while it is used up; the carrier retries next tick). A unit handed over to an
+    /// input pile or a construction site counts as consumed (<see cref="ProductionStatistics"/>).
     /// </summary>
     internal Settler Advance(int tick, Settler s, List<int> path, MapData map, Territory territory, BuildingRegistry buildings,
-        Pathfinder pathfinder, ref int budget)
+        ProductionStatistics statistics, Pathfinder pathfinder, ref int budget)
     {
         int j = IndexOf(s.JobId);
         var job = _jobs[j];
@@ -383,6 +384,7 @@ public sealed class Logistics
                     else if (target.State == BuildingState.Complete) buildings.PilesAt(dest)![SlotOf(target, job.Good)]++;
                     else if (job.Good == GoodIds.Plank) buildings.Update(dest, target with { DeliveredPlanks = target.DeliveredPlanks + 1 });
                     else buildings.Update(dest, target with { DeliveredStone = target.DeliveredStone + 1 });
+                    if (stock == null) statistics.Consume(job.Owner, job.Good); // handed over to an input pile or a site
                     return Finish(s, j);
                 }
                 if (budget <= 0) return s;

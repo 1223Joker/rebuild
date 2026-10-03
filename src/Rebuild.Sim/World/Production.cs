@@ -19,6 +19,7 @@ namespace Rebuild.Sim.World;
 /// <see cref="ProductionDefinition.Plant"/>) instead needs a free tile in reach (<see cref="FindPlantSite"/>) to start and
 /// plants its object on the nearest such tile at the end (<see cref="MapChanges.Plant"/>; nothing if none is left).
 /// Workers do not exist yet: a complete building works on its own (ASSUMPTION until specialists, docs/06-economy.md §3).
+/// Every piled output unit is counted in <see cref="ProductionStatistics"/>.
 /// <see cref="Logistics"/> refills the input piles to <see cref="InputTarget"/> and carries output units away.
 /// </summary>
 public static class Production
@@ -30,7 +31,7 @@ public static class Production
 
     /// <summary>Runs one tick of production.</summary>
     public static void Step(BuildingRegistry buildings, MapData map, Territory territory, MapChanges changes, Logistics logistics,
-        ProductionQuotas quotas)
+        ProductionQuotas quotas, ProductionStatistics statistics)
     {
         var all = buildings.All;
         int[]? reserved = null;
@@ -70,6 +71,7 @@ public static class Production
                 {
                     if (tile != int.MaxValue && Harvest.IsConsumed(p.Harvest)) changes.Take(map, tile, p.Harvest);
                     piles[p.Inputs.Count + b.Choice]++;
+                    statistics.Produce(b.Owner, p.Outputs[b.Choice]);
                 }
                 b = b with { Choice = 0 };
             }

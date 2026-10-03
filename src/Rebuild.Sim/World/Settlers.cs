@@ -152,8 +152,8 @@ public sealed class Settlers
         map.IsWalkable(tile) && buildings.AtTile(tile) == 0 && territory.OwnerAt(tile) == owner;
 
     /// <summary>Runs one tick of spawning and movement. <paramref name="tick"/> is the tick being simulated.</summary>
-    public void Step(int tick, MapData map, Territory territory, BuildingRegistry buildings, Logistics logistics, Pcg32 rng,
-        Pathfinder pathfinder)
+    public void Step(int tick, MapData map, Territory territory, BuildingRegistry buildings, Logistics logistics,
+        ProductionStatistics statistics, Pcg32 rng, Pathfinder pathfinder)
     {
         if (tick % SpawnIntervalTicks == 0) Refill(map, buildings);
         int budget = ExpansionBudgetPerTick;
@@ -206,7 +206,7 @@ public sealed class Settlers
             }
             else if (s.JobId != 0)
             {
-                s = logistics.Advance(tick, s, path, map, territory, buildings, pathfinder, ref budget);
+                s = logistics.Advance(tick, s, path, map, territory, buildings, statistics, pathfinder, ref budget);
             }
             else if (budget > 0)
             {
