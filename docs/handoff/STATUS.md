@@ -107,7 +107,7 @@
 | `World/Settlers` (second system in `StepTick`): settler entities (owner, home, tile, idle/walking, sub-tile progress, path); walk only on walkable, building-free tiles of own territory at 2.5 tiles/s (diagonal 14/10); blocked walkers stop and re-plan; settlers covered by a new building are put at its door; idle carriers wander within 6 tiles of their home door (placeholder until logistics) | done |
 | Save format 5 (settlers + paths, load validates ids, owners, homes, tiles, path chains, state/progress); `GameVersion` 0.6.0; both golden replays regenerated | done |
 | Code review (`/code-review`, medium): 2 findings fixed — a carrier covered by a newly placed building, or spawned at the footprint centre when no door tile was free, was stuck forever | done |
-| Tests / CI | 148 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112); float-ban, golden-version and hash comparison pass locally; CI: see below |
+| Tests / CI | 148 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112); float-ban, golden-version and hash comparison pass locally; **CI run 37084956265 green** on `main` (dba6f46): 4 runners × Debug/Release, `cross-os-hashes` (both new replay hashes identical everywhere) and `golden-version` pass |
 
 ## In progress
 - Nothing.
@@ -120,7 +120,7 @@
 5. Before M3: run S1's Godot part — install the Godot **.NET** edition (the installed `/Applications/Godot.app` 4.7.2 is the standard build without C#) and export a test project for macOS and Windows — and spike S2 (rendering scale). Before M5: spike S3 (ENet transport).
 
 ## Blockers / waiting for user approval
-- None.
+- Deleting old remote branches (e.g. `claude/amazing-hopper-tq38xc`, fully merged into `main`) is refused by the cloud session's git proxy (HTTP 403; a session may only push its own branch and `main`); delete them in the GitHub UI.
 
 ## Dead ends (tried or rejected, and why)
 - Using Godot `FastNoiseLite` for the shared map: floats, not cross-platform deterministic → rejected ([ADR 0003](../decisions/0003-mapgen-determinism.md)); allowed for client cosmetics only.
