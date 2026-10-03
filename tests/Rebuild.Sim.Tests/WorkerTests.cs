@@ -98,16 +98,16 @@ public class WorkerTests
         var worker = WorkerOf(sim, id);
         Assert.Equal(job.CarrierId, worker.Id);
         Assert.Equal(Settlers.DoorOf(ConstructionTests.Get(sim, id), sim.Map, sim.Buildings), worker.Tile);
-        Assert.Equal((SettlerState.Idle, 0), (worker.State, worker.JobId));
+        Assert.Equal(0, worker.JobId); // may already be setting out to its first tree
         Assert.Empty(EmployJobs(sim));
         Assert.Equal(0, sim.Statistics.TotalConsumed(0, GoodIds.Axe)); // the worker keeps the tool
         Assert.Equal(axes - 1, CastleStock(sim)[GoodIds.Axe]);
         Run(sim);
         Assert.True(ConstructionTests.Get(sim, id).Cycle > 0, "the cycle starts once the worker is inside");
-        // The worker stays put and keeps its castle bed, so the castle does not refill the carrier it lost.
+        Assert.Equal(SettlerState.Walking, WorkerOf(sim, id).State); // out to the tree
+        // The worker stays and keeps its castle bed, so the castle does not refill the carrier it lost.
         RunTicks(sim, Settlers.SpawnIntervalTicks);
-        Assert.Equal(worker, WorkerOf(sim, id));
-        Assert.Equal(1, worker.HomeId);
+        Assert.Equal((worker.Id, 1), (WorkerOf(sim, id).Id, WorkerOf(sim, id).HomeId));
         Assert.Equal(BuildingCatalog.All[BuildingIds.Castle].Beds - 1,
             sim.Settlers.All.Count(s => s.Kind == SettlerKind.Carrier && s.HomeId == 1));
         var loaded = Simulation.Load(sim.Save());
@@ -213,7 +213,7 @@ public class WorkerTests
     private static int SettlerOffset(Simulation sim, int index)
     {
         int offset = 8; // next id, count
-        for (int i = 0; i < index; i++) offset += 33 + 4 * sim.Settlers.PathAt(i).Count;
+        for (int i = 0; i < index; i++) offset += 34 + 4 * sim.Settlers.PathAt(i).Count;
         return offset;
     }
 
@@ -264,7 +264,8 @@ public class WorkerTests
         var cases = new (byte[] Bytes, string Message)[]
         {
             (With(4, 2, 1), "Invalid settler"),
-            (With(17, 5, 2), "A worker neither walks, waits nor carries"),
+            (With(19, 5, 4), "A worker neither waits nor has a transport job"),
+            (With(29, 1, 1), "Laden worker of a running cycle or of a building without field work"),
             (With(4, 0, 1), "Invalid settler"), // a carrier with a workplace
             (With(23, 0, 4), "Invalid settler"), // a worker without one
             (With(27, Households.HomelessTicks + 1, 2), "Invalid settler"),

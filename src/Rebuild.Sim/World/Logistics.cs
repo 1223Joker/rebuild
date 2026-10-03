@@ -558,7 +558,10 @@ public sealed class Logistics
     {
         var s = settlers.All[index];
         ushort tool = buildings.TryGet(s.WorkplaceId, out var b) ? ToolOf(b) : ProductionDefinition.NoTool;
-        s = s with { Kind = SettlerKind.Carrier, WorkplaceId = 0, WaitTicks = Settlers.MinIdleTicks };
+        // A running cycle stops with its worker (taken inputs and a carried unit are lost, ASSUMPTION).
+        if (b.Cycle > 0) buildings.Update(buildings.IndexOf(b.Id), b with { Cycle = 0, Choice = 0 });
+        bool walking = s.State == SettlerState.Walking;
+        s = s with { Kind = SettlerKind.Carrier, WorkplaceId = 0, Laden = false, WaitTicks = walking ? 0 : Settlers.MinIdleTicks };
         int storage = tool == ProductionDefinition.NoTool ? -1 : NearestStorage(buildings, s.Owner, good: -1, s.Tile);
         if (storage >= 0)
         {
@@ -702,6 +705,7 @@ public sealed class Logistics
             workers[index]++;
         }
         var working = settlers.Working(buildings);
+        var workerAt = settlers.Workers(buildings);
         foreach (var job in reg._jobs)
         {
             int index = job.Kind == JobKind.Employ ? buildings.IndexOf(job.DestinationId) : -1;
@@ -730,10 +734,13 @@ public sealed class Logistics
                 continue;
             }
             var p = b.Definition.Production!;
+            bool laden = workerAt[i] >= 0 && settlers.All[workerAt[i]].Laden;
+            if (laden && (b.Cycle > 0 || !Production.WalksOut(p) || p.Plant != MapObject.None))
+                throw new InvalidDataException("Laden worker of a running cycle or of a building without field work");
             for (int k = 0; k < p.Inputs.Count; k++)
                 if (piles[k] + pending[Slots * i + k] > Production.InputTarget)
                     throw new InvalidDataException("More input on the way than a production building takes");
-            if (Production.OutputUnits(piles, p) + reserved[i] + (b.Cycle > 0 ? 1 : 0) > Production.OutputCap)
+            if (Production.OutputUnits(piles, p) + reserved[i] + (b.Cycle > 0 ? 1 : 0) + (laden ? 1 : 0) > Production.OutputCap)
                 throw new InvalidDataException("Output pile over capacity");
         }
         reg.NextId = nextId;

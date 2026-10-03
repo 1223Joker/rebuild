@@ -26,6 +26,16 @@ public class ProductionTests
         for (int i = 0; i < ticks / Simulation.TicksPerTurn; i++) Run(sim);
     }
 
+    /// <summary>Runs turns until <paramref name="done"/> holds; fails after <paramref name="maxTicks"/>.</summary>
+    private static void RunUntil(Simulation sim, System.Func<bool> done, int maxTicks)
+    {
+        for (int t = 0; !done(); t += Simulation.TicksPerTurn)
+        {
+            Assert.True(t < maxTicks, "condition not reached in time");
+            Run(sim);
+        }
+    }
+
     /// <summary>Tiles offering the harvest source within the building type's radius around a footprint at (x, y) on the slot's territory.</summary>
     internal static int ObjectsAround(Simulation sim, byte slot, int type, int x, int y)
     {
@@ -73,7 +83,7 @@ public class ProductionTests
 
     private static int CastleIndex(Simulation sim) => sim.Buildings.All.ToList().FindIndex(b => b.Owner == 0 && b.Type == BuildingIds.Castle);
 
-    /// <summary>Units of a good the slot holds: storage stocks, production piles and transport jobs (not piles of alternative goods).</summary>
+    /// <summary>Units of a good the slot holds: storage stocks, production piles, transport jobs and field workers carrying it home (not piles of alternative goods).</summary>
     private static int Units(Simulation sim, byte slot, int good)
     {
         int n = 0;
@@ -87,7 +97,8 @@ public class ProductionTests
             int o = p.OutputIndexOf(good);
             if (o >= 0) n += piles[p.Inputs.Count + o];
         }
-        return n + sim.Logistics.All.Count(j => j.Owner == slot && j.Good == good);
+        return n + sim.Logistics.All.Count(j => j.Owner == slot && j.Good == good)
+            + sim.Settlers.All.Count(s => s.Owner == slot && s.Laden && sim.Buildings.TryGet(s.WorkplaceId, out var w) && w.Definition.Production!.Output == good);
     }
 
     [Fact]
@@ -119,11 +130,11 @@ public class ProductionTests
         int cycle = cutter.Definition.Production!.CycleTicks;
         RunTicks(sim, 10 * cycle);
         int felled = trees - ObjectsAround(sim, 0, BuildingIds.Woodcutter, cutter.X, cutter.Y);
-        Assert.InRange(felled, 9, 10); // one cycle per CycleTicks; the first starts with the first tick
+        Assert.InRange(felled, 6, 10); // at most one cycle per CycleTicks; walking to the trees and back costs time
         Assert.Equal(felled, Units(sim, 0, GoodIds.Log));
         Assert.Equal(felled, sim.MapChanges.Tiles.Count);
         Assert.All(sim.MapChanges.Tiles, t => Assert.Equal((byte)MapObject.None, sim.Map.Object[t]));
-        Assert.InRange(sim.Buildings.StockAt(castle)![GoodIds.Log], felled - 2, felled); // overflow carried to the castle
+        Assert.InRange(sim.Buildings.StockAt(castle)![GoodIds.Log], felled - 3, felled); // overflow carried to the castle
         // Map changes, piles and cycles survive save and load and the runs stay identical.
         var loaded = Simulation.Load(sim.Save());
         Assert.Equal(sim.ComputeHash(), loaded.ComputeHash());
@@ -132,6 +143,52 @@ public class ProductionTests
         RunTicks(sim, 400);
         RunTicks(loaded, 400);
         Assert.Equal(sim.ComputeHash(), loaded.ComputeHash());
+    }
+
+    [Fact]
+    public void A_woodcutter_walks_to_the_tree_and_carries_the_log_home()
+    {
+        var sim = Simulation.Create(TwoPlayers());
+        int id = Woodcutter(sim, trees: 12);
+        var cutter = ConstructionTests.Get(sim, id);
+        int door = Settlers.DoorOf(cutter, sim.Map, sim.Buildings);
+        Settler Worker() => sim.Settlers.All.Single(s => s.WorkplaceId == id);
+        int trees = ObjectsAround(sim, 0, BuildingIds.Woodcutter, cutter.X, cutter.Y);
+        int cycle = cutter.Definition.Production!.CycleTicks;
+        // Out to the nearest tree: the cycle waits while the worker walks.
+        RunUntil(sim, () => sim.Settlers.All.Any(s => s.WorkplaceId == id) && Worker().State == SettlerState.Walking, 2000);
+        int tree = Production.FindHarvest(sim.Map, sim.Territory, ConstructionTests.Get(sim, id), cutter.Definition.Production);
+        int spot = Production.WorkSpot(sim.Map, sim.Territory, sim.Buildings, 0, tree, door);
+        Assert.NotEqual(door, spot); // the test needs a real walk
+        Assert.Equal(1, ConstructionTests.Get(sim, id).Cycle);
+        RunUntil(sim, () => Worker().State == SettlerState.Idle, cycle);
+        Assert.Equal(spot, Worker().Tile);
+        // Felled at the end of the cycle; the log is carried, not piled yet.
+        RunUntil(sim, () => Worker().Laden, cycle);
+        Assert.Equal(trees - 1, ObjectsAround(sim, 0, BuildingIds.Woodcutter, cutter.X, cutter.Y));
+        Assert.Equal(new[] { 0 }, sim.Buildings.PilesOf(id));
+        Assert.Equal(0, sim.Statistics.TotalProduced(0, GoodIds.Log));
+        // A save on the way home loads and runs on identically.
+        var loaded = Simulation.Load(sim.Save());
+        Assert.Equal(sim.ComputeHash(), loaded.ComputeHash());
+        RunUntil(sim, () => !Worker().Laden, cycle);
+        Assert.Equal((door, 1L), (Worker().Tile, sim.Statistics.TotalProduced(0, GoodIds.Log)));
+        Assert.Equal(1, Units(sim, 0, GoodIds.Log));
+        while (loaded.Tick < sim.Tick) Run(loaded);
+        Assert.Equal(sim.ComputeHash(), loaded.ComputeHash());
+        // Released mid-cycle in the field (homeless or crisis; the workplace stays): the cycle stops with it.
+        RunUntil(sim, () => ConstructionTests.Get(sim, id).Cycle > 1, 3 * cycle);
+        sim.Logistics.ReleaseWorker(sim.Buildings, sim.Settlers, id);
+        Assert.Equal(0, ConstructionTests.Get(sim, id).Cycle);
+        Assert.DoesNotContain(sim.Settlers.All, s => s.WorkplaceId == id);
+        Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
+    }
+
+    [Fact]
+    public void Field_workers_are_planters_and_harvesters_of_objects_and_fish()
+    {
+        var walkers = BuildingCatalog.All.Where(d => d.Production is { } p && Production.WalksOut(p)).Select(d => d.Id).OrderBy(n => n, System.StringComparer.Ordinal);
+        Assert.Equal(new[] { "fisher", "forester", "hunter", "stonecutter", "woodcutter" }, walkers);
     }
 
     [Fact]
@@ -153,7 +210,7 @@ public class ProductionTests
         int capacity = BuildingCatalog.All[BuildingIds.Castle].StorageCapacity;
         stock[GoodIds.Stone] += capacity - 2 - stock.Sum(); // room for two more units
         int cycle = ConstructionTests.Get(sim, id).Definition.Production!.CycleTicks;
-        for (int i = 0; i < 12 * cycle / Simulation.TicksPerTurn; i++) ConstructionTests.RunFed(sim);
+        for (int i = 0; i < 16 * cycle / Simulation.TicksPerTurn; i++) ConstructionTests.RunFed(sim);
         // Two logs reached the castle; the rest filled the pile, then the woodcutter paused.
         Assert.Equal(capacity, stock.Sum());
         Assert.Equal(2, stock[GoodIds.Log]);
@@ -225,7 +282,7 @@ public class ProductionTests
         int amount = System.Math.Max((int)sim.Map.Amount[nearest], 1);
         int stone = Units(sim, 0, GoodIds.Stone);
         int cycle = b.Definition.Production!.CycleTicks;
-        RunTicks(sim, cycle * amount + 2);
+        RunUntil(sim, () => Units(sim, 0, GoodIds.Stone) == stone + amount, 3 * cycle * amount);
         Assert.Equal((byte)MapObject.None, sim.Map.Object[nearest]);
         Assert.Contains(nearest, sim.MapChanges.Tiles);
         Assert.Equal(stone + amount, Units(sim, 0, GoodIds.Stone));
@@ -240,7 +297,7 @@ public class ProductionTests
         sim.Buildings.Remove(sim.Buildings.All[CastleIndex(sim)].Id);
         sim.Buildings.PilesAt(sim.Buildings.IndexOf(id))![0] = Production.OutputCap - 1;
         int cycle = ConstructionTests.Get(sim, id).Definition.Production!.CycleTicks;
-        RunTicks(sim, cycle + 2);
+        RunUntil(sim, () => sim.Buildings.PilesOf(id)![0] == Production.OutputCap, 2 * cycle);
         Assert.Equal(new[] { Production.OutputCap }, sim.Buildings.PilesOf(id));
         int changes = sim.MapChanges.Tiles.Count;
         RunTicks(sim, 3 * cycle);
@@ -356,16 +413,20 @@ public class ProductionTests
         Assert.True(amount >= 2);
         int fish = Units(sim, 0, GoodIds.Fish) + Eaten(sim, GoodIds.Fish);
         int cycle = b.Definition.Production!.CycleTicks;
-        RunTicks(sim, cycle + 2);
+        RunUntil(sim, () => sim.Map.Amount[nearest] < amount, 2 * cycle);
         Assert.Equal((byte)Resource.Fish, sim.Map.Resource[nearest]);
         Assert.Equal(amount - 1, sim.Map.Amount[nearest]);
+        int door = Settlers.DoorOf(b, sim.Map, sim.Buildings);
+        int shore = Production.WorkSpot(sim.Map, sim.Territory, sim.Buildings, 0, nearest, door);
+        Assert.NotEqual(nearest, shore); // water is not walkable: the fisher stands next to it
+        Assert.True(System.Math.Abs(shore % sim.Map.Edge - nearest % sim.Map.Edge) <= 1 && System.Math.Abs(shore / sim.Map.Edge - nearest / sim.Map.Edge) <= 1);
         Assert.Contains(nearest, sim.MapChanges.Tiles);
         // A partly fished tile survives save and load.
         var loaded = Simulation.Load(sim.Save());
         Assert.Equal(sim.ComputeHash(), loaded.ComputeHash());
         Assert.Equal(sim.Map.Resource, loaded.Map.Resource);
         Assert.Equal(sim.Map.Amount, loaded.Map.Amount);
-        RunTicks(sim, cycle * (amount - 1));
+        RunUntil(sim, () => Units(sim, 0, GoodIds.Fish) + Eaten(sim, GoodIds.Fish) == fish + amount, 2 * cycle * amount);
         Assert.Equal(((byte)Resource.None, (byte)0), (sim.Map.Resource[nearest], sim.Map.Amount[nearest]));
         Assert.Equal(fish + amount, Units(sim, 0, GoodIds.Fish) + Eaten(sim, GoodIds.Fish));
         loaded = Simulation.Load(sim.Save());
@@ -382,7 +443,7 @@ public class ProductionTests
         var b = ConstructionTests.Get(sim, id);
         int game = ObjectsAround(sim, 0, BuildingIds.Hunter, b.X, b.Y);
         int meat = Units(sim, 0, GoodIds.Meat) + Eaten(sim, GoodIds.Meat);
-        RunTicks(sim, 2 * b.Definition.Production!.CycleTicks + 2);
+        RunUntil(sim, () => Units(sim, 0, GoodIds.Meat) + Eaten(sim, GoodIds.Meat) == meat + 2, 4 * b.Definition.Production!.CycleTicks);
         Assert.Equal(game - 2, ObjectsAround(sim, 0, BuildingIds.Hunter, b.X, b.Y));
         Assert.Equal(meat + 2, Units(sim, 0, GoodIds.Meat) + Eaten(sim, GoodIds.Meat));
         Assert.All(sim.MapChanges.Tiles, t => Assert.Equal((byte)MapObject.None, sim.Map.Object[t]));
@@ -445,7 +506,7 @@ public class ProductionTests
         var sim = Simulation.Create(TwoPlayers());
         int id = Place(sim, 0, BuildingIds.Fisher, 0, (x, y) => ObjectsAround(sim, 0, BuildingIds.Fisher, x, y) >= 1);
         ConstructionTests.RunUntilComplete(sim, id);
-        RunTicks(sim, ConstructionTests.Get(sim, id).Definition.Production!.CycleTicks + 2);
+        RunUntil(sim, () => sim.MapChanges.Tiles.Count > 0, 2 * ConstructionTests.Get(sim, id).Definition.Production!.CycleTicks);
         Assert.Single(sim.MapChanges.Tiles);
         var w = new CanonicalWriter(64);
         sim.MapChanges.WriteTo(w, sim.Map);
@@ -694,7 +755,7 @@ public class ProductionTests
         Assert.Empty(sim.MapChanges.Tiles);
         RunTicks(sim, 10 * p.CycleTicks);
         var planted = Planted(sim);
-        Assert.InRange(planted.Count, 9, 10); // one tree per cycle while free tiles are left
+        Assert.InRange(planted.Count, 6, 10); // at most one tree per cycle; walking to the site and back costs time
         Assert.Equal(planted.Count, sim.MapChanges.Tiles.Count);
         int edge = sim.Map.Edge;
         foreach (int t in planted)

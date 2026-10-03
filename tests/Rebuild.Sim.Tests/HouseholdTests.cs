@@ -120,7 +120,8 @@ public class HouseholdTests
         int cutter = ProductionTests.Woodcutter(sim, trees: 14);
         Assert.Equal(sim.Buildings.All[0].Id, sim.Settlers.All.Single(s => s.WorkplaceId == cutter).HomeId); // worker lives in the castle
         Assert.Null(sim.Buildings.NeedsOf(cutter)); // production buildings need no heating (user 2026-10-03)
-        for (int turns = 0; ConstructionTests.Get(sim, cutter).Cycle is 0 or > 10; turns++)
+        for (int turns = 0; ConstructionTests.Get(sim, cutter).Cycle is 0 or > 10
+            || sim.Settlers.All.Single(s => s.WorkplaceId == cutter).State == SettlerState.Walking; turns++) // at work by the tree
         {
             Assert.True(turns < 200, "woodcutter never worked");
             ConstructionTests.Run(sim);

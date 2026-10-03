@@ -26,6 +26,11 @@ namespace Rebuild.Sim.World;
 /// work speed: a cycle ends once its elapsed ticks reach <see cref="ProductionDefinition.CycleTicksIn"/> of the current
 /// season, and none starts in a season where the building does not work (<see cref="ProductionDefinition.WorksIn"/>).
 /// <see cref="Logistics"/> refills the input piles to <see cref="InputTarget"/> and carries output units away.
+/// A field worker (<see cref="WalksOut"/>) walks from the door to the target tile (or its passable neighbour nearest to the door, <see cref="WorkSpot"/>)
+/// when its cycle starts; the cycle only advances while it stands there. At the end it takes the unit (it is
+/// <see cref="Settler.Laden"/>), walks home and puts it into the output pile at the door. Without a path out it works
+/// from the door, without a path home it is put at the door (ASSUMPTIONS); the unit taken at the end is the nearest one
+/// left in reach, which may not be the one it walked to.
 /// </summary>
 public static class Production
 {
@@ -36,13 +41,39 @@ public static class Production
     /// <summary>A Short worker's cycle does not advance on ticks divisible by this (−25 %).</summary>
     public const int ShortSkipEvery = 4;
 
+    /// <summary>Whether the worker walks out to its resource: planters and harvests of trees, stone, game and fish (mines dig in place).</summary>
+    public static bool WalksOut(ProductionDefinition p) =>
+        p.Plant != MapObject.None || p.Harvest is >= HarvestSource.Tree and <= HarvestSource.Fish;
+
+    /// <summary>
+    /// Where a field worker of <paramref name="owner"/> stands to work <paramref name="tile"/>: the tile itself if passable,
+    /// else its passable neighbour nearest to <paramref name="from"/> (squared distance, ties: lower tile index; keeps a
+    /// fisher on its own bank), else -1.
+    /// </summary>
+    public static int WorkSpot(MapData map, Territory territory, BuildingRegistry buildings, byte owner, int tile, int from)
+    {
+        int edge = map.Edge, tx = tile % edge, ty = tile / edge, fx = from % edge, fy = from / edge;
+        if (Settlers.IsPassable(map, territory, buildings, owner, tile)) return tile;
+        int best = -1, bestD2 = int.MaxValue;
+        for (int y = System.Math.Max(0, ty - 1); y <= System.Math.Min(edge - 1, ty + 1); y++)
+            for (int x = System.Math.Max(0, tx - 1); x <= System.Math.Min(edge - 1, tx + 1); x++)
+            {
+                int d2 = (x - fx) * (x - fx) + (y - fy) * (y - fy);
+                if (d2 >= bestD2 || !Settlers.IsPassable(map, territory, buildings, owner, y * edge + x)) continue;
+                best = y * edge + x;
+                bestD2 = d2;
+            }
+        return best;
+    }
+
     /// <summary>Runs one tick of production.</summary>
     public static void Step(int tick, BuildingRegistry buildings, MapData map, Territory territory, MapChanges changes, Logistics logistics,
-        Settlers settlers, ProductionQuotas quotas, ProductionStatistics statistics, Season season)
+        Settlers settlers, ProductionQuotas quotas, ProductionStatistics statistics, Season season, Pathfinder pathfinder)
     {
         var all = buildings.All;
         int[]? reserved = null;
         bool[]? working = null;
+        int[]? workers = null;
         NeedState[]? states = null;
         for (int i = 0; i < all.Count; i++)
         {
@@ -52,6 +83,30 @@ public static class Production
             states ??= settlers.WorkerHomeStates(buildings);
             if (states[i] == NeedState.Crisis || (states[i] == NeedState.Short && tick % ShortSkipEvery == 0)) continue;
             var piles = buildings.PilesAt(i)!;
+            int w = -1;
+            if (WalksOut(p))
+            {
+                workers ??= settlers.Workers(buildings);
+                w = workers[i];
+            }
+            if (w >= 0)
+            {
+                var s = settlers.All[w];
+                if (s.State == SettlerState.Walking) continue;
+                int door = Settlers.DoorOf(b, map, buildings);
+                if (b.Cycle == 0 && door >= 0 && s.Tile != door)
+                {
+                    // Done in the field: walk home (put at the door if there is no way back).
+                    if (!settlers.SendTo(w, door, map, territory, buildings, pathfinder)) settlers.Replace(w, s with { Tile = door });
+                    continue;
+                }
+                if (s.Laden)
+                {
+                    piles[p.Inputs.Count]++;
+                    statistics.Produce(b.Owner, p.Outputs[0]);
+                    settlers.Replace(w, s with { Laden = false });
+                }
+            }
             if (b.Cycle == 0)
             {
                 if (!p.WorksIn(season)) continue;
@@ -62,12 +117,19 @@ public static class Production
                 bool ready = true;
                 for (int k = 0; k < p.Inputs.Count; k++)
                     if (piles[k] < p.InputAmounts[k]) ready = false;
-                if (!ready || (p.Harvest != HarvestSource.None && FindHarvest(map, territory, b, p) < 0)
-                    || (p.Plant != MapObject.None && FindPlantSite(map, territory, buildings, b, p) < 0)) continue;
+                if (!ready) continue;
+                int target = p.Plant != MapObject.None ? FindPlantSite(map, territory, buildings, b, p)
+                    : p.Harvest != HarvestSource.None ? FindHarvest(map, territory, b, p) : int.MaxValue;
+                if (target < 0) continue;
                 int choice = quotas.Pick(b.Owner, p);
                 if (choice < 0) continue;
                 for (int k = 0; k < p.Inputs.Count; k++) piles[k] -= p.InputAmounts[k];
                 b = b with { Choice = choice };
+                if (w >= 0)
+                {
+                    int spot = WorkSpot(map, territory, buildings, b.Owner, target, settlers.All[w].Tile);
+                    if (spot >= 0) settlers.SendTo(w, spot, map, territory, buildings, pathfinder); // no path: works from the door
+                }
             }
             int cycle = b.Cycle + 1;
             if (cycle >= p.CycleTicksIn(season))
@@ -84,8 +146,15 @@ public static class Production
                 if (tile >= 0)
                 {
                     if (tile != int.MaxValue && Harvest.IsConsumed(p.Harvest)) changes.Take(map, tile, p.Harvest);
-                    piles[p.Inputs.Count + b.Choice]++;
-                    statistics.Produce(b.Owner, p.Outputs[b.Choice]);
+                    if (w >= 0)
+                    {
+                        settlers.Replace(w, settlers.All[w] with { Laden = true }); // piled when back at the door
+                    }
+                    else
+                    {
+                        piles[p.Inputs.Count + b.Choice]++;
+                        statistics.Produce(b.Owner, p.Outputs[b.Choice]);
+                    }
                 }
                 b = b with { Choice = 0 };
             }
