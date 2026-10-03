@@ -17,6 +17,7 @@
 | Desync dump | Text dump of the full state at the first mismatching turn, compared by `desync-diff`. |
 | Deterministic lockstep | All peers run the same sim on the same commands in the same turns; state is never sent. |
 | Culture | Playable people with its own costs, unique buildings/goods/units, strengths and weaknesses; defined as a data package ([ADR 0007](../decisions/0007-culture-system.md)). |
+| Exposure / shelter | Blizzard or thunderstorm: units outside a shelter building lose HP every second until they die; shelters have limited slots. |
 | Fix | Q48.16 fixed-point number stored in a 64-bit integer ([ADR 0002](../decisions/0002-fixed-point-format.md)). |
 | Fog of war | Visual hiding of unexplored/unseen tiles per team; visual only, since lockstep clients hold the full state. |
 | Flow field | Per-tile direction grid toward a target; lets many units share one path computation. |
@@ -60,4 +61,3 @@
 | Wall tower | Tower on a wall line garrisoned by archer-type units. |
 | Wave | Group of monsters spawned by a lair at scheduled times with growing strength. |
 | Weather event | Scheduled, forecast map-wide event (blizzard, thunderstorm, flood, …) rolled from the `Weather` RNG stream. |
-| Weather truce | Blizzard or thunderstorm: no damage, attack commands rejected, soldiers shelter. |

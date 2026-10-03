@@ -9,7 +9,7 @@ Each item names a recommendation. When the user answers: record it verbatim in [
 | F2 | Final art: commission an artist, buy asset packs, or own Blender work? (Prototype art: Kenney only.) User: decide after M3. | Ask again after M3 | M17 | [07-art-style](07-art-style.md) |
 | H7 | Only if spike S5 shows 6 400 soldiers exceed the 10 ms combat budget: switch to a total soldier cap across all players (e.g. 4 000)? | Decide after S5 | M4 | [ADR 0008](decisions/0008-combat-model.md) |
 | H8 | Scope cuts (e.g. release with 2 cultures) — user: "decide after LAN Alpha". | Ask again after M5 | phase B | [09-roadmap §4](09-roadmap.md) |
-| H9 | Approve ADR 0009 details: needs per home building; settlers leave in Crisis; season length 6 min; Blizzard + Thunderstorm as weather truces; local storm damage in equal numbers per player; Weather default Mild; culture needs table; weather events in phase B (M7b) while needs/seasons/heating come in M2 | Approve as written; tune numbers in playtests | needs/heating step of M2 | [ADR 0009](decisions/0009-needs-seasons-weather.md), [12](12-needs-seasons-weather.md) |
+| H9 | Approve ADR 0009 details: needs per home building; settlers leave in Crisis; season length 6 min; Blizzard + Thunderstorm: unsheltered units take exposure damage until they die (rates, shelter slots, Bivouac); local storm damage in equal numbers per player; Weather default Mild; culture needs table; weather events in phase B (M7b) while needs/seasons/heating come in M2 | Approve as written; tune numbers in playtests | needs/heating step of M2 | [ADR 0009](decisions/0009-needs-seasons-weather.md), [12](12-needs-seasons-weather.md) |
 
 ## Action items from accepted recommendations (not questions)
 | ID | Action | When |

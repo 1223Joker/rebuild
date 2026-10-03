@@ -42,7 +42,7 @@ Milestones and estimates: [09-roadmap](09-roadmap.md).
 | Cultures | 4 cultures with different costs, unique buildings/goods/units, strengths and weaknesses — [10-cultures](10-cultures.md) |
 | Logistics | S4-style free-walking carriers, storehouses, build/transport priorities |
 | Population needs | Every settler needs a bed, food and water; every building needs fuel (log/coal) in winter; differs per culture — [12-needs-seasons-weather](12-needs-seasons-weather.md) |
-| Seasons & weather | Four seasons; weather events with forecast (blizzard and thunderstorm truces, lightning, fire, floods, gales, drought, fog, hail, frost); lobby option Off/Mild/Harsh — [12-needs-seasons-weather](12-needs-seasons-weather.md) |
+| Seasons & weather | Four seasons; weather events with forecast (blizzard and thunderstorm: units must shelter or die, lightning, fire, floods, gales, drought, fog, hail, frost); lobby option Off/Mild/Harsh — [12-needs-seasons-weather](12-needs-seasons-weather.md) |
 | Settlers | Residences produce settlers; professions require tools |
 | Military | Direct unit control; 12 unit types (5 shared + 7 culture-specific), 3 ranks; castle, 2 tower sizes; palisades, stone walls, gates, wall towers; battering ram, catapult — [11-military](11-military.md) |
 | Opponents | Host-side AI (easy/normal/hard) acting via commands — [05-ai](05-ai.md) |

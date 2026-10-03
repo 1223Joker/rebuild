@@ -67,8 +67,8 @@ A match starts on the first day of spring. Season length is a lobby option ([04-
 ### 3.1 Event catalogue
 | Event | Season | Duration | Effects | War |
 |---|---|---|---|---|
-| **Blizzard** | winter | 60–120 s | walking −50 %, vision −50 %, heating ×2, construction and fishers pause | **Truce** (§3.2) |
-| **Thunderstorm** | spring, summer | 45–90 s | per player 1–3 (Harsh 2–5) **lightning strikes** on random tiles of own territory: a hit building loses 50 % HP and catches fire 50 % of the time, a small wooden building (S) is **destroyed outright** 25 % of the time; a hit tree burns. Rain puts out every fire after 20 s. | **Truce** (§3.2) |
+| **Blizzard** | winter | 60–120 s | walking −50 %, vision −50 %, heating ×2, construction and fishers pause | **Shelter or die** (§3.2): unsheltered units lose 2 % max HP/s |
+| **Thunderstorm** | spring, summer | 60–120 s | per player 1–3 (Harsh 2–5) **lightning strikes** on random tiles of own territory: a hit building loses 50 % HP and catches fire 50 % of the time, a small wooden building (S) is **destroyed outright** 25 % of the time; a hit tree burns; a strike in the open kills every unsheltered unit within 1 tile. Rain puts out every fire after 20 s. | **Shelter or die** (§3.2): unsheltered units lose 1.5 % max HP/s |
 | **Great gale** | autumn | 30–60 s | 5–15 trees per player **topple into log piles** on the ground (free wood for carriers); mills and L buildings pause; carriers −25 % speed | no ranged attacks, siege engines cannot fire |
 | **Flood** | spring | 90–180 s | snowmelt: plains/fertile tiles in the lowest elevation band next to rivers/lakes become impassable water; buildings on them pause and lose 25 % HP; afterwards the tiles are **silt**: farm yield +50 % until the next spring | units cannot cross flooded tiles |
 | **Drought** | summer | 120–240 s | water need ×2, waterworks −50 %, farms −50 %, fires spread ×3 faster; Harsh: one **dry lightning** per player starts a wildfire (no rain to stop it) | normal |
@@ -77,13 +77,15 @@ A match starts on the first day of spring. Season length is a lobby option ([04-
 | **Deep frost** | winter | 120–180 s | heating ×3; waterworks −75 % unless a heated building stands within r 4; rivers freeze → **frozen water tiles are walkable** (new paths, also for attackers!) | normal |
 | **Golden autumn** / **Mild spring** | autumn / spring | 180 s | positive: farm, fisher, hunter +25 %; heating 0 (spring) | normal |
 
-### 3.2 Weather truce
-During a **Blizzard** or **Thunderstorm** war is impossible:
-- No damage is dealt by any unit, tower, siege engine or monster; projectiles in flight vanish.
-- `Attack`, `AttackMove` and siege commands are rejected with reason `WeatherTruce`; `Move` stays valid inside own/allied territory.
-- Soldiers outside own/allied territory automatically **shelter**: they walk to the nearest own or allied military building (or hold position if none is reachable) and do nothing else.
-- Capture is impossible; monster waves are delayed until the event ends.
-- Economy keeps running (with the event's penalties) — a truce is a race to repair, refill pantries and reposition.
+### 3.2 Shelter or die (Blizzard, Thunderstorm)
+War is not forbidden by a rule — it becomes impossible because nobody survives outside. The player has to bring the units into shelter in time (user, 2026-10-03).
+- **Exposure**: after a 10 s grace period every unit that is not in a shelter loses HP each second — Blizzard 2 % of max HP/s, Thunderstorm 1.5 %/s (plus lightning strikes in the open). A unit caught outside for the whole event dies; there is no automatic retreat for soldiers.
+- **Shelters** (own or allied, complete, with free shelter slots): castle 40, barracks 20, storehouse 15, large tower 6, small tower 3, wall tower 3, residence 5, and the new cheap **Bivouac** (S, 4 planks, own territory only, 12 slots). A sheltered unit is inside the building, cannot be attacked or attack, and leaves it when the event ends (or on command). Full shelters turn units away — slots are the real constraint for big armies.
+- **Command** `SeekShelter(unit ids)`: each selected unit walks to the nearest own/allied shelter with a free slot (slots reserved in unit id order); plain `Move`/`Garrison` work too. The 60 s forecast is the time to march home — an army deep in enemy land has to retreat, build a bivouac on captured land, or accept losses.
+- **Combat** keeps its rules for units still outside, but towers and wall towers do not shoot (shutters closed), siege engines cannot operate (they take no exposure damage) and capture is impossible.
+- **Civilians** (carriers, specialists, builders) shelter automatically in the nearest building of their owner and pause their work; they take no exposure damage, so the economy just stops for the event.
+- **Monsters** retreat to their lairs; waves are delayed until the event ends.
+- Afterwards, damaged units heal at the normal rate — a storm is a cheap way for a defender to win if the attacker misjudged the forecast.
 
 ### 3.3 Fire
 Introduced by lightning (and later by fire arrows, out of scope here).
@@ -102,21 +104,21 @@ Numbers are integer percentages on the baseline (plain modifiers, [ADR 0007](dec
 | Heating need | 100 % | **50 %** (thick stone houses) | **150 %** (drafty timber halls) | 75 % (felt yurts) |
 | Fuel (heat per unit) | log 1, coal 2 | log 1, **coal 3** | **log 2** (seasoned firewood), coal 1 | log 1, coal 2, **dung 1** (Stud farm byproduct) |
 | Housing | residence 10 beds | **stone house** 12 beds, +50 % stone cost | lodge 8 beds, −30 % cost, built 30 % faster | **yurt** 6 beds, cheap, demolish refunds 100 % (move camp) |
-| Weather strength | **flood-proof stilt houses**: flood damage −75 %; silt bonus +75 % | lightning damage −50 %, stone buildings never catch fire; blizzard walking only −25 % | Rangers keep full vision in fog; foresters replant burned land 2× faster | Great gale and fog do not slow mounted units |
+| Weather strength | **flood-proof stilt houses**: flood damage −75 %; silt bonus +75 %; residences shelter 10 | lightning damage −50 %, stone buildings never catch fire; blizzard walking only −25 %, blizzard exposure −50 % | Rangers keep full vision in fog; units next to a tree take half exposure; foresters replant burned land 2× faster | Great gale and fog do not slow mounted units |
 | Weather weakness | Deep frost: fisher-based food stops completely | Drought: water need ×2.5 instead of ×2 | **fire damage +50 %**, spread chance +50 % | Blizzard: horses eat double grain; Drought hits hardest (water 125 %) |
 
 ## 5. Implementation notes
 - New sim systems (order in `StepTick`, after production, before logistics): `Calendar` (pure function of tick), `Weather` (schedule + active event + local effects), `Households` (need counters, shortage states), `Fire`. All bounded work, id order, no floats.
 - New state (hashed + saved): per home building occupants, need counters, need piles, shortage timers; fire state per building; flooded/silt tiles and toppled-tree log piles as map changes; the event schedule is regenerated from the seed on load and only the progress index is saved.
 - Data: `"beds"`, `"heat"`, `"needs"` in `data/buildings.json`; `"food"`/`"fuel"` values per good in culture data; weather tables in `data/weather.json` (event weights per season and lobby setting).
-- AI ([05-ai](05-ai.md)): build residences before beds run out, keep food/water production above the need curve, stockpile fuel in autumn, never schedule attacks into a forecast truce, repair after storms.
+- AI ([05-ai](05-ai.md)): build residences before beds run out, keep food/water production above the need curve, stockpile fuel in autumn, plan shelter slots for the army, order `SeekShelter` when a Blizzard/Thunderstorm is forecast and never start an attack it cannot finish before one, repair after storms.
 - Statistics: needs consumption appears in the per-good consumption ring buffer ([06-economy §4](06-economy.md)).
-- Tests: golden replays with Weather = Harsh; unit tests for truce command rejection, equal lightning count per player, fire spread order, shortage state transitions.
+- Tests: golden replays with Weather = Harsh; unit tests for exposure damage (unsheltered unit dies, sheltered unit untouched, slot reservation order), equal lightning count per player, fire spread order, shortage state transitions.
 
 ## 6. Delivery plan ([09-roadmap](09-roadmap.md))
 | Part | Milestone |
 |---|---|
 | Housing, pantries (food + water), shortage states, calendar + seasons, winter heating with log/coal | M2 (Sim economy) |
 | Seasons/needs visuals and HUD (snow, need icons, calendar) | M3 (client) |
-| Weather events, forecast, truce, fire, floods, lobby option | **M7b Weather & seasons events** (phase B) |
+| Weather events, forecast, shelter & exposure, fire, floods, lobby option | **M7b Weather & seasons events** (phase B) |
 | Culture-specific needs, fuels, housing and weather traits | with each culture (M8–M10) |
