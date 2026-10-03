@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-10-03 — M0 done; **M1 Map generation first pass done**; **M2 step 1 (map in the sim, start assignment, territory) done**; **M2 step 2 (building data, start castle entity, PlaceBuilding/CancelConstruction) done**; **M2 step 3 (goods, castle stock, construction, Demolish) done**; **M2 step 4 (carriers, A* pathfinding, movement) done**; **M2 step 5 (logistics: transport jobs for construction materials) done**; **M2 step 6 (production: woodcutter, sawmill, stonecutter; piles, cycles, harvesting, input requests, overflow) done**; **M2 step 7 (food chain and smelters: fisher, hunter, farm, waterworks, mill, bakery, pig farm, slaughterhouse, iron/gold smelter) done**; **M2 step 8 (mines: food alternatives, ore deposits with depletion) done**; **M2 step 9 (forester planting trees) done** (2026-10-03). M1: full pipeline, F1–F11 validation with retries, share codes, `mapgen` CLI with PNG preview, 24 golden map hashes, nightly 1 000-seed workflow; 96 tests.
+**Last updated:** 2026-10-03 — M0 done; **M1 Map generation first pass done**; **M2 step 1 (map in the sim, start assignment, territory) done**; **M2 step 2 (building data, start castle entity, PlaceBuilding/CancelConstruction) done**; **M2 step 3 (goods, castle stock, construction, Demolish) done**; **M2 step 4 (carriers, A* pathfinding, movement) done**; **M2 step 5 (logistics: transport jobs for construction materials) done**; **M2 step 6 (production: woodcutter, sawmill, stonecutter; piles, cycles, harvesting, input requests, overflow) done**; **M2 step 7 (food chain and smelters: fisher, hunter, farm, waterworks, mill, bakery, pig farm, slaughterhouse, iron/gold smelter) done**; **M2 step 8 (mines: food alternatives, ore deposits with depletion) done**; **M2 step 9 (forester planting trees) done**; **M2 step 10 (toolsmith/weaponsmith with quotas) done** (2026-10-03). M1: full pipeline, F1–F11 validation with retries, share codes, `mapgen` CLI with PNG preview, 24 golden map hashes, nightly 1 000-seed workflow; 96 tests.
 
 ## Current phase / step
-**Implementation, milestone M2 Sim economy (headless)** ([09-roadmap](../09-roadmap.md)) — steps 1 (map in the sim + territory), 2 (building data + placement), 3 (goods + construction), 4 (carriers + A*), 5 (logistics for construction), 6 (first production buildings), 7 (food chain + smelters), 8 (mines) and 9 (forester) done; M0 Foundations and M1 Map generation complete. The user permitted coding on 2026-10-02 and chose "M0 directly, S1 folded in": S1's sim half is covered by M0; S1's Godot .NET export check moves to the start of M3. Process steps: [ORIGINAL-BRIEF.md §6](ORIGINAL-BRIEF.md).
+**Implementation, milestone M2 Sim economy (headless)** ([09-roadmap](../09-roadmap.md)) — steps 1 (map in the sim + territory), 2 (building data + placement), 3 (goods + construction), 4 (carriers + A*), 5 (logistics for construction), 6 (first production buildings), 7 (food chain + smelters), 8 (mines), 9 (forester) and 10 (smiths with quotas) done; M0 Foundations and M1 Map generation complete. The user permitted coding on 2026-10-02 and chose "M0 directly, S1 folded in": S1's sim half is covered by M0; S1's Godot .NET export check moves to the start of M3. Process steps: [ORIGINAL-BRIEF.md §6](ORIGINAL-BRIEF.md).
 
 ## Done
 - Step 0: git repo, [AGENTS.md](../../AGENTS.md), [CLAUDE.md](../../CLAUDE.md) (pointer), [ORIGINAL-BRIEF.md](ORIGINAL-BRIEF.md), this file.
@@ -154,6 +154,17 @@
 | Code review (`/code-review`, medium): 2 findings fixed — a save could give a forester a non-empty output pile (would carry the non-good `NoOutput`), and a planted tree on a slope too steep to plant on loaded (regression cases added) | done |
 | Tests / CI | 180 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112 + .NET 8 runtime); float-ban and golden-version checks pass locally; **CI run 37101970567 green** on `main` (ccc9381): 4 runners × Debug/Release, `cross-os-hashes` (new build replay hash identical everywhere) and `golden-version` pass | done |
 
+| M2 step 10 — toolsmith/weaponsmith with quotas (2026-10-03) | State |
+|---|---|
+| `"outputs"` production in `data/buildings.json` → `ProductionDefinition.Outputs`/`HasChoice`/`OutputIndexOf`; one output pile per output good, cap 8 over all output piles; generator RB0101 on fewer than 2 / more than 16 outputs, duplicates, or `outputs` with `output`/`plant` | done |
+| Toolsmith: iron + plank → one of 10 tools, 9 s; weaponsmith: iron + coal → sword/spear/bow, 12 s (ASSUMPTIONS; one input set for all weapons) | done |
+| `World/ProductionQuotas`: per-player weight 0..10 (default 1) + credit per quota good; output picked at cycle start by smooth weighted round robin (ties data order), all weights 0 → idle; `Building.Choice` holds the running cycle's pick | done |
+| Command `SetToolProductionQuota` (201; payload u16 good, u8 weight; `EconomyCommands`), validated (quota good, weight ≤ 10, payload length, acting slot); a change resets the player's credits | done |
+| Logistics: overflow per output pile, offers/reservations/returns use the good's own output pile | done |
+| Save format 9 (`Choice` per building; weights + credits per player; load checks choice/cycle consistency, weights, credit 0 at weight 0, credit range, credits balanced per smith); `GameVersion` 0.12.0; both golden replays regenerated; `m2-build.rblog` now also places a toolsmith and a weaponsmith per slot at turn 350 and sends quota commands every 40 turns (some invalid) | done |
+| Code review (`/code-review`, medium): 1 finding fixed — a save with unbalanced quota credits loaded and broke the next save/load round trip (balance check + regression case added) | done |
+| Tests / CI | 187 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112 + .NET 8 runtime); float-ban, golden-version and hash comparison pass locally; CI on `main`: see below | pending |
+
 ## In progress
 - Nothing.
 
@@ -161,7 +172,7 @@
 1. Keep CI green (`gh run list -R 1223Joker/rebuild`).
 2. M1 polish: tune `Dmin`, `Rf`, `Lmin` and the ASSUMPTION thresholds (F5/F6 minimums, fertile share, lair counts) when gameplay exists (spike S4 is done as part of M1; all spikes are allowed, user 2026-10-02).
 3. Run spike **S5** (headless logistics + HPA* + combat scale, [09-roadmap §2](../09-roadmap.md)) alongside the start of M2, so the 20 ms/tick budget is checked before the economy design hardens.
-4. Continue **M2 Sim economy (headless)** ([06-economy](../06-economy.md)): next step = **toolsmith/weaponsmith with quotas** (new commands) plus production statistics, then workers/specialists with tools, builders/diggers, player transport priorities, terrain costs + HPA*.
+4. Continue **M2 Sim economy (headless)** ([06-economy](../06-economy.md)): next step = **production statistics** (per player, per good, per-minute ring buffer of production/consumption, [06-economy §4](../06-economy.md)), then workers/specialists with tools, builders/diggers, player transport priorities, terrain costs + HPA*.
 5. Before M3: run S1's Godot part — install the Godot **.NET** edition (the installed `/Applications/Godot.app` 4.7.2 is the standard build without C#) and export a test project for macOS and Windows — and spike S2 (rendering scale). Before M5: spike S3 (ENet transport).
 
 ## Blockers / waiting for user approval

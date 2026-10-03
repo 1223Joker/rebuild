@@ -96,7 +96,7 @@ Command {
 | Group | Commands |
 |---|---|
 | Building | `PlaceBuilding(type, tile, rotation)`, `CancelConstruction(id)`, `Demolish(id)`, `SetBuildingPaused(id, bool)` |
-| Economy | `SetTransportPriority(goodType, rank)`, `SetToolProductionQuota(tool, n)`, `SetFoodDistribution(target, pct)`, `SetStorePolicy(storeId, good, accept/reject)` |
+| Economy | `SetTransportPriority(goodType, rank)`, `SetToolProductionQuota(good, weight 0..10)` (tools and weapons; as built M2 step 10, [06-economy §4](06-economy.md)), `SetFoodDistribution(target, pct)`, `SetStorePolicy(storeId, good, accept/reject)` |
 | Military | `Move`, `AttackMove`, `Attack(target)`, `Stop`, `Hold`, `SetStance`, `Garrison`, `Ungarrison`, `Train`, `BuildWall`, `BuildGate`, `SetGateLocked` — payloads in [11-military §2](11-military.md) (unit id lists ≤ 200) |
 | Meta (from host, Slot=255) | `PlayerJoined`, `PlayerLeft(slot)`, `AiTakeover(slot, difficulty)`, `HumanResume(slot)`, `Pause`, `Resume`, `SetSpeed(k)`, `Surrender(slot)` |
 

@@ -234,10 +234,10 @@ public class BuildingTests
         Assert.Equal(sim.Buildings.All, Read(good).All);
 
         // Layout: nextId(4) count(4) then per building id(4) type(2) owner(1) x(2) y(2) rot(1) state(1) claim(4)
-        // planks(1) stone(1) work(2) cycle(2) stock flag(1) [stock 4 × goods] [piles 1 × (inputs + 1)]; a castle takes
-        // 24 + 4 × goods bytes.
+        // planks(1) stone(1) work(2) cycle(2) choice(1) stock flag(1) [stock 4 × goods] [piles 1 × (inputs + outputs)]; a
+        // castle takes 25 + 4 × goods bytes.
         const int first = 8;
-        int second = first + 24 + 4 * Rebuild.Sim.Goods.GoodCatalog.All.Count;
+        int second = first + 25 + 4 * Rebuild.Sim.Goods.GoodCatalog.All.Count;
         var cases = new (int Offset, byte Value)[]
         {
             (0, 0),                 // next id 0

@@ -18,10 +18,11 @@ public enum BuildingState : byte
 /// <see cref="BuildingDefinition.Side"/>² tiles. <see cref="ClaimId"/> is its territory claim (0 = none).
 /// <see cref="DeliveredPlanks"/>, <see cref="DeliveredStone"/> and <see cref="WorkDone"/> track construction
 /// progress of a site (all 0 once complete). <see cref="Cycle"/> is the elapsed work-cycle ticks of a complete
-/// production building (0 = no cycle running; <see cref="Production"/>).
+/// production building (0 = no cycle running; <see cref="Production"/>); <see cref="Choice"/> is the index in
+/// <see cref="ProductionDefinition.Outputs"/> the running cycle makes (picked at its start by a smith's quota; 0 when idle).
 /// </summary>
 public readonly record struct Building(int Id, ushort Type, byte Owner, int X, int Y, byte Rotation, BuildingState State, int ClaimId,
-    int DeliveredPlanks = 0, int DeliveredStone = 0, int WorkDone = 0, int Cycle = 0)
+    int DeliveredPlanks = 0, int DeliveredStone = 0, int WorkDone = 0, int Cycle = 0, int Choice = 0)
 {
     public BuildingDefinition Definition => BuildingCatalog.All[Type];
 
@@ -35,7 +36,8 @@ public readonly record struct Building(int Id, ushort Type, byte Owner, int X, i
 /// overlap and keep a free ring of <see cref="Margin"/> tile(s) to every other footprint, so buildings never
 /// wall off a passage between them (ASSUMPTION, docs/06-economy.md §1). Complete storage buildings
 /// (<see cref="BuildingDefinition.IsStorage"/>) own a goods stock, one count per good in <see cref="GoodCatalog"/>;
-/// complete production buildings (<see cref="BuildingDefinition.Production"/>) own piles: one per input, then the output pile.
+/// complete production buildings (<see cref="BuildingDefinition.Production"/>) own piles: one per input, then one output
+/// pile per <see cref="ProductionDefinition.Outputs"/> entry.
 /// </summary>
 public sealed class BuildingRegistry
 {
@@ -51,7 +53,7 @@ public sealed class BuildingRegistry
     private readonly List<Building> _buildings = new();
     /// <summary>Goods stock per building, parallel to <see cref="_buildings"/>; null for non-storage buildings and sites.</summary>
     private readonly List<int[]?> _stocks = new();
-    /// <summary>Input piles then output pile per building, parallel to <see cref="_buildings"/>; null unless complete production.</summary>
+    /// <summary>Input piles then output piles per building, parallel to <see cref="_buildings"/>; null unless complete production.</summary>
     private readonly List<int[]?> _piles = new();
 
     public BuildingRegistry(int edge)
@@ -85,7 +87,7 @@ public sealed class BuildingRegistry
     /// <summary>Mutable stock by list index (systems only).</summary>
     internal int[]? StockAt(int index) => _stocks[index];
 
-    /// <summary>Piles of a production building (inputs in data order, output last), or null if it has none.</summary>
+    /// <summary>Piles of a production building (inputs in data order, then outputs in data order), or null if it has none.</summary>
     public IReadOnlyList<int>? PilesOf(int id)
     {
         int index = IndexOf(id);
@@ -99,7 +101,7 @@ public sealed class BuildingRegistry
         b.State == BuildingState.Complete && b.Definition.IsStorage ? new int[GoodCatalog.All.Count] : null;
 
     private static int[]? NewPiles(in Building b) =>
-        b.State == BuildingState.Complete && b.Definition.Production is { } p ? new int[p.Inputs.Count + 1] : null;
+        b.State == BuildingState.Complete && b.Definition.Production is { } p ? new int[p.Inputs.Count + p.Outputs.Count] : null;
 
     /// <summary>
     /// Replaces the building at list index <paramref name="index"/> (same id and footprint; systems only). A storage
@@ -188,6 +190,7 @@ public sealed class BuildingRegistry
             w.WriteByte((byte)b.DeliveredStone);
             w.WriteUInt16((ushort)b.WorkDone);
             w.WriteUInt16((ushort)b.Cycle);
+            w.WriteByte((byte)b.Choice);
             var stock = _stocks[i];
             w.WriteByte(stock == null ? (byte)0 : (byte)1);
             if (stock != null)
@@ -211,7 +214,7 @@ public sealed class BuildingRegistry
         for (int i = 0; i < count; i++)
         {
             var b = new Building(r.ReadInt32(), r.ReadUInt16(), r.ReadByte(), r.ReadUInt16(), r.ReadUInt16(), r.ReadByte(),
-                (BuildingState)r.ReadByte(), r.ReadInt32(), r.ReadByte(), r.ReadByte(), r.ReadUInt16(), r.ReadUInt16());
+                (BuildingState)r.ReadByte(), r.ReadInt32(), r.ReadByte(), r.ReadByte(), r.ReadUInt16(), r.ReadUInt16(), r.ReadByte());
             if (b.Id <= lastId || b.Id >= nextId || b.Type >= BuildingCatalog.All.Count || b.Owner >= playerCount
                 || b.Rotation > MaxRotation || b.State > BuildingState.Complete || !reg.IsFootprintFree(b.X, b.Y, b.Definition.Side))
                 throw new InvalidDataException("Invalid building");
@@ -237,9 +240,10 @@ public sealed class BuildingRegistry
             {
                 // Input piles never exceed the refill target; the output pile is checked against reservations by Logistics
                 // and stays empty for a planter, which produces no good.
-                int outputCap = b.Definition.Production!.Output == ProductionDefinition.NoOutput ? 0 : Production.OutputCap;
+                var p = b.Definition.Production!;
+                int outputCap = p.Output == ProductionDefinition.NoOutput ? 0 : Production.OutputCap;
                 for (int k = 0; k < piles.Length; k++)
-                    if ((piles[k] = r.ReadByte()) > (k < piles.Length - 1 ? Production.InputTarget : outputCap))
+                    if ((piles[k] = r.ReadByte()) > (k < p.Inputs.Count ? Production.InputTarget : outputCap))
                         throw new InvalidDataException("Invalid production pile");
             }
             if (b.ClaimId != 0)

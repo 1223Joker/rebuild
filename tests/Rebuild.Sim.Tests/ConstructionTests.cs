@@ -249,7 +249,7 @@ public class ConstructionTests
         var w = new CanonicalWriter(1024);
         sim.Buildings.WriteTo(w);
         var bytes = w.ToArray();
-        const int stockFlag = 8 + 17 + 6; // nextId, count, first castle's fields + progress + cycle
+        const int stockFlag = 8 + 17 + 7; // nextId, count, first castle's fields + progress + cycle + choice
         Assert.Equal(1, bytes[stockFlag]);
         foreach (byte flag in new byte[] { 0, 2 })
         {
@@ -269,7 +269,7 @@ public class ConstructionTests
     {
         var log = SampleLogs.BuildScript(1, 600);
         var sim = Simulation.Create(log.Setup);
-        int maxClaims = 0, cycles = 0, completed = 0;
+        int maxClaims = 0, cycles = 0, completed = 0, smiths = 0;
         bool planted = false;
         foreach (var bundle in log.Bundles)
         {
@@ -277,6 +277,7 @@ public class ConstructionTests
             maxClaims = System.Math.Max(maxClaims, sim.Territory.Claims.Count);
             cycles += sim.Buildings.All.Count(b => b.Cycle > 0);
             completed += sim.Buildings.All.Count(b => b.Type != BuildingIds.Castle && b.State == BuildingState.Complete);
+            smiths += sim.Buildings.All.Count(b => b.Definition.Production is { HasChoice: true } && b.State == BuildingState.Complete);
             planted |= sim.MapChanges.Tiles.Any(t => sim.Map.Object[t] == (byte)Rebuild.Sim.MapGen.MapObject.Tree);
         }
         Assert.True(completed > 0, "no building was completed");
@@ -284,6 +285,8 @@ public class ConstructionTests
         Assert.True(maxClaims > 2, "no tower was completed");
         Assert.True(cycles > 0, "no production cycle ran");
         Assert.True(planted, "no tree was planted");
+        Assert.True(smiths > 0, "no smith was completed");
+        Assert.NotEqual(ProductionQuotas.DefaultWeight, sim.Quotas.WeightOf(0, Rebuild.Sim.Goods.GoodIds.Hammer)); // quota commands applied
         Assert.All(sim.Buildings.All, b => Assert.True(Construction.IsConsistent(b)));
     }
 }

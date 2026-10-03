@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Rebuild.Sim.Buildings;
 using Rebuild.Sim.MapGen;
 
@@ -7,11 +8,14 @@ namespace Rebuild.Sim.World;
 /// Production system (docs/06-economy.md §4), run every tick after construction and before logistics matching. Every
 /// complete building with a <see cref="ProductionDefinition"/> runs work cycles: a cycle starts when every input pile
 /// holds its amount, a tile offering its <see cref="HarvestSource"/> lies within the radius on own territory, and the
-/// output pile has room (output pile + units reserved from it by transport jobs + this cycle's unit ≤
-/// <see cref="OutputCap"/>); the inputs are taken at the start. After <see cref="ProductionDefinition.CycleTicks"/> ticks
+/// output piles have room (output piles + units reserved from them by transport jobs + this cycle's unit ≤
+/// <see cref="OutputCap"/>); the inputs are taken at the start. A smith (<see cref="ProductionDefinition.HasChoice"/>) also
+/// needs an output its owner's quota allows: <see cref="ProductionQuotas.Pick"/> chooses it last, when every other
+/// condition holds, and the cycle keeps it in <see cref="Building.Choice"/>. After <see cref="ProductionDefinition.CycleTicks"/> ticks
 /// the nearest such tile (by squared distance from the building centre, ties: lower tile index) loses one unit if the
 /// source is consumed (objects, fish; <see cref="MapChanges.Take"/>) and one output unit goes into the output pile; if
-/// the source was taken meanwhile and none is left, the cycle yields nothing. A planter (forester,
+/// the source was taken meanwhile and none is left, the cycle yields nothing. The unit goes into the pile of the
+/// chosen output. A planter (forester,
 /// <see cref="ProductionDefinition.Plant"/>) instead needs a free tile in reach (<see cref="FindPlantSite"/>) to start and
 /// plants its object on the nearest such tile at the end (<see cref="MapChanges.Plant"/>; nothing if none is left).
 /// Workers do not exist yet: a complete building works on its own (ASSUMPTION until specialists, docs/06-economy.md §3).
@@ -25,7 +29,8 @@ public static class Production
     public const int OutputCap = 8;
 
     /// <summary>Runs one tick of production.</summary>
-    public static void Step(BuildingRegistry buildings, MapData map, Territory territory, MapChanges changes, Logistics logistics)
+    public static void Step(BuildingRegistry buildings, MapData map, Territory territory, MapChanges changes, Logistics logistics,
+        ProductionQuotas quotas)
     {
         var all = buildings.All;
         int[]? reserved = null;
@@ -35,17 +40,19 @@ public static class Production
             var p = b.Definition.Production;
             if (p == null || b.State != BuildingState.Complete) continue;
             var piles = buildings.PilesAt(i)!;
-            int output = piles.Length - 1;
             if (b.Cycle == 0)
             {
                 reserved ??= logistics.ReservedOutput(buildings);
-                if (piles[output] + reserved[i] + 1 > OutputCap) continue;
+                if (OutputUnits(piles, p) + reserved[i] + 1 > OutputCap) continue;
                 bool ready = true;
                 for (int k = 0; k < p.Inputs.Count; k++)
                     if (piles[k] < p.InputAmounts[k]) ready = false;
                 if (!ready || (p.Harvest != HarvestSource.None && FindHarvest(map, territory, b, p) < 0)
                     || (p.Plant != MapObject.None && FindPlantSite(map, territory, buildings, b, p) < 0)) continue;
+                int choice = quotas.Pick(b.Owner, p);
+                if (choice < 0) continue;
                 for (int k = 0; k < p.Inputs.Count; k++) piles[k] -= p.InputAmounts[k];
+                b = b with { Choice = choice };
             }
             int cycle = b.Cycle + 1;
             if (cycle == p.CycleTicks)
@@ -55,18 +62,27 @@ public static class Production
                 {
                     int site = FindPlantSite(map, territory, buildings, b, p);
                     if (site >= 0) changes.Plant(map, site, p.Plant);
-                    buildings.Update(i, b with { Cycle = cycle });
+                    buildings.Update(i, b with { Cycle = cycle, Choice = 0 });
                     continue;
                 }
                 int tile = p.Harvest == HarvestSource.None ? int.MaxValue : FindHarvest(map, territory, b, p);
                 if (tile >= 0)
                 {
                     if (tile != int.MaxValue && Harvest.IsConsumed(p.Harvest)) changes.Take(map, tile, p.Harvest);
-                    piles[output]++;
+                    piles[p.Inputs.Count + b.Choice]++;
                 }
+                b = b with { Choice = 0 };
             }
-            if (cycle != b.Cycle) buildings.Update(i, b with { Cycle = cycle });
+            buildings.Update(i, b with { Cycle = cycle });
         }
+    }
+
+    /// <summary>Units in the output piles of a production building's <paramref name="piles"/>.</summary>
+    public static int OutputUnits(IReadOnlyList<int> piles, ProductionDefinition p)
+    {
+        int n = 0;
+        for (int k = p.Inputs.Count; k < piles.Count; k++) n += piles[k];
+        return n;
     }
 
     /// <summary>

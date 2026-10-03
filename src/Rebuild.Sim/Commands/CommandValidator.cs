@@ -27,6 +27,9 @@ public static class CommandValidator
                 // Complete own buildings only (sites are cancelled); the castle cannot be demolished.
                 return BuildingCommands.TryReadId(c, out int target) && sim.Buildings.TryGet(target, out var d)
                     && d.Owner == c.Slot && d.State == BuildingState.Complete && d.Definition.PlayerPlaceable;
+            case CommandType.SetToolProductionQuota:
+                return EconomyCommands.TryReadQuota(c, out ushort good, out byte weight)
+                    && good < Goods.GoodCatalog.All.Count && ProductionQuotas.IsQuotaGood(good) && weight <= ProductionQuotas.MaxWeight;
             default:
                 // Other gameplay commands are validated by their systems once they exist; until then they are no-ops.
                 return false;

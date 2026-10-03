@@ -71,7 +71,8 @@ public static class SampleLogs
     /// M2 building script: both players place random building types around their castle, half at random
     /// tiles (mostly enemy/no-man's land, water or other buildings, so rejected) and half at the first valid
     /// spot scanning from a random tile (some of them woodcutters, stonecutters, fishers, hunters, farms, waterworks and mines
-    /// with their harvest source in reach, so production runs); they cancel random building ids, demolish own complete buildings or
+    /// with their harvest source in reach, so production runs); at turn 350 each places a toolsmith and a weaponsmith; every 40 turns
+    /// each sets a smith quota (some invalid); they cancel random building ids, demolish own complete buildings or
     /// random ids and send malformed payloads; valid placements pause while a slot has 4 open sites, so the
     /// castle stock completes buildings (towers extend the territory) until it runs out;
     /// player 1 leaves at 3/4. A shadow simulation runs along to find valid spots and building ids.
@@ -135,6 +136,20 @@ public static class SampleLogs
                         commands.Add(new Command(type, slot, turn, seq[slot]++, payload));
                     }
                 }
+                // At SmithTurn each slot places a toolsmith, ten turns later a weaponsmith, at the first valid spot.
+                if (turn == SmithTurn || turn == SmithTurn + 10)
+                {
+                    ushort smith = turn == SmithTurn ? BuildingIds.Toolsmith : BuildingIds.Weaponsmith;
+                    int x = start.X - 12, y = start.Y - 12;
+                    FindValidSpot(sim, slot, smith, ref x, ref y);
+                    commands.Add(BuildingCommands.Place(slot, seq[slot]++, smith, x, y));
+                }
+                // Every 40 turns a quota change: cycles through tools, weapons and a good without quota, weights 0..11 (11 invalid).
+                if (turn % 40 == 5 + slot)
+                {
+                    uint round = turn / 40;
+                    commands.Add(EconomyCommands.Quota(slot, seq[slot]++, QuotaScriptGoods[round % QuotaScriptGoods.Length], (byte)(round % 12)));
+                }
             }
             if (turn == (uint)turns * 3 / 4) commands.Add(MetaCommands.ForSlot(CommandType.PlayerLeft, 1, seq[Command.SystemSlot]++));
             var bundle = new TurnBundle(turn, commands);
@@ -145,6 +160,15 @@ public static class SampleLogs
     }
 
     private const int MaxOpenSites = 4;
+    /// <summary>Turn of the build script's toolsmith placements (weaponsmiths ten turns later).</summary>
+    private const uint SmithTurn = 350;
+
+    /// <summary>Goods the build script sets quotas for; plank has none, so its commands are rejected.</summary>
+    private static readonly ushort[] QuotaScriptGoods =
+        {
+            (ushort)Rebuild.Sim.Goods.GoodIds.Sword, (ushort)Rebuild.Sim.Goods.GoodIds.Axe, (ushort)Rebuild.Sim.Goods.GoodIds.Plank,
+            (ushort)Rebuild.Sim.Goods.GoodIds.Bow, (ushort)Rebuild.Sim.Goods.GoodIds.Hammer,
+        };
 
     /// <summary>Harvesting buildings besides the woodcutter that the build script places with their source in reach.</summary>
     private static readonly ushort[] Harvesters =

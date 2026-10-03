@@ -111,6 +111,15 @@ public sealed class Logistics
         return b.Definition.Production?.InputIndexOf(good) ?? -1;
     }
 
+    /// <summary>Pile index of <paramref name="good"/>'s output pile at a complete production building, or -1.</summary>
+    private static int OutputPileOf(in Building b, int good)
+    {
+        var p = b.Definition.Production;
+        if (p == null || b.State != BuildingState.Complete) return -1;
+        int k = p.OutputIndexOf(good);
+        return k < 0 ? -1 : p.Inputs.Count + k;
+    }
+
     /// <summary>Whether a carried unit of <paramref name="good"/> may be handed over at the building at list index <paramref name="index"/>.</summary>
     private static bool Accepts(BuildingRegistry buildings, int index, int good) =>
         SlotOf(buildings.All[index], good) >= 0 || buildings.StockAt(index) != null;
@@ -169,20 +178,21 @@ public sealed class Logistics
                 int tile = b.CenterY * _edge + b.CenterX;
                 if (pass == 2)
                 {
-                    // Overflow: every unit left in the output pile goes to the nearest storage.
+                    // Overflow: every unit left in an output pile goes to the nearest storage (output piles in data order).
                     var piles = buildings.PilesAt(i);
                     if (piles == null) continue;
-                    while (piles[piles.Length - 1] > 0 && matches < MaxMatchesPerTick)
-                    {
-                        int storage = NearestStorage(buildings, b.Owner, good: -1, tile);
-                        if (storage < 0) break;
-                        if (!TryCreate(buildings, settlers, idle, b.Owner, p!.Output, i, storage))
+                    for (int o = p!.Inputs.Count; o < piles.Length && !noCarrier[b.Owner]; o++)
+                        while (piles[o] > 0 && matches < MaxMatchesPerTick)
                         {
-                            noCarrier[b.Owner] = true;
-                            break;
+                            int storage = NearestStorage(buildings, b.Owner, good: -1, tile);
+                            if (storage < 0) break;
+                            if (!TryCreate(buildings, settlers, idle, b.Owner, p.Outputs[o - p.Inputs.Count], i, storage))
+                            {
+                                noCarrier[b.Owner] = true;
+                                break;
+                            }
+                            matches++;
                         }
-                        matches++;
-                    }
                     continue;
                 }
                 int slots = pass == 0
@@ -231,7 +241,7 @@ public sealed class Logistics
         if (pick < 0) return false;
         var stock = buildings.StockAt(source);
         if (stock != null) stock[good]--;
-        else buildings.PilesAt(source)![^1]--;
+        else buildings.PilesAt(source)![OutputPileOf(src, good)]--;
         int carrier = idle[pick];
         idle.RemoveAt(pick);
         var job = new TransportJob(NextId++, owner, settlers.All[carrier].Id, good, src.Id, buildings.All[destination].Id, JobState.ToPickup);
@@ -262,7 +272,8 @@ public sealed class Logistics
             int offered = -1, most = 0;
             foreach (ushort g in goods)
             {
-                int units = stock != null ? stock[g] : piles != null && all[i].Definition.Production!.Output == g ? piles[^1] : 0;
+                int pile = piles != null ? OutputPileOf(all[i], g) : -1;
+                int units = stock != null ? stock[g] : pile >= 0 ? piles![pile] : 0;
                 if (units > most)
                 {
                     offered = g;
@@ -419,7 +430,7 @@ public sealed class Logistics
         {
             var stock = buildings.StockAt(source);
             if (stock != null) stock[job.Good]++;
-            else buildings.PilesAt(source)![^1]++;
+            else buildings.PilesAt(source)![OutputPileOf(buildings.All[source], job.Good)]++;
         }
         return Finish(s, j) with { WaitTicks = wait };
     }
@@ -478,7 +489,7 @@ public sealed class Logistics
                 || job.State > JobState.Carrying || carrier < 0 || settlers.All[carrier].JobId != job.Id
                 || settlers.All[carrier].Owner != job.Owner
                 || (source >= 0 && buildings.StockAt(source) == null
-                    && (buildings.PilesAt(source) == null || buildings.All[source].Definition.Production!.Output != job.Good)))
+                    && (buildings.PilesAt(source) == null || OutputPileOf(buildings.All[source], job.Good) < 0)))
                 throw new InvalidDataException("Invalid transport job");
             lastId = job.Id;
             reg._jobs.Add(job);
@@ -510,10 +521,11 @@ public sealed class Logistics
             }
             var piles = buildings.PilesAt(i);
             if (piles == null) continue;
-            for (int k = 0; k < piles.Length - 1; k++)
+            var p = b.Definition.Production!;
+            for (int k = 0; k < p.Inputs.Count; k++)
                 if (piles[k] + pending[2 * i + k] > Production.InputTarget)
                     throw new InvalidDataException("More input on the way than a production building takes");
-            if (piles[^1] + reserved[i] + (b.Cycle > 0 ? 1 : 0) > Production.OutputCap)
+            if (Production.OutputUnits(piles, p) + reserved[i] + (b.Cycle > 0 ? 1 : 0) > Production.OutputCap)
                 throw new InvalidDataException("Output pile over capacity");
         }
         reg.NextId = nextId;

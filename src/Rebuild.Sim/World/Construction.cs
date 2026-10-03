@@ -68,14 +68,15 @@ public static class Construction
         buildings.Remove(id);
     }
 
-    /// <summary>Whether progress fields, work cycle and claim fit the building's state and type (save validation).</summary>
+    /// <summary>Whether progress fields, work cycle (and its output choice, 0 when idle) and claim fit the building's state and type (save validation).</summary>
     public static bool IsConsistent(in Building b)
     {
         var def = b.Definition;
         if (b.State == BuildingState.Complete)
             return b.DeliveredPlanks == 0 && b.DeliveredStone == 0 && b.WorkDone == 0 && (b.ClaimId != 0) == (def.TerritoryRadius > 0)
-                && b.Cycle >= 0 && b.Cycle < (def.Production?.CycleTicks ?? 1);
-        return b.ClaimId == 0 && b.Cycle == 0 && b.DeliveredPlanks <= def.CostPlanks && b.DeliveredStone <= def.CostStone
+                && b.Cycle >= 0 && b.Cycle < (def.Production?.CycleTicks ?? 1)
+                && b.Choice >= 0 && b.Choice < (b.Cycle > 0 ? def.Production!.Outputs.Count : 1);
+        return b.ClaimId == 0 && b.Cycle == 0 && b.Choice == 0 && b.DeliveredPlanks <= def.CostPlanks && b.DeliveredStone <= def.CostStone
             && b.WorkDone <= (b.DeliveredPlanks + b.DeliveredStone) * WorkTicksPerMaterial && b.WorkDone < TotalWork(def);
     }
 

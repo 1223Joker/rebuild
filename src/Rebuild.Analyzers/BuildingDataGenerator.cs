@@ -59,6 +59,7 @@ namespace Rebuild.Analyzers
         {
             public readonly List<KeyValuePair<string, long>> Inputs = new List<KeyValuePair<string, long>>();
             public string Output = "";
+            public readonly List<string> Outputs = new List<string>();
             public long Ticks;
             public string Harvest = "None";
             public string Plant = "None";
@@ -71,6 +72,8 @@ namespace Rebuild.Analyzers
         private const long MaxInputAmount = 4;
         /// <summary>Upper bound of a work cycle in ticks (10 min; serialized as ushort).</summary>
         private const long MaxCycleTicks = 6000;
+        /// <summary>Most output choices of one smith (one output pile each).</summary>
+        private const int MaxOutputs = 16;
         /// <summary>Upper bound of a harvest radius in tiles.</summary>
         private const long MaxHarvestRadius = 32;
 
@@ -242,6 +245,17 @@ namespace Rebuild.Analyzers
                         }
                         break;
                     case "output": p.Output = GoodId((string)kv.Value!); break;
+                    case "outputs":
+                        // A smith: each cycle makes one of these goods, picked by the owner's quota (World.ProductionQuotas).
+                        foreach (var g in (List<object?>)kv.Value!)
+                        {
+                            string good = GoodId((string)g!);
+                            if (p.Outputs.Contains(good)) throw new FormatException("duplicate output '" + good + "'");
+                            p.Outputs.Add(good);
+                        }
+                        if (p.Outputs.Count < 2 || p.Outputs.Count > MaxOutputs)
+                            throw new FormatException("'outputs' must list 2.." + MaxOutputs.ToString(CultureInfo.InvariantCulture) + " goods");
+                        break;
                     case "ticks":
                         p.Ticks = (long)kv.Value!;
                         if (p.Ticks < 1 || p.Ticks > MaxCycleTicks) throw new FormatException("'ticks' must be 1.." + MaxCycleTicks.ToString(CultureInfo.InvariantCulture));
@@ -271,6 +285,11 @@ namespace Rebuild.Analyzers
                         break;
                     default: throw new FormatException("unknown production field '" + kv.Key + "'");
                 }
+            }
+            if (p.Outputs.Count > 0)
+            {
+                if (p.Output.Length != 0 || p.Plant != "None") throw new FormatException("'outputs' excludes 'output' and 'plant'");
+                p.Output = p.Outputs[0];
             }
             if (p.Plant != "None")
             {
@@ -316,7 +335,15 @@ namespace Rebuild.Analyzers
                     ? "Rebuild.Sim.Buildings.ProductionDefinition.NoOutput"
                     : "(ushort)Rebuild.Sim.Goods.GoodIds." + CultureDataGenerator.PascalCase(p.Output)).Append(", ")
               .Append(p.Ticks.ToString(CultureInfo.InvariantCulture)).Append(", Rebuild.Sim.Buildings.HarvestSource.").Append(p.Harvest).Append(", ")
-              .Append(p.Radius.ToString(CultureInfo.InvariantCulture)).Append(", Rebuild.Sim.MapGen.MapObject.").Append(p.Plant).Append(")");
+              .Append(p.Radius.ToString(CultureInfo.InvariantCulture)).Append(", Rebuild.Sim.MapGen.MapObject.").Append(p.Plant);
+            if (p.Outputs.Count > 0)
+            {
+                sb.Append(", new ushort[] { ");
+                for (int k = 0; k < p.Outputs.Count; k++)
+                    sb.Append(k == 0 ? "" : ", ").Append("(ushort)Rebuild.Sim.Goods.GoodIds.").Append(CultureDataGenerator.PascalCase(p.Outputs[k]));
+                sb.Append(" }");
+            }
+            sb.Append(")");
             return sb.ToString();
         }
 

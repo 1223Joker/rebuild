@@ -85,7 +85,8 @@ public class ProductionTests
             var p = b.Definition.Production!;
             for (int k = 0; k < p.Inputs.Count; k++)
                 if (p.Alternatives[k].Count == 1 && p.Inputs[k] == good) n += piles[k];
-            if (p.Output == good) n += piles[^1];
+            int o = p.OutputIndexOf(good);
+            if (o >= 0) n += piles[p.Inputs.Count + o];
         }
         return n + sim.Logistics.All.Count(j => j.Owner == slot && j.Good == good);
     }

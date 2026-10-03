@@ -141,7 +141,9 @@ public static class Harvest
 /// (one good, or alternatives such as a mine's fish/meat/bread written <c>"fish|meat|bread"</c>); after <see cref="CycleTicks"/> ticks
 /// it takes one unit of the <see cref="Harvest"/> source within <see cref="Radius"/> tiles (if any and consumed) and puts
 /// one <see cref="Output"/> unit into its output pile, or — for a planter such as the forester — puts a
-/// <see cref="Plant"/> object on a free tile within <see cref="Radius"/> instead (World.Production).
+/// <see cref="Plant"/> object on a free tile within <see cref="Radius"/> instead (World.Production). A smith has several
+/// <see cref="Outputs"/> (data <c>"outputs"</c>) and one output pile per output; each cycle makes the one the owner's quota
+/// picks (World.ProductionQuotas).
 /// </summary>
 public sealed class ProductionDefinition
 {
@@ -149,8 +151,14 @@ public sealed class ProductionDefinition
     public const ushort NoOutput = ushort.MaxValue;
 
     public ProductionDefinition(ushort[][] inputs, int[] inputAmounts, ushort output, int cycleTicks, HarvestSource harvest, int radius,
-        MapObject plant = MapObject.None)
+        MapObject plant = MapObject.None, ushort[]? outputs = null)
     {
+        if (outputs != null && (outputs.Length < 2 || outputs[0] != output || plant != MapObject.None))
+            throw new System.ArgumentException("Output choices are at least two goods, the first being the output, and no planter", nameof(outputs));
+        if (outputs != null)
+            for (int k = 0; k < outputs.Length; k++)
+                if (outputs[k] == NoOutput || System.Array.IndexOf(outputs, outputs[k]) != k)
+                    throw new System.ArgumentException("Output choices are distinct goods", nameof(outputs));
         if (plant != MapObject.None && (output != NoOutput || harvest != HarvestSource.None || radius < 1))
             throw new System.ArgumentException("A planter has a radius, no output and no harvest", nameof(plant));
         if (plant == MapObject.None && output == NoOutput)
@@ -164,6 +172,7 @@ public sealed class ProductionDefinition
         Inputs = first;
         InputAmounts = inputAmounts;
         Output = output;
+        Outputs = outputs ?? new[] { output };
         CycleTicks = cycleTicks;
         Harvest = harvest;
         Radius = radius;
@@ -176,8 +185,15 @@ public sealed class ProductionDefinition
     public IReadOnlyList<IReadOnlyList<ushort>> Alternatives { get; }
     /// <summary>Units of each input one cycle consumes.</summary>
     public IReadOnlyList<int> InputAmounts { get; }
-    /// <summary>Good a cycle piles, or <see cref="NoOutput"/> for a planter.</summary>
+    /// <summary>Good a cycle piles (the first of <see cref="Outputs"/>), or <see cref="NoOutput"/> for a planter.</summary>
     public ushort Output { get; }
+    /// <summary>
+    /// Goods a cycle may pile, in data order: just <see cref="Output"/>, or a smith's choices (tools, weapons), one of which
+    /// the owner's quota picks per cycle. Output pile k (pile index <see cref="Inputs"/>.Count + k) holds Outputs[k].
+    /// </summary>
+    public IReadOnlyList<ushort> Outputs { get; }
+    /// <summary>True if the output is chosen per cycle by the owner's production quota (smiths).</summary>
+    public bool HasChoice => Outputs.Count > 1;
     /// <summary>Ticks of one work cycle.</summary>
     public int CycleTicks { get; }
     /// <summary>What a cycle needs in reach (tree, stone, game, fish, water, fertile land), or <see cref="HarvestSource.None"/>.</summary>
@@ -186,6 +202,15 @@ public sealed class ProductionDefinition
     public int Radius { get; }
     /// <summary>Object a cycle plants (<see cref="MapObject.Tree"/> for the forester), or <see cref="MapObject.None"/>.</summary>
     public MapObject Plant { get; }
+
+    /// <summary>Output index of <paramref name="good"/> (its pile is <see cref="Inputs"/>.Count + index), or -1 if the building does not make it.</summary>
+    public int OutputIndexOf(int good)
+    {
+        if (good == NoOutput) return -1;
+        for (int k = 0; k < Outputs.Count; k++)
+            if (Outputs[k] == good) return k;
+        return -1;
+    }
 
     /// <summary>Input pile index of <paramref name="good"/>, or -1 if the building does not take it.</summary>
     public int InputIndexOf(int good)

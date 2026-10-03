@@ -15,7 +15,7 @@ namespace Rebuild.Sim;
 /// <summary>
 /// The deterministic simulation: <c>State(n+1) = Step(State(n), Commands(n))</c> (docs/01-architecture.md §1).
 /// Single-threaded, integer-only. Holds match/player state, RNG streams, the generated map, territory,
-/// buildings, settlers and transport jobs; game systems are added from M2 on and must write their state in <see cref="WriteState"/>. The map is
+/// buildings, settlers, transport jobs and smith quotas; game systems are added from M2 on and must write their state in <see cref="WriteState"/>. The map is
 /// regenerated from <see cref="MatchSetup.Map"/> on create and load (only its hash is saved); changes to its object and
 /// resource layers (harvested trees, stone, game and fish) are saved as <see cref="MapChanges"/>.
 /// </summary>
@@ -27,7 +27,7 @@ public sealed class Simulation
     public const int TicksPerTurn = 2;
 
     private const uint SaveMagic = 0x56415342; // "BSAV" little-endian
-    private const ushort SaveFormatVersion = 8;
+    private const ushort SaveFormatVersion = 9;
 
     private readonly PlayerState[] _players;
     private readonly PlayerCultureTable?[] _cultureTables;
@@ -57,9 +57,12 @@ public sealed class Simulation
     public BuildingRegistry Buildings { get; }
     public Settlers Settlers { get; }
     public Logistics Logistics { get; }
+    /// <summary>Per-player smith quotas (which tool or weapon the next cycle makes).</summary>
+    public ProductionQuotas Quotas { get; }
 
     private Simulation(MatchSetup setup, MapData map, ulong mapHash, MapChanges mapChanges, int tick, PlayerState[] players, Pcg32 economy,
-        Pcg32 combat, Pcg32 monsters, int rejected, Territory territory, BuildingRegistry buildings, Settlers settlers, Logistics logistics)
+        Pcg32 combat, Pcg32 monsters, int rejected, Territory territory, BuildingRegistry buildings, Settlers settlers, Logistics logistics,
+        ProductionQuotas quotas)
     {
         Setup = setup;
         Map = map;
@@ -69,6 +72,7 @@ public sealed class Simulation
         Buildings = buildings;
         Settlers = settlers;
         Logistics = logistics;
+        Quotas = quotas;
         _pathfinder = new Pathfinder(map.Edge);
         _startOfSlot = StartAssignment.Assign(setup);
         Tick = tick;
@@ -147,7 +151,7 @@ public sealed class Simulation
             Pcg32.ForStream(setup.MatchSeed, RngStream.Economy),
             Pcg32.ForStream(setup.MatchSeed, RngStream.Combat),
             Pcg32.ForStream(setup.MatchSeed, RngStream.Monsters),
-            rejected: 0, territory, buildings, settlers, new Logistics(map.Edge));
+            rejected: 0, territory, buildings, settlers, new Logistics(map.Edge), new ProductionQuotas(players.Length));
     }
 
     private static MapData GenerateMap(MatchSetup setup)
@@ -184,7 +188,7 @@ public sealed class Simulation
         // Systems run here in a fixed order: construction, production, logistics matching, settlers (movement + jobs),
         // then (later milestones) combat, ...
         Construction.Step(Buildings, Territory);
-        Production.Step(Buildings, Map, Territory, MapChanges, Logistics);
+        Production.Step(Buildings, Map, Territory, MapChanges, Logistics, Quotas);
         Logistics.Match(Tick, Buildings, Settlers);
         Settlers.Step(Tick, Map, Territory, Buildings, Logistics, EconomyRng, _pathfinder);
         Tick++;
@@ -225,6 +229,10 @@ public sealed class Simulation
                 BuildingCommands.TryReadId(c, out int demolished);
                 Construction.Demolish(Buildings, Territory, demolished);
                 break;
+            case CommandType.SetToolProductionQuota:
+                EconomyCommands.TryReadQuota(c, out ushort good, out byte weight);
+                Quotas.Set(c.Slot, good, weight);
+                break;
             // PlayerJoined, Pause, Resume and SetSpeed are handled by the lockstep scheduler; the sim only
             // sees them in the log. Other gameplay commands get their handlers with their systems (M2+).
         }
@@ -246,6 +254,7 @@ public sealed class Simulation
         Buildings.WriteTo(w);
         Settlers.WriteTo(w);
         Logistics.WriteTo(w);
+        Quotas.WriteTo(w);
     }
 
     public ulong ComputeHash()
@@ -297,7 +306,8 @@ public sealed class Simulation
         var buildings = BuildingRegistry.ReadFrom(r, map.Edge, count, territory);
         var settlers = Settlers.ReadFrom(r, map.Edge, count, buildings.NextId);
         var logistics = Logistics.ReadFrom(r, map.Edge, count, buildings, settlers);
+        var quotas = ProductionQuotas.ReadFrom(r, count);
         if (!r.AtEnd) throw new InvalidDataException("Trailing data in save");
-        return new Simulation(setup, map, mapHash, mapChanges, tick, players, economy, combat, monsters, rejected, territory, buildings, settlers, logistics);
+        return new Simulation(setup, map, mapHash, mapChanges, tick, players, economy, combat, monsters, rejected, territory, buildings, settlers, logistics, quotas);
     }
 }
