@@ -172,7 +172,7 @@
 | Produced = output unit piled at the end of a cycle (`Production`); consumed = unit handed over to an input pile or a construction site (`Logistics.Advance`; ASSUMPTION: at hand-over, alternative piles lose the good's identity) | done |
 | Save format 10 (only the slots in use, running minute from the tick; load rejects negative counts and totals below their per-minute counts); `GameVersion` 0.13.0; both golden replays regenerated | done |
 | Code review (`/code-review`, medium): 1 finding fixed — a save with a negative tick loaded and crashed on the next statistics update (load now rejects it; regression test added) | done |
-| Tests / CI | 194 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112 + .NET 8 runtime); float-ban and golden-version checks pass locally; CI: see below | pending |
+| Tests / CI | 194 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112 + .NET 8 runtime); float-ban and golden-version checks pass locally; **CI run 37108426652 green** on `main` (1e03ac5): 4 runners × Debug/Release, `cross-os-hashes` (both new replay hashes identical everywhere) and `golden-version` pass | done |
 
 - Design round 2026-10-03 (user request): population needs (every settler needs a bed, food, water; winter heating with log/coal; culture differences) and seasons/weather events (blizzard/thunderstorm: shelter or die, lightning, fire, floods, …) → [12-needs-seasons-weather](../12-needs-seasons-weather.md), [ADR 0009](../decisions/0009-needs-seasons-weather.md) (proposed, H9), roadmap M2 +3 w and new M7b (+4 w, total ≈ 121 w). No code changed yet.
 
@@ -187,7 +187,7 @@
 5. Before M3: run S1's Godot part — install the Godot **.NET** edition (the installed `/Applications/Godot.app` 4.7.2 is the standard build without C#) and export a test project for macOS and Windows — and spike S2 (rendering scale). Before M5: spike S3 (ENet transport).
 
 ## Blockers / waiting for user approval
-- Deleting old remote branches (`claude/amazing-hopper-tq38xc`, `claude/amazing-hopper-s87jxe`, `claude/amazing-hopper-p2ghnv`, `claude/amazing-hopper-zablrl`, `claude/amazing-hopper-wcv8g0`, `claude/amazing-hopper-jtagzl`, `claude/amazing-hopper-w5qo6z`, and any other merged `claude/amazing-hopper-*` branch still listed, all fully merged into `main`) is not possible from the cloud session (git proxy HTTP 403 earlier; on 2026-10-03 the session's permission policy blocked the delete again, four times — also for `claude/amazing-hopper-t7rnb5`, the M2 step 10 branch, fully merged into `main`); delete them in the GitHub UI.
+- Deleting old remote branches (`claude/amazing-hopper-tq38xc`, `claude/amazing-hopper-s87jxe`, `claude/amazing-hopper-p2ghnv`, `claude/amazing-hopper-zablrl`, `claude/amazing-hopper-wcv8g0`, `claude/amazing-hopper-jtagzl`, `claude/amazing-hopper-w5qo6z`, and any other merged `claude/amazing-hopper-*` branch still listed, all fully merged into `main`) is not possible from the cloud session (git proxy HTTP 403 earlier; on 2026-10-03 the session's permission policy blocked the delete again, four times — also for `claude/amazing-hopper-t7rnb5`, the M2 step 10 branch, fully merged into `main`; on 2026-10-03 the M2 step 11 branch `claude/amazing-hopper-mmn83s`, fully merged, failed twice with "unexpected disconnect" from the git proxy); delete them in the GitHub UI.
 
 ## Dead ends (tried or rejected, and why)
 - Using Godot `FastNoiseLite` for the shared map: floats, not cross-platform deterministic → rejected ([ADR 0003](../decisions/0003-mapgen-determinism.md)); allowed for client cosmetics only.
