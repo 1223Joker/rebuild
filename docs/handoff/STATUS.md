@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-10-03 — M0 done; **M1 Map generation first pass done**; **M2 step 1 (map in the sim, start assignment, territory) done**; **M2 step 2 (building data, start castle entity, PlaceBuilding/CancelConstruction) done**; **M2 step 3 (goods, castle stock, construction, Demolish) done**; **M2 step 4 (carriers, A* pathfinding, movement) done**; **M2 step 5 (logistics: transport jobs for construction materials) done**; **M2 step 6 (production: woodcutter, sawmill, stonecutter; piles, cycles, harvesting, input requests, overflow) done**; **M2 step 7 (food chain and smelters: fisher, hunter, farm, waterworks, mill, bakery, pig farm, slaughterhouse, iron/gold smelter) done** (2026-10-03). M1: full pipeline, F1–F11 validation with retries, share codes, `mapgen` CLI with PNG preview, 24 golden map hashes, nightly 1 000-seed workflow; 96 tests.
+**Last updated:** 2026-10-03 — M0 done; **M1 Map generation first pass done**; **M2 step 1 (map in the sim, start assignment, territory) done**; **M2 step 2 (building data, start castle entity, PlaceBuilding/CancelConstruction) done**; **M2 step 3 (goods, castle stock, construction, Demolish) done**; **M2 step 4 (carriers, A* pathfinding, movement) done**; **M2 step 5 (logistics: transport jobs for construction materials) done**; **M2 step 6 (production: woodcutter, sawmill, stonecutter; piles, cycles, harvesting, input requests, overflow) done**; **M2 step 7 (food chain and smelters: fisher, hunter, farm, waterworks, mill, bakery, pig farm, slaughterhouse, iron/gold smelter) done**; **M2 step 8 (mines: food alternatives, ore deposits with depletion) done** (2026-10-03). M1: full pipeline, F1–F11 validation with retries, share codes, `mapgen` CLI with PNG preview, 24 golden map hashes, nightly 1 000-seed workflow; 96 tests.
 
 ## Current phase / step
-**Implementation, milestone M2 Sim economy (headless)** ([09-roadmap](../09-roadmap.md)) — steps 1 (map in the sim + territory), 2 (building data + placement), 3 (goods + construction), 4 (carriers + A*), 5 (logistics for construction), 6 (first production buildings) and 7 (food chain + smelters) done; M0 Foundations and M1 Map generation complete. The user permitted coding on 2026-10-02 and chose "M0 directly, S1 folded in": S1's sim half is covered by M0; S1's Godot .NET export check moves to the start of M3. Process steps: [ORIGINAL-BRIEF.md §6](ORIGINAL-BRIEF.md).
+**Implementation, milestone M2 Sim economy (headless)** ([09-roadmap](../09-roadmap.md)) — steps 1 (map in the sim + territory), 2 (building data + placement), 3 (goods + construction), 4 (carriers + A*), 5 (logistics for construction), 6 (first production buildings), 7 (food chain + smelters) and 8 (mines) done; M0 Foundations and M1 Map generation complete. The user permitted coding on 2026-10-02 and chose "M0 directly, S1 folded in": S1's sim half is covered by M0; S1's Godot .NET export check moves to the start of M3. Process steps: [ORIGINAL-BRIEF.md §6](ORIGINAL-BRIEF.md).
 
 ## Done
 - Step 0: git repo, [AGENTS.md](../../AGENTS.md), [CLAUDE.md](../../CLAUDE.md) (pointer), [ORIGINAL-BRIEF.md](ORIGINAL-BRIEF.md), this file.
@@ -137,6 +137,15 @@
 | Code review (`/code-review`, medium): no code findings; docs (06-economy §4, STATUS, DECISIONS-LOG) brought up to date as it asked | done |
 | Tests / CI | 170 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112); float-ban, golden-version and hash comparison pass locally; **CI run 37095410902 green** on `main` (15f3c5b): 4 runners × Debug/Release, `cross-os-hashes` (new build replay hash identical everywhere) and `golden-version` pass | done |
 
+| M2 step 8 — mines (2026-10-03) | State |
+|---|---|
+| Input piles with alternative goods: `"fish|meat|bread": 1` in `data/buildings.json` → `ProductionDefinition.Alternatives` (generator splits on `|`, RB0101 on a good used twice); `InputIndexOf` finds any alternative | done |
+| Logistics: a pile with alternatives takes the nearest offer of any of its goods; a storage gives the one it holds most of (ties: data order) | done |
+| `HarvestSource` coal / iron_ore / gold_ore = ore deposit (resource on a mountain tile without object); coal, iron and gold mine (S, mountain): 1 food → 1 coal / iron ore (15 s) / gold ore (20 s), deposit within r 3 loses one unit per cycle, an exhausted mine idles (all ASSUMPTIONS) | done |
+| `World/MapChanges` accepts dug-out/reduced deposits on load (save layout unchanged, format 8); `GameVersion` 0.10.0; both golden replays regenerated (`m0-meta` hash unchanged), `m2-build.rblog` now also places coal/iron/gold mines with their deposit in reach | done |
+| Code review (`/code-review`, medium) | no findings |
+| Tests / CI | 175 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112 + .NET 8 runtime); float-ban and golden-version checks pass locally; CI: see below | done |
+
 ## In progress
 - Nothing.
 
@@ -144,7 +153,7 @@
 1. Keep CI green (`gh run list -R 1223Joker/rebuild`).
 2. M1 polish: tune `Dmin`, `Rf`, `Lmin` and the ASSUMPTION thresholds (F5/F6 minimums, fertile share, lair counts) when gameplay exists (spike S4 is done as part of M1; all spikes are allowed, user 2026-10-02).
 3. Run spike **S5** (headless logistics + HPA* + combat scale, [09-roadmap §2](../09-roadmap.md)) alongside the start of M2, so the 20 ms/tick budget is checked before the economy design hardens.
-4. Continue **M2 Sim economy (headless)** ([06-economy](../06-economy.md)): next step = **mines** (alternative food inputs fish/meat/bread, ore deposits under the mine with depletion), **forester** planting trees (map changes that add objects), **toolsmith/weaponsmith with quotas** (new commands) plus production statistics, then workers/specialists with tools, builders/diggers, player transport priorities, terrain costs + HPA*.
+4. Continue **M2 Sim economy (headless)** ([06-economy](../06-economy.md)): next step = **forester** planting trees (map changes that add objects), **toolsmith/weaponsmith with quotas** (new commands) plus production statistics, then workers/specialists with tools, builders/diggers, player transport priorities, terrain costs + HPA*.
 5. Before M3: run S1's Godot part — install the Godot **.NET** edition (the installed `/Applications/Godot.app` 4.7.2 is the standard build without C#) and export a test project for macOS and Windows — and spike S2 (rendering scale). Before M5: spike S3 (ENet transport).
 
 ## Blockers / waiting for user approval

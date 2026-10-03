@@ -230,9 +230,14 @@ namespace Rebuild.Analyzers
                         {
                             long amount = (long)g.Value!;
                             if (amount < 1 || amount > MaxInputAmount) throw new FormatException("input '" + g.Key + "' must be 1.." + MaxInputAmount.ToString(CultureInfo.InvariantCulture));
-                            foreach (var other in p.Inputs)
-                                if (other.Key == g.Key) throw new FormatException("duplicate input '" + g.Key + "'");
-                            p.Inputs.Add(new KeyValuePair<string, long>(GoodId(g.Key), amount));
+                            // "a|b|c": one input pile that accepts any of the alternative goods (mine food).
+                            var taken = p.Inputs.SelectMany(other => other.Key.Split('|')).ToList();
+                            foreach (string good in g.Key.Split('|'))
+                            {
+                                if (taken.Contains(GoodId(good))) throw new FormatException("duplicate input '" + good + "'");
+                                taken.Add(good);
+                            }
+                            p.Inputs.Add(new KeyValuePair<string, long>(g.Key, amount));
                         }
                         break;
                     case "output": p.Output = GoodId((string)kv.Value!); break;
@@ -249,7 +254,10 @@ namespace Rebuild.Analyzers
                             case "fish": p.Harvest = "Fish"; break;
                             case "water": p.Harvest = "Water"; break;
                             case "fertile": p.Harvest = "Fertile"; break;
-                            default: throw new FormatException("harvest must be tree, stone, game, fish, water or fertile");
+                            case "coal": p.Harvest = "Coal"; break;
+                            case "iron_ore": p.Harvest = "IronOre"; break;
+                            case "gold_ore": p.Harvest = "GoldOre"; break;
+                            default: throw new FormatException("harvest must be tree, stone, game, fish, water, fertile, coal, iron_ore or gold_ore");
                         }
                         break;
                     case "radius":
@@ -279,9 +287,15 @@ namespace Rebuild.Analyzers
         private static string ProductionLiteral(Production? p)
         {
             if (p == null) return "null";
-            var sb = new StringBuilder("new ProductionDefinition(new ushort[] { ");
+            var sb = new StringBuilder("new ProductionDefinition(new ushort[][] { ");
             for (int i = 0; i < p.Inputs.Count; i++)
-                sb.Append(i == 0 ? "" : ", ").Append("(ushort)Rebuild.Sim.Goods.GoodIds.").Append(CultureDataGenerator.PascalCase(p.Inputs[i].Key));
+            {
+                sb.Append(i == 0 ? "new ushort[] { " : ", new ushort[] { ");
+                var goods = p.Inputs[i].Key.Split('|');
+                for (int k = 0; k < goods.Length; k++)
+                    sb.Append(k == 0 ? "" : ", ").Append("(ushort)Rebuild.Sim.Goods.GoodIds.").Append(CultureDataGenerator.PascalCase(goods[k]));
+                sb.Append(" }");
+            }
             sb.Append(" }, new int[] { ");
             for (int i = 0; i < p.Inputs.Count; i++)
                 sb.Append(i == 0 ? "" : ", ").Append(p.Inputs[i].Value.ToString(CultureInfo.InvariantCulture));

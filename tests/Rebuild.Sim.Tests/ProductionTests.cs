@@ -72,7 +72,7 @@ public class ProductionTests
 
     private static int CastleIndex(Simulation sim) => sim.Buildings.All.ToList().FindIndex(b => b.Owner == 0 && b.Type == BuildingIds.Castle);
 
-    /// <summary>Units of a good the slot holds: storage stocks, production piles and transport jobs.</summary>
+    /// <summary>Units of a good the slot holds: storage stocks, production piles and transport jobs (not piles of alternative goods).</summary>
     private static int Units(Simulation sim, byte slot, int good)
     {
         int n = 0;
@@ -83,7 +83,7 @@ public class ProductionTests
             if (piles == null) continue;
             var p = b.Definition.Production!;
             for (int k = 0; k < p.Inputs.Count; k++)
-                if (p.Inputs[k] == good) n += piles[k];
+                if (p.Alternatives[k].Count == 1 && p.Inputs[k] == good) n += piles[k];
             if (p.Output == good) n += piles[^1];
         }
         return n + sim.Logistics.All.Count(j => j.Owner == slot && j.Good == good);
@@ -487,5 +487,145 @@ public class ProductionTests
         Assert.Equal(logs + 3, Units(sim, 0, GoodIds.Log)); // nothing lost: the units went to the castle
         Assert.Equal(0, sim.Buildings.StockOf(store)![GoodIds.Log]);
         return true;
+    }
+
+    /// <summary>Food goods a mine accepts in its one food pile.</summary>
+    private static readonly int[] Food = { GoodIds.Fish, GoodIds.Meat, GoodIds.Bread };
+
+    /// <summary>Places and completes a mine with its deposit in reach on the first seed whose start area allows it.</summary>
+    private static (Simulation Sim, int Id) Mine(ushort type)
+    {
+        for (ulong seed = 1; seed <= 40; seed++)
+        {
+            var sim = Simulation.Create(TwoPlayers(seed));
+            int id = TryPlace(sim, 0, type, 0, (x, y) => ObjectsAround(sim, 0, type, x, y) >= 4);
+            if (id < 0) continue;
+            ConstructionTests.RunUntilComplete(sim, id);
+            return (sim, id);
+        }
+        throw new Xunit.Sdk.XunitException($"No seed fits a {BuildingCatalog.All[type].Id}");
+    }
+
+    [Fact]
+    public void Mines_are_compiled_from_data()
+    {
+        foreach (var (type, harvest, output) in new[]
+        {
+            (BuildingIds.CoalMine, HarvestSource.Coal, GoodIds.Coal),
+            (BuildingIds.IronMine, HarvestSource.IronOre, GoodIds.IronOre),
+            (BuildingIds.GoldMine, HarvestSource.GoldOre, GoodIds.GoldOre),
+        })
+        {
+            var def = BuildingCatalog.All[type];
+            var p = def.Production!;
+            Assert.Equal(BuildingTerrain.Mountain, def.Terrain);
+            Assert.Equal((harvest, 3, (ushort)output), (p.Harvest, p.Radius, p.Output));
+            Assert.Equal(new[] { 1 }, p.InputAmounts);
+            Assert.Equal(Food.Select(g => (ushort)g), p.Alternatives.Single());
+            Assert.Equal((ushort)GoodIds.Fish, p.Inputs.Single());
+            Assert.All(Food, g => Assert.Equal(0, p.InputIndexOf(g)));
+            Assert.Equal(-1, p.InputIndexOf(GoodIds.Grain));
+            Assert.True(Harvest.IsConsumed(harvest) && Harvest.IsResource(harvest));
+        }
+        Assert.Equal(new[] { (ushort)GoodIds.Log }, BuildingCatalog.All[BuildingIds.Sawmill].Production!.Alternatives.Single());
+        Assert.False(Harvest.IsResource(HarvestSource.Stone) || Harvest.IsResource(HarvestSource.Water));
+    }
+
+    [Theory]
+    [InlineData(BuildingIds.CoalMine, GoodIds.Coal, Resource.Coal)]
+    [InlineData(BuildingIds.IronMine, GoodIds.IronOre, Resource.Iron)]
+    public void A_mine_eats_any_food_and_digs_its_deposit(ushort type, int output, Resource ore)
+    {
+        var (sim, id) = Mine(type);
+        var stock = sim.Buildings.StockAt(CastleIndex(sim))!;
+        stock[GoodIds.Fish] = 0;
+        stock[GoodIds.Meat] = 2;
+        stock[GoodIds.Bread] = 3; // two kinds left in storage, the pile takes both
+        // + food already in the pile, on the way or feeding a running cycle
+        int food = Food.Sum(g => Units(sim, 0, g)) + sim.Buildings.PilesOf(id)![0] + Consumed(sim, id);
+        var b = ConstructionTests.Get(sim, id);
+        var p = b.Definition.Production!;
+        int nearest = Production.FindHarvest(sim.Map, sim.Territory, b, p);
+        Assert.Equal(((byte)ore, (byte)Terrain.Mountain), (sim.Map.Resource[nearest], sim.Map.Terrain[nearest]));
+        int amount = sim.Map.Amount[nearest];
+        Assert.True(amount >= 2);
+        int before = Units(sim, 0, output);
+        int maxPile = 0;
+        for (int turn = 0; turn < 14 * p.CycleTicks / Simulation.TicksPerTurn; turn++)
+        {
+            Run(sim);
+            int onTheWay = sim.Logistics.All.Count(j => j.DestinationId == id);
+            Assert.All(sim.Logistics.All.Where(j => j.DestinationId == id), j => Assert.Contains((int)j.Good, Food));
+            maxPile = System.Math.Max(maxPile, sim.Buildings.PilesOf(id)![0] + onTheWay);
+        }
+        Assert.InRange(maxPile, 1, Production.InputTarget);
+        // Every food unit became one unit of ore (or feeds the running cycle); nothing else was eaten.
+        Assert.Equal(food, Units(sim, 0, output) - before + Consumed(sim, id));
+        Assert.Equal(0, Food.Sum(g => Units(sim, 0, g)) + sim.Buildings.PilesOf(id)![0]);
+        Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
+        // The deposit lost the units, nearest tile first, and the changes survive save and load.
+        Assert.Equal(System.Math.Max(0, amount - food), sim.Map.Amount[nearest]);
+        Assert.Contains(nearest, sim.MapChanges.Tiles);
+        var loaded = Simulation.Load(sim.Save());
+        Assert.Equal(sim.Map.Resource, loaded.Map.Resource);
+        Assert.Equal(sim.Map.Amount, loaded.Map.Amount);
+    }
+
+    [Fact]
+    public void A_mine_stops_when_its_deposit_is_exhausted()
+    {
+        var (sim, id) = Mine(BuildingIds.CoalMine);
+        var b = ConstructionTests.Get(sim, id);
+        var p = b.Definition.Production!;
+        // Shrink the deposit in reach to one unit per tile (map edits do not survive a load; this test never loads).
+        var tiles = new System.Collections.Generic.List<int>();
+        for (int t = 0; t < sim.Map.TileCount; t++)
+        {
+            int dx = t % sim.Map.Edge - b.CenterX, dy = t / sim.Map.Edge - b.CenterY;
+            if (dx * dx + dy * dy <= p.Radius * p.Radius && sim.Territory.OwnerAt(t) == 0 && Harvest.Matches(sim.Map, t, p.Harvest))
+            {
+                sim.Map.Amount[t] = 1;
+                tiles.Add(t);
+            }
+        }
+        Assert.InRange(tiles.Count, 4, 30);
+        var stock = sim.Buildings.StockAt(CastleIndex(sim))!;
+        stock[GoodIds.Fish] = 40;
+        int food = Food.Sum(g => Units(sim, 0, g)) + sim.Buildings.PilesOf(id)![0];
+        int before = Units(sim, 0, GoodIds.Coal);
+        RunTicks(sim, (tiles.Count + 3) * p.CycleTicks);
+        Assert.Equal(tiles.Count, Units(sim, 0, GoodIds.Coal) - before);
+        Assert.All(tiles, t => Assert.Equal(((byte)Resource.None, (byte)0), (sim.Map.Resource[t], sim.Map.Amount[t])));
+        Assert.Equal(-1, Production.FindHarvest(sim.Map, sim.Territory, b, p));
+        Assert.Equal(0, ConstructionTests.Get(sim, id).Cycle); // idle: no cycle starts without ore
+        Assert.Equal(Production.InputTarget, sim.Buildings.PilesOf(id)![0]); // the food waits in its pile
+        Assert.Equal(food - tiles.Count, Food.Sum(g => Units(sim, 0, g)) + Production.InputTarget);
+    }
+
+    [Fact]
+    public void Corrupt_ore_changes_are_rejected_on_load()
+    {
+        var (sim, _) = Mine(BuildingIds.CoalMine);
+        while (sim.MapChanges.Tiles.Count == 0) Run(sim); // the first cycle starts once food arrives
+        Assert.Single(sim.MapChanges.Tiles);
+        var w = new CanonicalWriter(64);
+        sim.MapChanges.WriteTo(w, sim.Map);
+        var changes = w.ToArray();
+        MapData Fresh() => MapGenerator.Generate(sim.Setup.Map).Map!;
+        MapChanges.ReadFrom(new CanonicalReader(changes), Fresh());
+        var cases = new System.Action<byte[]>[]
+        {
+            b => b[10] = 0,                                  // coal left but amount 0
+            b => b[10] = 200,                                // more coal than generated
+            b => b[9] = (byte)Resource.Gold,                 // coal turned into gold
+            b => b[8] = (byte)MapObject.Stone,               // stone appeared on the deposit
+            b => { b[9] = (byte)Resource.None; b[10] = 1; }, // coal gone but an amount left
+        };
+        foreach (var corrupt in cases)
+        {
+            var bad = (byte[])changes.Clone();
+            corrupt(bad);
+            Assert.Throws<InvalidDataException>(() => MapChanges.ReadFrom(new CanonicalReader(bad), Fresh()));
+        }
     }
 }

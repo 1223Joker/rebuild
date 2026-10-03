@@ -26,7 +26,8 @@ public readonly record struct TransportJob(int Id, byte Owner, int CarrierId, us
 /// buildings (input piles refilled to <see cref="Production.InputTarget"/>) and output overflow (every unit left in an
 /// output pile goes to a storage). Offers: storage stocks and output piles. Matching runs every tick after production and
 /// before movement, in three passes over the buildings in id order (older first): site materials (planks, then stone),
-/// production inputs (data order), then overflow. Each request takes the owner's offer of the good nearest to the
+/// production inputs (data order; a pile with alternative goods, such as a mine's food, takes any of them), then
+/// overflow. Each request takes the owner's offer of the good nearest to the
 /// requester by <see cref="SectorDistance"/> (ties: lower id; never the requester itself), overflow the owner's nearest
 /// storage; then the owner's idle carrier nearest to the source (ties: lower id); at most <see cref="MaxMatchesPerTick"/>
 /// jobs per tick. A matched unit leaves the source stock or pile at once (reservation). Carriers execute their job inside
@@ -189,22 +190,22 @@ public sealed class Logistics
                     : (b.State == BuildingState.Complete && p != null ? p.Inputs.Count : 0);
                 for (int k = 0; k < slots && !noCarrier[b.Owner]; k++)
                 {
-                    ushort good;
+                    IReadOnlyList<ushort> goods;
                     int need;
                     if (pass == 0)
                     {
-                        good = (ushort)(k == 0 ? GoodIds.Plank : GoodIds.Stone);
+                        goods = k == 0 ? PlankOnly : StoneOnly;
                         need = k == 0 ? b.Definition.CostPlanks - b.DeliveredPlanks : b.Definition.CostStone - b.DeliveredStone;
                     }
                     else
                     {
-                        good = p!.Inputs[k];
+                        goods = p!.Alternatives[k];
                         need = Production.InputTarget - buildings.PilesAt(i)![k];
                     }
                     need -= pending[2 * i + k];
                     while (need > 0 && matches < MaxMatchesPerTick)
                     {
-                        int source = NearestSource(buildings, b.Owner, good, tile, exclude: i);
+                        var (source, good) = NearestSource(buildings, b.Owner, goods, tile, exclude: i);
                         if (source < 0) break;
                         if (!TryCreate(buildings, settlers, idle, b.Owner, good, source, i))
                         {
@@ -239,29 +240,45 @@ public sealed class Logistics
         return true;
     }
 
+    private static readonly ushort[] PlankOnly = { (ushort)GoodIds.Plank };
+    private static readonly ushort[] StoneOnly = { (ushort)GoodIds.Stone };
+
     /// <summary>
-    /// List index of the owner's offer of <paramref name="good"/> nearest to <paramref name="tile"/> by sector distance (ties:
-    /// lower id): a storage holding it or a production building with it in its output pile, never <paramref name="exclude"/>; or -1.
+    /// The owner's offer of one of <paramref name="goods"/> nearest to <paramref name="tile"/> by sector distance (ties: lower
+    /// id): a storage holding any of them (the good it holds most of; ties: earlier in <paramref name="goods"/>) or a
+    /// production building with one of them in its output pile, never <paramref name="exclude"/>. Returns its list index
+    /// and the good, or (-1, 0).
     /// </summary>
-    private int NearestSource(BuildingRegistry buildings, byte owner, int good, int tile, int exclude)
+    private (int Index, ushort Good) NearestSource(BuildingRegistry buildings, byte owner, IReadOnlyList<ushort> goods, int tile, int exclude)
     {
         var all = buildings.All;
         int best = -1, bestDistance = int.MaxValue;
+        ushort bestGood = 0;
         for (int i = 0; i < all.Count; i++)
         {
             if (all[i].Owner != owner || i == exclude || IsUnreachable(all[i].Id)) continue;
             var stock = buildings.StockAt(i);
             var piles = buildings.PilesAt(i);
-            bool offers = stock != null ? stock[good] > 0 : piles != null && all[i].Definition.Production!.Output == good && piles[^1] > 0;
-            if (!offers) continue;
+            int offered = -1, most = 0;
+            foreach (ushort g in goods)
+            {
+                int units = stock != null ? stock[g] : piles != null && all[i].Definition.Production!.Output == g ? piles[^1] : 0;
+                if (units > most)
+                {
+                    offered = g;
+                    most = units;
+                }
+            }
+            if (offered < 0) continue;
             int d = SectorDistance(_edge, all[i].CenterY * _edge + all[i].CenterX, tile);
             if (d < bestDistance)
             {
                 best = i;
                 bestDistance = d;
+                bestGood = (ushort)offered;
             }
         }
-        return best;
+        return (best, bestGood);
     }
 
     /// <summary>

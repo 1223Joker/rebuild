@@ -93,6 +93,12 @@ public enum HarvestSource : byte
     Water,
     /// <summary>Any fertile tile; not consumed (farm fields, ASSUMPTION until fields are sown).</summary>
     Fertile,
+    /// <summary>Coal deposit (resource on a mountain tile without object); loses one unit of <see cref="MapData.Amount"/>.</summary>
+    Coal,
+    /// <summary>Iron ore deposit; like <see cref="Coal"/>.</summary>
+    IronOre,
+    /// <summary>Gold ore deposit; like <see cref="Coal"/>.</summary>
+    GoldOre,
 }
 
 /// <summary>Tile tests for <see cref="HarvestSource"/>.</summary>
@@ -107,25 +113,46 @@ public static class Harvest
         HarvestSource.Fish => map.Resource[tile] == (byte)Resource.Fish && map.Terrain[tile] == (byte)Terrain.Water,
         HarvestSource.Water => map.Terrain[tile] == (byte)Terrain.Water,
         HarvestSource.Fertile => map.Terrain[tile] == (byte)Terrain.Fertile,
+        HarvestSource.Coal => IsDeposit(map, tile, Resource.Coal),
+        HarvestSource.IronOre => IsDeposit(map, tile, Resource.Iron),
+        HarvestSource.GoldOre => IsDeposit(map, tile, Resource.Gold),
         _ => false,
     };
 
     /// <summary>True if a cycle takes one unit of the source from the map (objects and resources, not terrain).</summary>
-    public static bool IsConsumed(HarvestSource source) => source is >= HarvestSource.Tree and <= HarvestSource.Fish;
+    public static bool IsConsumed(HarvestSource source) =>
+        source is >= HarvestSource.Tree and <= HarvestSource.Fish or >= HarvestSource.Coal and <= HarvestSource.GoldOre;
+
+    /// <summary>True if the source is a map resource (fish, ore deposits) rather than an object or terrain.</summary>
+    public static bool IsResource(HarvestSource source) =>
+        source is HarvestSource.Fish or >= HarvestSource.Coal and <= HarvestSource.GoldOre;
+
+    /// <summary>
+    /// An ore deposit: the resource on a mountain tile without an object (objects keep their own amount in
+    /// <see cref="MapData.Amount"/>; the generator never puts both on one tile).
+    /// </summary>
+    private static bool IsDeposit(MapData map, int tile, Resource ore) =>
+        map.Resource[tile] == (byte)ore && map.Terrain[tile] == (byte)Terrain.Mountain && map.Object[tile] == (byte)MapObject.None;
 }
 
 /// <summary>
 /// Work cycle of a production building (data/buildings.json <c>"production"</c>): at the start it takes
-/// <see cref="InputAmounts"/>[k] units of <see cref="Inputs"/>[k] from its input piles; after <see cref="CycleTicks"/> ticks
+/// <see cref="InputAmounts"/>[k] units from input pile k, which holds any of the goods <see cref="Alternatives"/>[k]
+/// (one good, or alternatives such as a mine's fish/meat/bread written <c>"fish|meat|bread"</c>); after <see cref="CycleTicks"/> ticks
 /// it takes one unit of the <see cref="Harvest"/> source within <see cref="Radius"/> tiles (if any and consumed) and puts
 /// one <see cref="Output"/> unit into its output pile (World.Production).
 /// </summary>
 public sealed class ProductionDefinition
 {
-    public ProductionDefinition(ushort[] inputs, int[] inputAmounts, ushort output, int cycleTicks, HarvestSource harvest, int radius)
+    public ProductionDefinition(ushort[][] inputs, int[] inputAmounts, ushort output, int cycleTicks, HarvestSource harvest, int radius)
     {
         if (inputs.Length != inputAmounts.Length) throw new System.ArgumentException("One amount per input", nameof(inputAmounts));
-        Inputs = inputs;
+        foreach (var goods in inputs)
+            if (goods.Length == 0) throw new System.ArgumentException("Every input pile takes a good", nameof(inputs));
+        Alternatives = inputs;
+        var first = new ushort[inputs.Length];
+        for (int k = 0; k < inputs.Length; k++) first[k] = inputs[k][0];
+        Inputs = first;
         InputAmounts = inputAmounts;
         Output = output;
         CycleTicks = cycleTicks;
@@ -133,8 +160,10 @@ public sealed class ProductionDefinition
         Radius = radius;
     }
 
-    /// <summary>Input goods (at most two); one input pile each.</summary>
+    /// <summary>First good of each input pile (at most two piles); the pile's only good unless it has alternatives.</summary>
     public IReadOnlyList<ushort> Inputs { get; }
+    /// <summary>Goods each input pile accepts, in data order (one, or the alternatives of a mine's food pile).</summary>
+    public IReadOnlyList<IReadOnlyList<ushort>> Alternatives { get; }
     /// <summary>Units of each input one cycle consumes.</summary>
     public IReadOnlyList<int> InputAmounts { get; }
     public ushort Output { get; }
@@ -148,8 +177,9 @@ public sealed class ProductionDefinition
     /// <summary>Input pile index of <paramref name="good"/>, or -1 if the building does not take it.</summary>
     public int InputIndexOf(int good)
     {
-        for (int k = 0; k < Inputs.Count; k++)
-            if (Inputs[k] == good) return k;
+        for (int k = 0; k < Alternatives.Count; k++)
+            foreach (ushort g in Alternatives[k])
+                if (g == good) return k;
         return -1;
     }
 }

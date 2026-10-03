@@ -8,7 +8,7 @@ namespace Rebuild.Sim.World;
 
 /// <summary>
 /// Changes systems made to the map's object and resource layers since generation (felled trees, quarried stone, hunted
-/// game, caught fish; docs/06-economy.md §4). The generated map is regenerated on load, so the changed tiles are part of
+/// game, caught fish, mined ore; docs/06-economy.md §4). The generated map is regenerated on load, so the changed tiles are part of
 /// the sim state: tile index, object, resource and amount in ascending tile order. A tile's buildable flag is refreshed
 /// when its object goes.
 /// </summary>
@@ -22,14 +22,14 @@ public sealed class MapChanges
     /// <summary>
     /// Takes one unit of a consumed <paramref name="source"/> (<see cref="Harvest.IsConsumed"/>) from <paramref name="tile"/>,
     /// which must offer it: an object (a stone outcrop loses one unit of <see cref="MapData.Amount"/> and disappears with
-    /// its last one, an amount of 0 counting as 1; a tree or game animal disappears) or the fish resource (one unit of
-    /// <see cref="MapData.Amount"/>; the resource goes with the last one).
+    /// its last one, an amount of 0 counting as 1; a tree or game animal disappears) or a resource — fish or an ore
+    /// deposit — (one unit of <see cref="MapData.Amount"/>; the resource goes with the last one).
     /// </summary>
     public void Take(MapData map, int tile, HarvestSource source)
     {
         if (!Harvest.IsConsumed(source) || !Harvest.Matches(map, tile, source))
             throw new System.ArgumentException("Tile does not offer a consumed source", nameof(source));
-        if (source != HarvestSource.Fish)
+        if (!Harvest.IsResource(source))
         {
             if (map.Object[tile] == (byte)MapObject.Stone && map.Amount[tile] > 1)
             {
@@ -75,7 +75,7 @@ public sealed class MapChanges
     /// Reads the changes and applies them to the freshly generated <paramref name="map"/>. Tiles must be in ascending order
     /// and each must show exactly what <see cref="Take"/> can leave: either the generated tree, stone or game object is
     /// gone (amount 0) or a stone outcrop holds fewer units, with the resource unchanged; or, on a tile without an object,
-    /// the generated fish resource is gone (amount 0) or holds fewer units.
+    /// the generated fish resource or ore deposit (coal, iron, gold) is gone (amount 0) or holds fewer units.
     /// </summary>
     public static MapChanges ReadFrom(CanonicalReader r, MapData map)
     {
@@ -93,7 +93,7 @@ public sealed class MapChanges
                 && res == wasRes
                 && (obj == (byte)MapObject.None ? amount == 0
                     : obj == (byte)MapObject.Stone && wasObj == (byte)MapObject.Stone && amount >= 1 && amount < wasAmount);
-            bool resourceTaken = wasObj == (byte)MapObject.None && obj == (byte)MapObject.None && wasRes == (byte)Resource.Fish
+            bool resourceTaken = wasObj == (byte)MapObject.None && obj == (byte)MapObject.None && wasRes != (byte)Resource.None
                 && (res == (byte)Resource.None ? amount == 0 : res == wasRes && amount >= 1 && amount < wasAmount);
             if (!objectTaken && !resourceTaken) throw new InvalidDataException("Invalid map change");
             map.Object[t] = obj;

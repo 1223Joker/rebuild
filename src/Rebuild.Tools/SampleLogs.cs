@@ -69,8 +69,8 @@ public static class SampleLogs
     /// <summary>
     /// M2 building script: both players place random building types around their castle, half at random
     /// tiles (mostly enemy/no-man's land, water or other buildings, so rejected) and half at the first valid
-    /// spot scanning from a random tile (some of them woodcutters, stonecutters, fishers, hunters, farms and waterworks with
-    /// their harvest source in reach, so production runs); they cancel random building ids, demolish own complete buildings or
+    /// spot scanning from a random tile (some of them woodcutters, stonecutters, fishers, hunters, farms, waterworks and mines
+    /// with their harvest source in reach, so production runs); they cancel random building ids, demolish own complete buildings or
     /// random ids and send malformed payloads; valid placements pause while a slot has 4 open sites, so the
     /// castle stock completes buildings (towers extend the territory) until it runs out;
     /// player 1 leaves at 3/4. A shadow simulation runs along to find valid spots and building ids.
@@ -146,7 +146,10 @@ public static class SampleLogs
 
     /// <summary>Harvesting buildings besides the woodcutter that the build script places with their source in reach.</summary>
     private static readonly ushort[] Harvesters =
-        { BuildingIds.Stonecutter, BuildingIds.Fisher, BuildingIds.Hunter, BuildingIds.Farm, BuildingIds.Waterworks };
+        {
+            BuildingIds.Stonecutter, BuildingIds.Fisher, BuildingIds.Hunter, BuildingIds.Farm, BuildingIds.Waterworks,
+            BuildingIds.CoalMine, BuildingIds.IronMine, BuildingIds.GoldMine,
+        };
 
     private static int OpenSites(Simulation sim, byte slot)
     {
