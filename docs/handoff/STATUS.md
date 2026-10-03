@@ -181,7 +181,7 @@
 | Logistics: worker requests matched first each tick (buildings in id order): nearest storage holding the tool + idle carrier nearest to it, or straight to the building without a tool; `TransportJob.Kind` = `Employ`; tool reserved at once, consumed at the door (statistics); no tool in stock → the building waits; vanished/unreachable workplace → fetched tool to the nearest storage, unpicked tool back to stock | done |
 | Save format 11 (job kind; load validates worker jobs, ≤ 1 worker inside or on the way per building, workers only in complete production buildings, running cycle only with its worker); `GameVersion` 0.14.0; both golden replays regenerated (`m0-meta` hash unchanged); build script now places a forester instead of a woodcutter every 2nd instead of every 3rd harvester turn, so a staffed forester still plants within 600 turns | done |
 | Code review (`/code-review`, medium) | no findings |
-| Tests / CI | 202 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112 + .NET 8 runtime); float-ban and golden-version checks pass locally; CI: see below | done |
+| Tests / CI | 202 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112 + .NET 8 runtime); float-ban and golden-version checks pass locally; **CI run 37112101439 green** on `main` (5252749): 4 runners × Debug/Release, `cross-os-hashes` (new build replay hash identical everywhere) and `golden-version` pass | done |
 
 - Design round 2026-10-03 (user request): population needs (every settler needs a bed, food, water; winter heating with log/coal; culture differences) and seasons/weather events (blizzard/thunderstorm: shelter or die, lightning, fire, floods, …) → [12-needs-seasons-weather](../12-needs-seasons-weather.md), [ADR 0009](../decisions/0009-needs-seasons-weather.md) (proposed, H9), roadmap M2 +3 w and new M7b (+4 w, total ≈ 121 w). No code changed yet.
 
@@ -196,7 +196,7 @@
 5. Before M3: run S1's Godot part — install the Godot **.NET** edition (the installed `/Applications/Godot.app` 4.7.2 is the standard build without C#) and export a test project for macOS and Windows — and spike S2 (rendering scale). Before M5: spike S3 (ENet transport).
 
 ## Blockers / waiting for user approval
-- Deleting old remote branches (`claude/amazing-hopper-tq38xc`, `claude/amazing-hopper-s87jxe`, `claude/amazing-hopper-p2ghnv`, `claude/amazing-hopper-zablrl`, `claude/amazing-hopper-wcv8g0`, `claude/amazing-hopper-jtagzl`, `claude/amazing-hopper-w5qo6z`, and any other merged `claude/amazing-hopper-*` branch still listed, all fully merged into `main`) is not possible from the cloud session (git proxy HTTP 403 earlier; on 2026-10-03 the session's permission policy blocked the delete again, four times — also for `claude/amazing-hopper-t7rnb5`, the M2 step 10 branch, fully merged into `main`; on 2026-10-03 the M2 step 11 branch `claude/amazing-hopper-mmn83s`, fully merged, failed twice with "unexpected disconnect" from the git proxy); delete them in the GitHub UI.
+- None. Old remote branches: on 2026-10-03 (M2 step 12) the remote held only `main` and this step's `claude/amazing-hopper-ttuac1` (fully merged into `main`); the earlier `claude/amazing-hopper-*` branches are gone. Deleting `claude/amazing-hopper-ttuac1` was attempted after the push; if it is still listed, delete it in the GitHub UI.
 
 ## Dead ends (tried or rejected, and why)
 - Using Godot `FastNoiseLite` for the shared map: floats, not cross-platform deterministic → rejected ([ADR 0003](../decisions/0003-mapgen-determinism.md)); allowed for client cosmetics only.
