@@ -36,9 +36,6 @@ public enum NeedState : byte
 /// Heat is a third need: only in winter, and per occupied home rather than per settler, its due counter grows by one per
 /// tick and one fuel unit (log or coal) burns per <see cref="Period"/>; outside winter its counters are cleared. Logistics
 /// fills fuel only in autumn and winter (§2.2 stockpiling).
-/// A heated workplace (<see cref="IsHeatedWorkplace"/>) has the same counters but only the heat need: in winter its heat is
-/// due while its worker is inside (an empty one's counters stay as they are), paid from its fuel pile (<see cref="FuelPile"/>); its state slows or stops its
-/// <see cref="Production"/> like the worker's home state (the worse counts), but nobody leaves over a cold workplace.
 /// </summary>
 public static class Households
 {
@@ -76,25 +73,6 @@ public static class Households
     public const int NeedCount = 3;
     /// <summary>Index of the heat need.</summary>
     public const int Heat = 2;
-
-    /// <summary>
-    /// Self-heating workplaces (§2.2: smiths and smelters; the sawmill burns its offcuts, ASSUMPTION — it also keeps log, a
-    /// fuel good, out of every heated workplace's inputs, so a fuel unit always has one pile). ponytail: fixed list, a
-    /// <c>"heat"</c> data field once a culture differs.
-    /// </summary>
-    public static readonly ushort[] SelfHeating =
-        { BuildingIds.Sawmill, BuildingIds.IronSmelter, BuildingIds.GoldSmelter, BuildingIds.Toolsmith, BuildingIds.Weaponsmith };
-
-    /// <summary>
-    /// Whether the building is a complete production building that needs heating in winter: not self-heating and working in
-    /// winter (the farm rests and burns nothing).
-    /// </summary>
-    public static bool IsHeatedWorkplace(in Building b) =>
-        b.State == BuildingState.Complete && b.Definition.Production is { } p && p.WorksIn(Season.Winter)
-        && System.Array.IndexOf(SelfHeating, b.Type) < 0;
-
-    /// <summary>Index of a heated workplace's fuel pile: after its input and output piles.</summary>
-    public static int FuelPile(ProductionDefinition p) => p.Inputs.Count + p.Outputs.Count;
 
     /// <summary>Need counters of a home: due ticks per need, then unpaid ticks per need.</summary>
     public const int CounterCount = 2 * NeedCount;
@@ -150,7 +128,6 @@ public static class Households
     {
         var all = buildings.All;
         var occupants = settlers.Occupants(buildings);
-        bool[]? working = null;
         for (int i = settlers.All.Count - 1; i >= 0; i--)
         {
             var s = settlers.All[i];
@@ -174,10 +151,8 @@ public static class Households
         {
             var n = buildings.NeedsAt(i);
             if (n == null) continue;
-            bool leave = false, workplace = !BuildingRegistry.IsHome(all[i]);
-            // An empty workplace burns nothing and its cold does not grow.
-            if (workplace && !(working ??= settlers.Working(buildings))[i]) continue;
-            for (int need = workplace ? Heat : 0; need < NeedCount; need++)
+            bool leave = false;
+            for (int need = 0; need < NeedCount; need++)
             {
                 if (need == Heat && season != Season.Winter)
                 {
@@ -185,7 +160,7 @@ public static class Households
                     n[Heat] = n[NeedCount + Heat] = 0;
                     continue;
                 }
-                n[need] += need == Heat ? (workplace || occupants[i] > 0 ? 1 : 0) : occupants[i];
+                n[need] += need == Heat ? (occupants[i] > 0 ? 1 : 0) : occupants[i];
                 int period = Period(all[i], need);
                 if (n[need] < period) continue;
                 if (TryEat(buildings, i, need, statistics))
@@ -196,7 +171,7 @@ public static class Households
                 }
                 n[need] = period;
                 int crisis = ++n[NeedCount + need] - ShortTicks[need] - CrisisTicks[need];
-                if (crisis >= 0 && crisis % LeaveIntervalTicks == 0) leave = !workplace;
+                if (crisis >= 0 && crisis % LeaveIntervalTicks == 0) leave = true;
             }
             if (leave) Leave(buildings, settlers, logistics, all[i].Id);
         }
@@ -216,16 +191,15 @@ public static class Households
         return best;
     }
 
-    /// <summary>Eats one unit of the need from the home's stock, pantry pile or (a workplace) fuel pile; false if there is none.</summary>
+    /// <summary>Eats one unit of the need from the home's stock or pantry pile; false if there is none.</summary>
     private static bool TryEat(BuildingRegistry buildings, int index, int need, ProductionStatistics statistics)
     {
         var stock = buildings.StockAt(index);
         if (stock == null)
         {
             var piles = buildings.PilesAt(index)!;
-            int pile = buildings.All[index].Definition.Production is { } p ? FuelPile(p) : need;
-            if (piles[pile] == 0) return false;
-            piles[pile]--;
+            if (piles[need] == 0) return false;
+            piles[need]--;
             return true;
         }
         int best = -1;

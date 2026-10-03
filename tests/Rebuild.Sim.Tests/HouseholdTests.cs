@@ -119,6 +119,7 @@ public class HouseholdTests
         sim.Buildings.StockAt(0)![GoodIds.Water] += 100;
         int cutter = ProductionTests.Woodcutter(sim, trees: 14);
         Assert.Equal(sim.Buildings.All[0].Id, sim.Settlers.All.Single(s => s.WorkplaceId == cutter).HomeId); // worker lives in the castle
+        Assert.Null(sim.Buildings.NeedsOf(cutter)); // production buildings need no heating (user 2026-10-03)
         for (int turns = 0; ConstructionTests.Get(sim, cutter).Cycle is 0 or > 10; turns++)
         {
             Assert.True(turns < 200, "woodcutter never worked");
@@ -257,89 +258,5 @@ public class HouseholdTests
         RunTicks(sim, 2400 - 2);
         Assert.Equal(NeedState.Supplied, Households.StateAt(sim.Buildings, index));
         Assert.True(sim.Statistics.TotalConsumed(0, GoodIds.Log) >= 2 + 2); // pantry hand-overs + castle burns
-    }
-
-    [Fact]
-    public void Smiths_smelters_and_the_sawmill_heat_themselves_the_farm_rests_and_no_heated_workplace_takes_fuel_as_input()
-    {
-        for (ushort type = 0; type < BuildingCatalog.All.Count; type++)
-        {
-            var b = new Building(1, type, 0, 0, 0, 0, BuildingState.Complete, 0);
-            bool heated = Households.IsHeatedWorkplace(b);
-            Assert.Equal(b.Definition.Production is { } p && p.WorksIn(Season.Winter) && !Households.SelfHeating.Contains(type), heated);
-            if (heated)
-                Assert.All(b.Definition.Production!.Alternatives.SelectMany(a => a), g => Assert.NotEqual(Households.Heat, Households.NeedOf(g)));
-        }
-        Assert.All(new[] { BuildingIds.Toolsmith, BuildingIds.Weaponsmith, BuildingIds.IronSmelter, BuildingIds.GoldSmelter, BuildingIds.Sawmill },
-            t => Assert.Contains(t, Households.SelfHeating));
-        Assert.False(Households.IsHeatedWorkplace(new Building(1, BuildingIds.Farm, 0, 0, 0, 0, BuildingState.Complete, 0))); // rests in winter
-        Assert.True(Households.IsHeatedWorkplace(new Building(1, BuildingIds.Fisher, 0, 0, 0, 0, BuildingState.Complete, 0)));
-    }
-
-    [Fact]
-    public void A_workplace_stockpiles_fuel_burns_it_in_winter_and_works_slower_when_cold()
-    {
-        var sim = Simulation.Create(TwoPlayers(SeasonLength.Short)); // autumn from tick 4 800, winter 7 200 … 9 599
-        var stock = sim.Buildings.StockAt(0)!;
-        stock[GoodIds.Fish] += 100;
-        stock[GoodIds.Water] += 150;
-        stock[GoodIds.Log] = 20;
-        int works = ProductionTests.Place(sim, 0, BuildingIds.Waterworks, 0, (x, y) => ProductionTests.ObjectsAround(sim, 0, BuildingIds.Waterworks, x, y) >= 1);
-        ConstructionTests.RunUntilComplete(sim, works);
-        int fuel = Households.FuelPile(BuildingCatalog.All[BuildingIds.Waterworks].Production!);
-        Assert.Equal(fuel + 1, sim.Buildings.PilesOf(works)!.Count);
-        RunTicks(sim, 300);
-        Assert.Equal(0, sim.Buildings.PilesOf(works)![fuel]); // no fuel in spring and summer
-        RunTicks(sim, 4800 - sim.Tick + 300);
-        Assert.Equal(Households.PantryTarget, sim.Buildings.PilesOf(works)![fuel]);
-        Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
-        // Winter: the woodworks (S) burns one fuel per 1 200 ticks while its worker is inside.
-        RunTicks(sim, 7200 - sim.Tick);
-        int index = sim.Buildings.IndexOf(works);
-        var needs = sim.Buildings.NeedsAt(index)!;
-        Assert.Equal(1200, Households.Period(sim.Buildings.All[index], Households.Heat));
-        RunTicks(sim, 1190);
-        Assert.True(needs[Households.Heat] >= 1100, $"heat due {needs[Households.Heat]}");
-        RunTicks(sim, 20);
-        Assert.True(needs[Households.Heat] < 20 && needs[Households.NeedCount + Households.Heat] == 0, "no fuel burnt");
-        Assert.Equal((0, 0), (needs[0], needs[1])); // a workplace neither eats nor drinks
-        // No fuel left anywhere: cold for 60 s → Short, work −25 %.
-        stock[GoodIds.Log] = stock[GoodIds.Coal] = 0;
-        while (sim.Logistics.All.Any(j => j.DestinationId == works)) ConstructionTests.Run(sim); // fuel still on the way
-        for (int turns = 0; ConstructionTests.Get(sim, works).Cycle is 0 or > 10; turns++)
-        {
-            Assert.True(turns < 200, "waterworks never worked");
-            ConstructionTests.Run(sim);
-        }
-        int Advance(int ticks)
-        {
-            int before = ConstructionTests.Get(sim, works).Cycle;
-            RunTicks(sim, ticks);
-            return ConstructionTests.Get(sim, works).Cycle - before;
-        }
-        sim.Buildings.PilesAt(index)![fuel] = 0;
-        needs[Households.Heat] = 1200;
-        needs[Households.NeedCount + Households.Heat] = Households.ShortTicks[Households.Heat];
-        Assert.Equal(30, Advance(40));
-        Assert.Equal(NeedState.Short, Households.StateAt(sim.Buildings, index));
-        Assert.Equal(NeedState.Supplied, Households.HomeState(sim.Buildings, sim.Buildings.All[0].Id)); // the worker's home is warm
-        Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
-        // Crisis: work stops, but the worker stays.
-        needs[Households.NeedCount + Households.Heat] = Households.ShortTicks[Households.Heat] + Households.CrisisTicks[Households.Heat];
-        Assert.Equal(0, Advance(Households.LeaveIntervalTicks + 10));
-        Assert.True(ConstructionTests.HasWorker(sim, works));
-        Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
-        // Without its worker the workplace's heat state stays as it is.
-        sim.Logistics.ReleaseWorkerAt(sim.Buildings, sim.Settlers, sim.Settlers.All.ToList().FindIndex(s => s.Kind == SettlerKind.Worker && s.WorkplaceId == works));
-        var cold = needs.ToArray();
-        RunTicks(sim, 10);
-        Assert.False(ConstructionTests.HasWorker(sim, works));
-        Assert.Equal(cold, needs);
-        // Inconsistent workplace heat state fails to load.
-        sim.Buildings.PilesAt(index)![fuel] = Households.PantryTarget + 1;
-        Assert.Throws<InvalidDataException>(() => Simulation.Load(sim.Save()));
-        sim.Buildings.PilesAt(index)![fuel] = 0;
-        needs[0] = 5;
-        Assert.Throws<InvalidDataException>(() => Simulation.Load(sim.Save()));
     }
 }

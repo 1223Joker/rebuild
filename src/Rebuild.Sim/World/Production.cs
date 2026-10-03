@@ -21,7 +21,7 @@ namespace Rebuild.Sim.World;
 /// A cycle only starts while the building's worker is inside (<see cref="Settlers.Working"/>; brought by
 /// <see cref="Logistics"/>, docs/06-economy.md §3). A worker whose home is Short (<see cref="Households"/>) skips every
 /// <see cref="ShortSkipEvery"/>-th tick (work −25 %); in Crisis its building neither starts nor advances a cycle
-/// (docs/12-needs-seasons-weather.md §1.3); the same goes for a heated workplace's own cold (§2.2, the worse state counts).
+/// (docs/12-needs-seasons-weather.md §1.3).
 /// Every piled output unit is counted in <see cref="ProductionStatistics"/>. The season (<see cref="Calendar"/>) sets the
 /// work speed: a cycle ends once its elapsed ticks reach <see cref="ProductionDefinition.CycleTicksIn"/> of the current
 /// season, and none starts in a season where the building does not work (<see cref="ProductionDefinition.WorksIn"/>).
@@ -50,8 +50,7 @@ public static class Production
             var p = b.Definition.Production;
             if (p == null || b.State != BuildingState.Complete) continue;
             states ??= settlers.WorkerHomeStates(buildings);
-            var state = states[i] > Households.StateAt(buildings, i) ? states[i] : Households.StateAt(buildings, i);
-            if (state == NeedState.Crisis || (state == NeedState.Short && tick % ShortSkipEvery == 0)) continue;
+            if (states[i] == NeedState.Crisis || (states[i] == NeedState.Short && tick % ShortSkipEvery == 0)) continue;
             var piles = buildings.PilesAt(i)!;
             if (b.Cycle == 0)
             {
@@ -98,7 +97,7 @@ public static class Production
     public static int OutputUnits(IReadOnlyList<int> piles, ProductionDefinition p)
     {
         int n = 0;
-        for (int k = p.Inputs.Count; k < Households.FuelPile(p); k++) n += piles[k];
+        for (int k = p.Inputs.Count; k < piles.Count; k++) n += piles[k];
         return n;
     }
 

@@ -39,8 +39,7 @@ public readonly record struct Building(int Id, ushort Type, byte Owner, int X, i
 /// (<see cref="BuildingDefinition.IsStorage"/>) own a goods stock, one count per good in <see cref="GoodCatalog"/>;
 /// complete production buildings (<see cref="BuildingDefinition.Production"/>) own piles: one per input, then one output
 /// pile per <see cref="ProductionDefinition.Outputs"/> entry. Complete homes (<see cref="BuildingDefinition.Beds"/> &gt; 0)
-/// own <see cref="Households"/> need counters, and those without a stock three pantry piles (food, water, fuel) as their piles;
-/// heated workplaces (<see cref="Households.IsHeatedWorkplace"/>) own need counters and a fuel pile after their output piles.
+/// own <see cref="Households"/> need counters, and those without a stock three pantry piles (food, water, fuel) as their piles.
 /// </summary>
 public sealed class BuildingRegistry
 {
@@ -118,15 +117,13 @@ public sealed class BuildingRegistry
     /// <summary>Whether the building is a complete home without a stock, eating from its pantry piles.</summary>
     public static bool HasPantry(in Building b) => IsHome(b) && !b.Definition.IsStorage;
 
-    private static int[]? NewNeeds(in Building b) =>
-        IsHome(b) || Households.IsHeatedWorkplace(b) ? new int[Households.CounterCount] : null;
+    private static int[]? NewNeeds(in Building b) => IsHome(b) ? new int[Households.CounterCount] : null;
 
     private static int[]? NewStock(in Building b) =>
         b.State == BuildingState.Complete && b.Definition.IsStorage ? new int[GoodCatalog.All.Count] : null;
 
     private static int[]? NewPiles(in Building b) =>
-        b.State == BuildingState.Complete && b.Definition.Production is { } p
-            ? new int[Households.FuelPile(p) + (Households.IsHeatedWorkplace(b) ? 1 : 0)]
+        b.State == BuildingState.Complete && b.Definition.Production is { } p ? new int[p.Inputs.Count + p.Outputs.Count]
         : HasPantry(b) ? new int[Households.NeedCount] : null;
 
     /// <summary>
@@ -277,25 +274,22 @@ public sealed class BuildingRegistry
             else if (piles != null)
             {
                 // Input piles never exceed the refill target; the output pile is checked against reservations by Logistics
-                // and stays empty for a planter, which produces no good; a fuel pile holds at most a pantry's units.
+                // and stays empty for a planter, which produces no good.
                 var p = b.Definition.Production!;
                 int outputCap = p.Output == ProductionDefinition.NoOutput ? 0 : Production.OutputCap;
                 for (int k = 0; k < piles.Length; k++)
-                    if ((piles[k] = r.ReadByte()) > (k < p.Inputs.Count ? Production.InputTarget
-                            : k == Households.FuelPile(p) ? Households.PantryTarget : outputCap))
+                    if ((piles[k] = r.ReadByte()) > (k < p.Inputs.Count ? Production.InputTarget : outputCap))
                         throw new InvalidDataException("Invalid production pile");
             }
             var needs = NewNeeds(b);
             if (needs != null)
             {
-                // Due counters stay below their period, or at it while a unit is unpaid; unpaid ticks only while one is due;
-                // a workplace only counts heat.
+                // Due counters stay below their period, or at it while a unit is unpaid; unpaid ticks only while one is due.
                 for (int k = 0; k < needs.Length; k++) needs[k] = r.ReadInt32();
                 for (int need = 0; need < Households.NeedCount; need++)
                 {
                     int period = Households.Period(b, need), unpaid = needs[Households.NeedCount + need];
-                    if (needs[need] < 0 || needs[need] > period || unpaid < 0 || (unpaid > 0 && needs[need] != period)
-                        || (need != Households.Heat && !IsHome(b) && (needs[need] != 0 || unpaid != 0)))
+                    if (needs[need] < 0 || needs[need] > period || unpaid < 0 || (unpaid > 0 && needs[need] != period))
                         throw new InvalidDataException("Invalid need counters");
                 }
             }
