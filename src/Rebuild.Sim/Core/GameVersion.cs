@@ -11,7 +11,7 @@ namespace Rebuild.Sim.Core;
 /// </summary>
 public readonly record struct GameVersion(ushort Major, ushort Minor, ushort Patch, ulong DataHash)
 {
-    public static readonly GameVersion Current = new(0, 6, 0, CombinedDataHash);
+    public static readonly GameVersion Current = new(0, 7, 0, CombinedDataHash);
 
     /// <summary>All game data hashes folded into one (FNV-1a 64 continued over the building, then the good hash bytes).</summary>
     public static ulong CombinedDataHash => Fold(Fold(CultureCatalog.DataHash, BuildingCatalog.DataHash), GoodCatalog.DataHash);

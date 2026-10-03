@@ -23,9 +23,10 @@ public enum SettlerState : byte
 /// <summary>
 /// A settler on the tile grid. <see cref="HomeId"/> is the building that spawned it (it may since have been
 /// demolished). <see cref="Progress"/> counts sub-tile units (<see cref="Settlers.SubTile"/> per straight step)
-/// walked towards the next path tile.
+/// walked towards the next path tile. <see cref="JobId"/> is the carrier's <see cref="TransportJob"/> (0 = none).
 /// </summary>
-public readonly record struct Settler(int Id, SettlerKind Kind, byte Owner, int HomeId, int Tile, SettlerState State, int Progress, int WaitTicks);
+public readonly record struct Settler(int Id, SettlerKind Kind, byte Owner, int HomeId, int Tile, SettlerState State, int Progress, int WaitTicks,
+    int JobId = 0);
 
 /// <summary>
 /// Settlers and their movement system (docs/06-economy.md §3, §6), run every tick after construction.
@@ -34,8 +35,9 @@ public readonly record struct Settler(int Id, SettlerKind Kind, byte Owner, int 
 /// on walkable tiles of their owner's territory that no building covers, along A* paths (<see cref="Pathfinder"/>) at
 /// <see cref="Speed"/> sub-tile units per tick; diagonal steps cost 14/10 of a straight step. Settlers never collide;
 /// a settler covered by a newly placed building is put at that building's door.
-/// Until logistics assigns transport jobs (next M2 step), idle carriers wander to a random tile within
-/// <see cref="WanderRadius"/> of their home's door (ASSUMPTION placeholder that exercises pathing and movement).
+/// Carriers with a transport job execute it via <see cref="Logistics.Advance"/>; idle carriers without one wander to a
+/// random tile within <see cref="WanderRadius"/> of their home's door (ASSUMPTION placeholder until idle carriers
+/// gather at storages).
 /// Path searches run in settler-id order under a per-tick node-expansion budget; settlers left over retry next tick.
 /// </summary>
 public sealed class Settlers
@@ -80,6 +82,24 @@ public sealed class Settlers
         path.Reverse();
         return path;
     }
+
+    /// <summary>Index in <see cref="All"/> of settler <paramref name="id"/>, or -1.</summary>
+    public int IndexOf(int id)
+    {
+        int lo = 0, hi = _settlers.Count - 1;
+        while (lo <= hi)
+        {
+            int mid = (lo + hi) >> 1;
+            int cur = _settlers[mid].Id;
+            if (cur == id) return mid;
+            if (cur < id) lo = mid + 1;
+            else hi = mid - 1;
+        }
+        return -1;
+    }
+
+    /// <summary>Gives the idle carrier at list index <paramref name="index"/> a transport job; it starts on its next step.</summary>
+    internal void AssignJob(int index, int jobId) => _settlers[index] = _settlers[index] with { JobId = jobId, WaitTicks = 0 };
 
     /// <summary>Number of settlers a slot owns.</summary>
     public int CountOwnedBy(byte owner)
@@ -132,7 +152,8 @@ public sealed class Settlers
         map.IsWalkable(tile) && buildings.AtTile(tile) == 0 && territory.OwnerAt(tile) == owner;
 
     /// <summary>Runs one tick of spawning and movement. <paramref name="tick"/> is the tick being simulated.</summary>
-    public void Step(int tick, MapData map, Territory territory, BuildingRegistry buildings, Pcg32 rng, Pathfinder pathfinder)
+    public void Step(int tick, MapData map, Territory territory, BuildingRegistry buildings, Logistics logistics, Pcg32 rng,
+        Pathfinder pathfinder)
     {
         if (tick % SpawnIntervalTicks == 0) Refill(map, buildings);
         int budget = ExpansionBudgetPerTick;
@@ -173,7 +194,8 @@ public sealed class Settlers
                     s = s with { Tile = next, Progress = progress - cost };
                     if (path.Count == 0)
                     {
-                        int wait = MinIdleTicks + rng.NextInt(IdleTicksRange);
+                        // A carrier on a job acts at the target next tick; others rest before wandering again.
+                        int wait = s.JobId != 0 ? 0 : MinIdleTicks + rng.NextInt(IdleTicksRange);
                         s = s with { State = SettlerState.Idle, Progress = 0, WaitTicks = wait };
                     }
                 }
@@ -181,6 +203,10 @@ public sealed class Settlers
             else if (s.WaitTicks > 0)
             {
                 s = s with { WaitTicks = s.WaitTicks - 1 };
+            }
+            else if (s.JobId != 0)
+            {
+                s = logistics.Advance(tick, s, path, map, territory, buildings, pathfinder, ref budget);
             }
             else if (budget > 0)
             {
@@ -251,6 +277,7 @@ public sealed class Settlers
             w.WriteByte((byte)s.State);
             w.WriteUInt16((ushort)s.Progress);
             w.WriteUInt16((ushort)s.WaitTicks);
+            w.WriteInt32(s.JobId);
             var path = _paths[i];
             w.WriteInt32(path.Count);
             for (int k = path.Count - 1; k >= 0; k--) w.WriteInt32(path[k]);
@@ -269,9 +296,9 @@ public sealed class Settlers
         for (int i = 0; i < count; i++)
         {
             var s = new Settler(r.ReadInt32(), (SettlerKind)r.ReadByte(), r.ReadByte(), r.ReadInt32(), r.ReadInt32(),
-                (SettlerState)r.ReadByte(), r.ReadUInt16(), r.ReadUInt16());
+                (SettlerState)r.ReadByte(), r.ReadUInt16(), r.ReadUInt16(), r.ReadInt32());
             if (s.Id <= lastId || s.Id >= nextId || s.Kind != SettlerKind.Carrier || s.Owner >= playerCount
-                || s.HomeId < 1 || s.HomeId >= nextBuildingId || (uint)s.Tile >= (uint)tiles || s.State > SettlerState.Walking)
+                || s.HomeId < 1 || s.HomeId >= nextBuildingId || (uint)s.Tile >= (uint)tiles || s.State > SettlerState.Walking || s.JobId < 0)
                 throw new InvalidDataException("Invalid settler");
             int length = r.ReadInt32();
             if (length < 0 || length > tiles) throw new InvalidDataException("Invalid settler path length");

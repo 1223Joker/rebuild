@@ -106,8 +106,8 @@ public class BuildingTests
         Run(sim, BuildingCommands.Place(0, 0, BuildingIds.Sawmill, x, y, rotation: 2));
         Assert.Equal(0, sim.RejectedCommands);
         var site = sim.Buildings.All[^1];
-        // Turn 0 ran ticks 0 and 1: the first plank arrived at tick 0 and two build ticks are done.
-        Assert.Equal(new Building(3, BuildingIds.Sawmill, 0, x, y, 2, BuildingState.ConstructionSite, 0, 1, 0, 2), site);
+        // Turn 0 ran ticks 0 and 1: carriers are on their way, nothing is delivered or built yet.
+        Assert.Equal(new Building(3, BuildingIds.Sawmill, 0, x, y, 2, BuildingState.ConstructionSite, 0), site);
         for (int dy = 0; dy < 3; dy++)
             for (int dx = 0; dx < 3; dx++)
                 Assert.Equal(site.Id, sim.Buildings.AtTile(sim.Map.Index(x + dx, y + dy)));
@@ -265,13 +265,18 @@ public class BuildingTests
     {
         var log = SampleLogs.BuildScript(1, 600);
         var sim = Simulation.Create(log.Setup);
-        foreach (var bundle in log.Bundles) sim.ExecuteTurn(bundle);
+        bool mountain = false;
+        foreach (var bundle in log.Bundles)
+        {
+            sim.ExecuteTurn(bundle);
+            mountain |= sim.Buildings.All.Any(b => b.Definition.Terrain == BuildingTerrain.Mountain);
+        }
         int placed = sim.Buildings.NextId - 1 - 2; // minus the two start castles
         int live = sim.Buildings.All.Count - 2;
-        Assert.True(placed >= 50, $"placed {placed}");
+        Assert.True(placed >= 40, $"placed {placed}"); // fewer valid placements while 4 sites are open
         Assert.True(placed - live >= 5, $"cancelled {placed - live}");
         Assert.True(sim.RejectedCommands >= 200, $"rejected {sim.RejectedCommands}");
-        Assert.Contains(sim.Buildings.All, b => b.Definition.Terrain == BuildingTerrain.Mountain);
+        Assert.True(mountain, "no mountain building was placed");
         Assert.Equal(Replay.Run(log)[^1], sim.ComputeHash());
         Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
     }

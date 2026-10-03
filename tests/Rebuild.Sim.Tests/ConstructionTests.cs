@@ -29,7 +29,7 @@ public class ConstructionTests
         throw new Xunit.Sdk.XunitException($"No spot for {BuildingCatalog.All[type].Id} near slot {slot}");
     }
 
-    private static void Run(Simulation sim, params Command[] commands) => sim.ExecuteTurn(new TurnBundle(sim.Turn, commands));
+    internal static void Run(Simulation sim, params Command[] commands) => sim.ExecuteTurn(new TurnBundle(sim.Turn, commands));
 
     private static void RunTurns(Simulation sim, int turns)
     {
@@ -45,7 +45,7 @@ public class ConstructionTests
         return sim.Buildings.All.Last(b => b.Owner == slot).Id;
     }
 
-    private static Building Get(Simulation sim, int id)
+    internal static Building Get(Simulation sim, int id)
     {
         Assert.True(sim.Buildings.TryGet(id, out var b));
         return b;
@@ -79,6 +79,26 @@ public class ConstructionTests
             Assert.Equal(GoodCatalog.All.Select(g => g.StartStock), sim.Buildings.StockOf(castle.Id)!);
     }
 
+    /// <summary>Runs turns until the building is complete; fails after <paramref name="maxTurns"/>.</summary>
+    internal static void RunUntilComplete(Simulation sim, int id, int maxTurns = 1000)
+    {
+        for (int turns = 0; Get(sim, id).State == BuildingState.ConstructionSite; turns++)
+        {
+            Assert.True(turns < maxTurns, "site never completed");
+            Run(sim);
+        }
+    }
+
+    /// <summary>Runs turns until no transport job is open; fails after <paramref name="maxTurns"/>.</summary>
+    private static void RunUntilNoJobs(Simulation sim, int maxTurns = 1000)
+    {
+        for (int turns = 0; sim.Logistics.All.Count > 0; turns++)
+        {
+            Assert.True(turns < maxTurns, "jobs never finished");
+            Run(sim);
+        }
+    }
+
     [Fact]
     public void A_site_is_supplied_built_and_completed()
     {
@@ -86,9 +106,6 @@ public class ConstructionTests
         var def = BuildingCatalog.All[BuildingIds.Sawmill]; // 3 planks + 2 stone
         int planks = CastleStock(sim, 0, GoodIds.Plank), stone = CastleStock(sim, 0, GoodIds.Stone);
         int id = Place(sim, 0, BuildingIds.Sawmill);
-        // Turn 0, ticks 0 and 1: one plank arrives at tick 0, two work ticks.
-        Assert.Equal((1, 0, 2), (Get(sim, id).DeliveredPlanks, Get(sim, id).DeliveredStone, Get(sim, id).WorkDone));
-
         int turns = 1;
         while (Get(sim, id).State == BuildingState.ConstructionSite)
         {
@@ -96,14 +113,15 @@ public class ConstructionTests
             Assert.True(Construction.IsConsistent(b));
             Assert.True(b.WorkDone <= (b.DeliveredPlanks + b.DeliveredStone) * Construction.WorkTicksPerMaterial);
             Run(sim);
-            Assert.True(++turns < 500, "site never completed");
+            Assert.True(++turns < 1000, "site never completed");
         }
-        // Materials arrive faster (1 per 10 ticks) than they are worked in (20 ticks each): total work bounds the time.
-        Assert.Equal(Construction.TotalWork(def), turns * Simulation.TicksPerTurn);
+        // Carriers have to walk first, so construction takes longer than the work alone.
+        Assert.True(turns * Simulation.TicksPerTurn > Construction.TotalWork(def));
         Assert.Equal(new Building(id, BuildingIds.Sawmill, 0, Get(sim, id).X, Get(sim, id).Y, 0, BuildingState.Complete, 0), Get(sim, id));
         Assert.Equal(planks - def.CostPlanks, CastleStock(sim, 0, GoodIds.Plank));
         Assert.Equal(stone - def.CostStone, CastleStock(sim, 0, GoodIds.Stone));
         Assert.Null(sim.Buildings.StockOf(id));
+        Assert.Empty(sim.Logistics.All);
     }
 
     [Fact]
@@ -112,9 +130,8 @@ public class ConstructionTests
         var sim = Simulation.Create(TwoPlayers());
         int before = sim.Territory.TilesOwnedBy(0);
         int id = Place(sim, 0, BuildingIds.GuardTowerSmall);
-        RunTurns(sim, Construction.TotalWork(BuildingCatalog.All[BuildingIds.GuardTowerSmall]) / Simulation.TicksPerTurn);
+        RunUntilComplete(sim, id);
         var tower = Get(sim, id);
-        Assert.Equal(BuildingState.Complete, tower.State);
         var claim = sim.Territory.Claims.Single(c => c.Id == tower.ClaimId);
         Assert.Equal((0, tower.CenterX, tower.CenterY, 8), (claim.Owner, claim.X, claim.Y, claim.Radius));
         Assert.True(sim.Territory.TilesOwnedBy(0) > before, "the tower near the border should add tiles");
@@ -126,14 +143,13 @@ public class ConstructionTests
     {
         var sim = Simulation.Create(TwoPlayers());
         int store = Place(sim, 0, BuildingIds.Storehouse);
-        RunTurns(sim, Construction.TotalWork(BuildingCatalog.All[BuildingIds.Storehouse]) / Simulation.TicksPerTurn);
-        Assert.Equal(BuildingState.Complete, Get(sim, store).State);
+        RunUntilComplete(sim, store);
         Assert.All(sim.Buildings.StockOf(store)!, n => Assert.Equal(0, n));
-        while (sim.Tick % Construction.SupplyIntervalTicks != 0) Run(sim); // next turn starts with a supply tick
         int planks = CastleStock(sim, 0, GoodIds.Plank);
         int site = Place(sim, 0, BuildingIds.Woodcutter, 1);
-        Assert.Equal(1, Get(sim, site).DeliveredPlanks);
-        Assert.Equal(planks - 1, CastleStock(sim, 0, GoodIds.Plank));
+        RunUntilComplete(sim, site);
+        Assert.Equal(planks - BuildingCatalog.All[BuildingIds.Woodcutter].CostPlanks, CastleStock(sim, 0, GoodIds.Plank));
+        Assert.All(sim.Buildings.StockOf(store)!, n => Assert.Equal(0, n));
     }
 
     [Fact]
@@ -148,27 +164,39 @@ public class ConstructionTests
         Run(sim, BuildingCommands.Place(0, 0, BuildingIds.Woodcutter, a.X, a.Y), BuildingCommands.Place(0, 1, BuildingIds.Forester, b.X, b.Y));
         Assert.Equal(0, sim.RejectedCommands);
         int older = sim.Buildings.All[^2].Id, newer = sim.Buildings.All[^1].Id;
-        RunTurns(sim, 100);
+        RunTurns(sim, 200);
         Assert.Equal((1, Construction.WorkTicksPerMaterial), (Get(sim, older).DeliveredPlanks, Get(sim, older).WorkDone));
         Assert.Equal((0, 0), (Get(sim, newer).DeliveredPlanks, Get(sim, newer).WorkDone));
         Assert.Equal(BuildingState.ConstructionSite, Get(sim, older).State);
         Assert.Equal(0, stock[GoodIds.Plank]);
+        Assert.Empty(sim.Logistics.All);
         Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
     }
 
     [Fact]
-    public void Cancelling_a_site_refunds_delivered_materials()
+    public void Cancelling_a_site_refunds_delivered_and_carried_materials()
     {
         var sim = Simulation.Create(TwoPlayers());
         int planks = CastleStock(sim, 0, GoodIds.Plank), stone = CastleStock(sim, 0, GoodIds.Stone);
-        int id = Place(sim, 0, BuildingIds.GuardTowerLarge); // 3 planks + 6 stone
-        RunTurns(sim, 29); // ticks 0–59 incl. the placement turn: 3 planks + 3 stone delivered
-        Assert.Equal((3, 3), (Get(sim, id).DeliveredPlanks, Get(sim, id).DeliveredStone));
-        Assert.Equal(stone - 3, CastleStock(sim, 0, GoodIds.Stone));
-        Run(sim, BuildingCommands.Cancel(0, 1, id));
-        Assert.Equal(0, sim.RejectedCommands);
-        Assert.False(sim.Buildings.TryGet(id, out _));
-        Assert.Equal((planks, stone), (CastleStock(sim, 0, GoodIds.Plank), CastleStock(sim, 0, GoodIds.Stone)));
+        ushort seq = 0;
+        // First cancel while units are carried (carriers walk together, so nothing is delivered yet), then while some are delivered.
+        foreach (bool delivered in new[] { false, true })
+        {
+            int id = Place(sim, 0, BuildingIds.GuardTowerLarge, seq++); // 3 planks + 6 stone
+            for (int turns = 0; delivered
+                     ? Get(sim, id).DeliveredPlanks + Get(sim, id).DeliveredStone == 0
+                     : !sim.Logistics.All.Any(j => j.DestinationId == id && j.State == JobState.Carrying); turns++)
+            {
+                Assert.True(turns < 1000, "nothing carried or delivered");
+                Run(sim);
+            }
+            Run(sim, BuildingCommands.Cancel(0, seq++, id));
+            Assert.Equal(0, sim.RejectedCommands);
+            Assert.False(sim.Buildings.TryGet(id, out _));
+            RunUntilNoJobs(sim); // reserved units go back to the stock, carried ones are brought to the castle
+            Assert.Equal((planks, stone), (CastleStock(sim, 0, GoodIds.Plank), CastleStock(sim, 0, GoodIds.Stone)));
+            Assert.All(sim.Settlers.All, s => Assert.Equal(0, s.JobId));
+        }
     }
 
     [Fact]
@@ -177,8 +205,7 @@ public class ConstructionTests
         var sim = Simulation.Create(TwoPlayers());
         int before = sim.Territory.TilesOwnedBy(0);
         int tower = Place(sim, 0, BuildingIds.GuardTowerSmall);
-        RunTurns(sim, Construction.TotalWork(BuildingCatalog.All[BuildingIds.GuardTowerSmall]) / Simulation.TicksPerTurn);
-        Assert.Equal(BuildingState.Complete, Get(sim, tower).State);
+        RunUntilComplete(sim, tower);
         int claims = sim.Territory.Claims.Count;
         int ownCastle = sim.Buildings.All[0].Id, enemyCastle = sim.Buildings.All[1].Id;
         int site = Place(sim, 0, BuildingIds.Woodcutter, 1);
@@ -209,7 +236,6 @@ public class ConstructionTests
         var site = new Building(5, BuildingIds.Sawmill, 0, 10, 10, 0, BuildingState.ConstructionSite, 0, 3, 1, 80);
         Assert.True(Construction.IsConsistent(site));
         Assert.False(Construction.IsConsistent(site with { DeliveredPlanks = 4 }));                 // more than the cost
-        Assert.False(Construction.IsConsistent(site with { DeliveredPlanks = 2 }));                 // stone before all planks
         Assert.False(Construction.IsConsistent(site with { WorkDone = 81 }));                       // work ahead of materials
         Assert.False(Construction.IsConsistent(site with { ClaimId = 3 }));                         // sites claim nothing
         Assert.False(Construction.IsConsistent(site with { DeliveredStone = 2, WorkDone = 100 }));  // should be complete

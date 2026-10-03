@@ -1,9 +1,9 @@
 # STATUS
 
-**Last updated:** 2026-10-03 — M0 done; **M1 Map generation first pass done**; **M2 step 1 (map in the sim, start assignment, territory) done**; **M2 step 2 (building data, start castle entity, PlaceBuilding/CancelConstruction) done**; **M2 step 3 (goods, castle stock, construction, Demolish) done**; **M2 step 4 (carriers, A* pathfinding, movement) done** (2026-10-03). M1: full pipeline, F1–F11 validation with retries, share codes, `mapgen` CLI with PNG preview, 24 golden map hashes, nightly 1 000-seed workflow; 96 tests.
+**Last updated:** 2026-10-03 — M0 done; **M1 Map generation first pass done**; **M2 step 1 (map in the sim, start assignment, territory) done**; **M2 step 2 (building data, start castle entity, PlaceBuilding/CancelConstruction) done**; **M2 step 3 (goods, castle stock, construction, Demolish) done**; **M2 step 4 (carriers, A* pathfinding, movement) done**; **M2 step 5 (logistics: transport jobs for construction materials) done** (2026-10-03). M1: full pipeline, F1–F11 validation with retries, share codes, `mapgen` CLI with PNG preview, 24 golden map hashes, nightly 1 000-seed workflow; 96 tests.
 
 ## Current phase / step
-**Implementation, milestone M2 Sim economy (headless)** ([09-roadmap](../09-roadmap.md)) — steps 1 (map in the sim + territory), 2 (building data + placement), 3 (goods + construction) and 4 (carriers + A*) done; M0 Foundations and M1 Map generation complete. The user permitted coding on 2026-10-02 and chose "M0 directly, S1 folded in": S1's sim half is covered by M0; S1's Godot .NET export check moves to the start of M3. Process steps: [ORIGINAL-BRIEF.md §6](ORIGINAL-BRIEF.md).
+**Implementation, milestone M2 Sim economy (headless)** ([09-roadmap](../09-roadmap.md)) — steps 1 (map in the sim + territory), 2 (building data + placement), 3 (goods + construction), 4 (carriers + A*) and 5 (logistics for construction) done; M0 Foundations and M1 Map generation complete. The user permitted coding on 2026-10-02 and chose "M0 directly, S1 folded in": S1's sim half is covered by M0; S1's Godot .NET export check moves to the start of M3. Process steps: [ORIGINAL-BRIEF.md §6](ORIGINAL-BRIEF.md).
 
 ## Done
 - Step 0: git repo, [AGENTS.md](../../AGENTS.md), [CLAUDE.md](../../CLAUDE.md) (pointer), [ORIGINAL-BRIEF.md](ORIGINAL-BRIEF.md), this file.
@@ -109,6 +109,16 @@
 | Code review (`/code-review`, medium): 2 findings fixed — a carrier covered by a newly placed building, or spawned at the footprint centre when no door tile was free, was stuck forever | done |
 | Tests / CI | 148 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112); float-ban, golden-version and hash comparison pass locally; **CI run 37084956265 green** on `main` (dba6f46): 4 runners × Debug/Release, `cross-os-hashes` (both new replay hashes identical everywhere) and `golden-version` pass |
 
+| M2 step 5 — logistics: transport jobs for construction materials (2026-10-03) | State |
+|---|---|
+| `World/Logistics` (runs every tick between construction and movement): sites request missing planks/stone (minus units on the way), storage stocks offer them; sites in id order, planks first; nearest storage by 16×16-sector distance, then nearest idle carrier, ties by id; ≤ 200 jobs/tick; matched units leave the stock at once | done |
+| `TransportJob` (id, owner, carrier, good, source, destination, `ToPickup`/`Carrying`); carriers walk to the source door, pick up, walk to the site door, hand over; job searches up to 16 384 expansions | done |
+| Failure handling: pickup for a vanished site or from an unreachable source → unit back to the stock; carried unit for a vanished/unreachable site → nearest storage (lost if that fails too, ASSUMPTION until ground piles); a building a carrier failed to reach is skipped for 30 s (found as a carrier churn loop in the build script) | done |
+| Placeholder supply (1 unit/site/s straight from storage) and the planks-before-stone rule removed; idle carriers without a job still wander | done |
+| Save format 6 (settler `JobId`, jobs, back-offs; load validates ids, owners, goods, live sources being storages, one-to-one carrier links, no over-delivery); `GameVersion` 0.7.0; both golden replays regenerated; `m2-build.rblog` placements beyond 4 open sites now use the invalid rotation 4 | done |
+| Code review (`/code-review`, medium): 1 finding fixed — a save whose job pointed at a non-storage source loaded and later crashed with a `NullReferenceException` | done |
+| Tests / CI | 153 pass in Debug and Release locally (Linux x64, .NET SDK 10.0.112); float-ban and golden-version checks pass locally; CI: see below |
+
 ## In progress
 - Nothing.
 
@@ -116,7 +126,7 @@
 1. Keep CI green (`gh run list -R 1223Joker/rebuild`).
 2. M1 polish: tune `Dmin`, `Rf`, `Lmin` and the ASSUMPTION thresholds (F5/F6 minimums, fertile share, lair counts) when gameplay exists (spike S4 is done as part of M1; all spikes are allowed, user 2026-10-02).
 3. Run spike **S5** (headless logistics + HPA* + combat scale, [09-roadmap §2](../09-roadmap.md)) alongside the start of M2, so the 20 ms/tick budget is checked before the economy design hardens.
-4. Continue **M2 Sim economy (headless)** ([06-economy](../06-economy.md)): next step = **logistics** (offers/requests, sector-distance matching, `TransportJob`s carried by the idle carriers) replacing the placeholder construction supply and the carriers' wandering, then builders/diggers, production buildings, terrain costs + HPA*.
+4. Continue **M2 Sim economy (headless)** ([06-economy](../06-economy.md)): next step = **production buildings** (input/output piles, work cycles, woodcutter → sawmill → planks, quarry → stone) feeding logistics with output offers, input requests and storehouse overflow, then builders/diggers, player transport priorities, terrain costs + HPA*.
 5. Before M3: run S1's Godot part — install the Godot **.NET** edition (the installed `/Applications/Godot.app` 4.7.2 is the standard build without C#) and export a test project for macOS and Windows — and spike S2 (rendering scale). Before M5: spike S3 (ENet transport).
 
 ## Blockers / waiting for user approval

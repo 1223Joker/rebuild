@@ -230,7 +230,7 @@ public class SettlerTests
                     spot = (x, y);
         sim.ExecuteTurn(new TurnBundle(sim.Turn, new[] { BuildingCommands.Place(0, 0, BuildingIds.Residence, spot.X, spot.Y) }));
         int residence = sim.Buildings.All.Last().Id;
-        RunTicks(sim, Settlers.SpawnIntervalTicks); // construction takes 4 × 20 ticks after 4 s of supply
+        RunTicks(sim, Settlers.SpawnIntervalTicks); // carriers bring 4 units, each worked in for 20 ticks
         Assert.True(sim.Buildings.TryGet(residence, out var b) && b.State == BuildingState.Complete);
         int Homed() => sim.Settlers.All.Count(s => s.HomeId == residence);
         int spawned = Homed();
@@ -271,8 +271,8 @@ public class SettlerTests
         sim.Settlers.WriteTo(w);
         int section = save.Length - w.Length;
         int offset = section + 8;
-        for (int i = 0; i < walker; i++) offset += 19 + 4 + 4 * sim.Settlers.PathAt(i).Count;
-        int firstPathTile = offset + 19 + 4;
+        for (int i = 0; i < walker; i++) offset += 23 + 4 + 4 * sim.Settlers.PathAt(i).Count;
+        int firstPathTile = offset + 23 + 4;
         var broken = (byte[])save.Clone();
         System.BitConverter.GetBytes(sim.Settlers.All[walker].Tile + 5).CopyTo(broken, firstPathTile);
         Assert.Throws<InvalidDataException>(() => Simulation.Load(broken));

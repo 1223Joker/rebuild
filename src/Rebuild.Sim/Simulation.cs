@@ -15,7 +15,7 @@ namespace Rebuild.Sim;
 /// <summary>
 /// The deterministic simulation: <c>State(n+1) = Step(State(n), Commands(n))</c> (docs/01-architecture.md §1).
 /// Single-threaded, integer-only. Holds match/player state, RNG streams, the generated map, territory,
-/// buildings and settlers; game systems are added from M2 on and must write their state in <see cref="WriteState"/>. The map is
+/// buildings, settlers and transport jobs; game systems are added from M2 on and must write their state in <see cref="WriteState"/>. The map is
 /// regenerated from <see cref="MatchSetup.Map"/> on create and load (only its hash is saved); systems that
 /// mutate map layers must serialize those layers themselves.
 /// </summary>
@@ -27,7 +27,7 @@ public sealed class Simulation
     public const int TicksPerTurn = 2;
 
     private const uint SaveMagic = 0x56415342; // "BSAV" little-endian
-    private const ushort SaveFormatVersion = 5;
+    private const ushort SaveFormatVersion = 6;
 
     private readonly PlayerState[] _players;
     private readonly PlayerCultureTable?[] _cultureTables;
@@ -54,9 +54,10 @@ public sealed class Simulation
     public Territory Territory { get; }
     public BuildingRegistry Buildings { get; }
     public Settlers Settlers { get; }
+    public Logistics Logistics { get; }
 
     private Simulation(MatchSetup setup, MapData map, int tick, PlayerState[] players, Pcg32 economy, Pcg32 combat, Pcg32 monsters,
-        int rejected, Territory territory, BuildingRegistry buildings, Settlers settlers)
+        int rejected, Territory territory, BuildingRegistry buildings, Settlers settlers, Logistics logistics)
     {
         Setup = setup;
         Map = map;
@@ -64,6 +65,7 @@ public sealed class Simulation
         Territory = territory;
         Buildings = buildings;
         Settlers = settlers;
+        Logistics = logistics;
         _pathfinder = new Pathfinder(map.Edge);
         _startOfSlot = StartAssignment.Assign(setup);
         Tick = tick;
@@ -142,7 +144,7 @@ public sealed class Simulation
             Pcg32.ForStream(setup.MatchSeed, RngStream.Economy),
             Pcg32.ForStream(setup.MatchSeed, RngStream.Combat),
             Pcg32.ForStream(setup.MatchSeed, RngStream.Monsters),
-            rejected: 0, territory, buildings, settlers);
+            rejected: 0, territory, buildings, settlers, new Logistics(map.Edge));
     }
 
     private static MapData GenerateMap(MatchSetup setup)
@@ -176,9 +178,11 @@ public sealed class Simulation
 
     private void StepTick()
     {
-        // Systems run here in a fixed order: construction, settlers, then (later M2 steps) production, logistics, combat, ...
-        Construction.Step(Tick, Buildings, Territory);
-        Settlers.Step(Tick, Map, Territory, Buildings, EconomyRng, _pathfinder);
+        // Systems run here in a fixed order: construction, logistics matching, settlers (movement + jobs), then (later
+        // M2 steps) production, combat, ...
+        Construction.Step(Buildings, Territory);
+        Logistics.Match(Tick, Buildings, Settlers);
+        Settlers.Step(Tick, Map, Territory, Buildings, Logistics, EconomyRng, _pathfinder);
         Tick++;
     }
 
@@ -236,6 +240,7 @@ public sealed class Simulation
         Territory.WriteTo(w);
         Buildings.WriteTo(w);
         Settlers.WriteTo(w);
+        Logistics.WriteTo(w);
     }
 
     public ulong ComputeHash()
@@ -285,7 +290,8 @@ public sealed class Simulation
             if (c.Owner >= count) throw new InvalidDataException("Territory claim of an unknown slot");
         var buildings = BuildingRegistry.ReadFrom(r, map.Edge, count, territory);
         var settlers = Settlers.ReadFrom(r, map.Edge, count, buildings.NextId);
+        var logistics = Logistics.ReadFrom(r, map.Edge, count, buildings, settlers);
         if (!r.AtEnd) throw new InvalidDataException("Trailing data in save");
-        return new Simulation(setup, map, tick, players, economy, combat, monsters, rejected, territory, buildings, settlers);
+        return new Simulation(setup, map, tick, players, economy, combat, monsters, rejected, territory, buildings, settlers, logistics);
     }
 }

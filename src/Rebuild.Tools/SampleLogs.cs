@@ -103,9 +103,12 @@ public static class SampleLogs
                         ushort type = (ushort)rng.NextInt(BuildingCatalog.All.Count + 1); // + 1: unknown type
                         int x = start.X - 20 + rng.NextInt(41);
                         int y = start.Y - 20 + rng.NextInt(41);
-                        // Half aim at a valid spot, while the slot has few open sites (so the castle stock completes some).
-                        if (kind >= 7 && OpenSites(sim, slot) < MaxOpenSites) FindValidSpot(sim, slot, type, ref x, ref y);
+                        // Half aim at a valid spot while the slot has few open sites, so the castle stock completes some;
+                        // with too many open sites every placement gets the invalid rotation 4.
+                        bool full = OpenSites(sim, slot) >= MaxOpenSites;
+                        if (kind >= 7 && !full) FindValidSpot(sim, slot, type, ref x, ref y);
                         byte rotation = (byte)rng.NextInt(5); // 4 is invalid
+                        if (full) rotation = 4;
                         commands.Add(BuildingCommands.Place(slot, seq[slot]++, type, x, y, rotation));
                     }
                     else if (kind < 16)
