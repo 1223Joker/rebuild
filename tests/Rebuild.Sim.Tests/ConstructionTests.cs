@@ -270,17 +270,20 @@ public class ConstructionTests
         var log = SampleLogs.BuildScript(1, 600);
         var sim = Simulation.Create(log.Setup);
         int maxClaims = 0, cycles = 0, completed = 0;
+        bool planted = false;
         foreach (var bundle in log.Bundles)
         {
             sim.ExecuteTurn(bundle);
             maxClaims = System.Math.Max(maxClaims, sim.Territory.Claims.Count);
             cycles += sim.Buildings.All.Count(b => b.Cycle > 0);
             completed += sim.Buildings.All.Count(b => b.Type != BuildingIds.Castle && b.State == BuildingState.Complete);
+            planted |= sim.MapChanges.Tiles.Any(t => sim.Map.Object[t] == (byte)Rebuild.Sim.MapGen.MapObject.Tree);
         }
         Assert.True(completed > 0, "no building was completed");
         Assert.True(sim.MapChanges.Tiles.Count > 0, "nothing was harvested");
         Assert.True(maxClaims > 2, "no tower was completed");
         Assert.True(cycles > 0, "no production cycle ran");
+        Assert.True(planted, "no tree was planted");
         Assert.All(sim.Buildings.All, b => Assert.True(Construction.IsConsistent(b)));
     }
 }

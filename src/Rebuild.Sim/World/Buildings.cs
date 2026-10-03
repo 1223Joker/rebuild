@@ -235,9 +235,11 @@ public sealed class BuildingRegistry
             var piles = NewPiles(b);
             if (piles != null)
             {
-                // Input piles never exceed the refill target; the output pile is checked against reservations by Logistics.
+                // Input piles never exceed the refill target; the output pile is checked against reservations by Logistics
+                // and stays empty for a planter, which produces no good.
+                int outputCap = b.Definition.Production!.Output == ProductionDefinition.NoOutput ? 0 : Production.OutputCap;
                 for (int k = 0; k < piles.Length; k++)
-                    if ((piles[k] = r.ReadByte()) > (k < piles.Length - 1 ? Production.InputTarget : Production.OutputCap))
+                    if ((piles[k] = r.ReadByte()) > (k < piles.Length - 1 ? Production.InputTarget : outputCap))
                         throw new InvalidDataException("Invalid production pile");
             }
             if (b.ClaimId != 0)

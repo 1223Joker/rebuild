@@ -5,7 +5,7 @@
     { "id": "storehouse", "name": "Storehouse", "size": "M", "placement": "land", "storage": true, "cost": { "plank": 4, "stone": 3 } },
     { "id": "residence", "name": "Residence", "size": "S", "placement": "land", "carriers": 10, "cost": { "plank": 2, "stone": 2 } },
     { "id": "woodcutter", "name": "Woodcutter", "size": "S", "placement": "land", "cost": { "plank": 2, "stone": 0 }, "production": { "harvest": "tree", "radius": 8, "output": "log", "ticks": 150 } },
-    { "id": "forester", "name": "Forester", "size": "S", "placement": "land", "cost": { "plank": 2, "stone": 0 } },
+    { "id": "forester", "name": "Forester", "size": "S", "placement": "land", "cost": { "plank": 2, "stone": 0 }, "production": { "plant": "tree", "radius": 6, "ticks": 120 } },
     { "id": "sawmill", "name": "Sawmill", "size": "M", "placement": "land", "cost": { "plank": 3, "stone": 2 }, "production": { "inputs": { "log": 1 }, "output": "plank", "ticks": 60 } },
     { "id": "stonecutter", "name": "Stonecutter", "size": "S", "placement": "land", "cost": { "plank": 2, "stone": 0 }, "production": { "harvest": "stone", "radius": 8, "output": "stone", "ticks": 150 } },
     { "id": "fisher", "name": "Fisher", "size": "S", "placement": "land", "cost": { "plank": 2, "stone": 0 }, "production": { "harvest": "fish", "radius": 6, "output": "fish", "ticks": 150 } },

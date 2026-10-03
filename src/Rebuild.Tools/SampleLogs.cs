@@ -3,6 +3,7 @@ using Rebuild.Sim;
 using Rebuild.Sim.Buildings;
 using Rebuild.Sim.Commands;
 using Rebuild.Sim.Core;
+using Rebuild.Sim.MapGen;
 using Rebuild.Sim.Match;
 using Rebuild.Sim.Serialization;
 using Rebuild.Sim.World;
@@ -107,8 +108,9 @@ public static class SampleLogs
                         // Half aim at a valid spot while the slot has few open sites, so the castle stock completes some;
                         // with too many open sites every placement gets the invalid rotation 4.
                         bool full = OpenSites(sim, slot) >= MaxOpenSites;
-                        // Some valid placements are a woodcutter or another harvester with its source in reach, so production runs.
-                        if (kind >= 12) type = kind == 12 ? BuildingIds.Woodcutter : Harvesters[turn % Harvesters.Length];
+                        // Some valid placements are a woodcutter, a forester or another harvester with its source (for the
+                        // forester a free tile) in reach, so production runs.
+                        if (kind >= 12) type = kind == 13 ? Harvesters[turn % Harvesters.Length] : turn % 3 == 0 ? BuildingIds.Forester : BuildingIds.Woodcutter;
                         if (kind >= 7 && !full) FindValidSpot(sim, slot, type, ref x, ref y);
                         byte rotation = (byte)rng.NextInt(5); // 4 is invalid
                         if (full) rotation = 4;
@@ -170,7 +172,7 @@ public static class SampleLogs
 
     /// <summary>
     /// Moves (x, y) to the first valid spot in row-major order from (x, y) within a 41² window around the slot's start;
-    /// for a building that harvests, the spot must have its harvest source in reach.
+    /// for a building that harvests, the spot must have its harvest source in reach, for a planter a free tile.
     /// </summary>
     private static void FindValidSpot(Simulation sim, byte slot, ushort type, ref int x, ref int y)
     {
@@ -183,8 +185,11 @@ public static class SampleLogs
             int tx = x0 + k % 41, ty = y0 + k / 41;
             if (BuildingPlacement.Check(sim.Map, sim.Territory, sim.Buildings, slot, type, tx, ty) != PlacementResult.Ok) continue;
             var production = BuildingCatalog.All[type].Production;
+            var probe = new Building(0, type, slot, tx, ty, 0, BuildingState.Complete, 0);
             if (production != null && production.Radius > 0
-                && Production.FindHarvest(sim.Map, sim.Territory, new Building(0, type, slot, tx, ty, 0, BuildingState.Complete, 0), production) < 0)
+                && (production.Plant != MapObject.None
+                    ? Production.FindPlantSite(sim.Map, sim.Territory, sim.Buildings, probe, production)
+                    : Production.FindHarvest(sim.Map, sim.Territory, probe, production)) < 0)
                 continue;
             x = tx;
             y = ty;

@@ -11,7 +11,9 @@ namespace Rebuild.Sim.World;
 /// <see cref="OutputCap"/>); the inputs are taken at the start. After <see cref="ProductionDefinition.CycleTicks"/> ticks
 /// the nearest such tile (by squared distance from the building centre, ties: lower tile index) loses one unit if the
 /// source is consumed (objects, fish; <see cref="MapChanges.Take"/>) and one output unit goes into the output pile; if
-/// the source was taken meanwhile and none is left, the cycle yields nothing.
+/// the source was taken meanwhile and none is left, the cycle yields nothing. A planter (forester,
+/// <see cref="ProductionDefinition.Plant"/>) instead needs a free tile in reach (<see cref="FindPlantSite"/>) to start and
+/// plants its object on the nearest such tile at the end (<see cref="MapChanges.Plant"/>; nothing if none is left).
 /// Workers do not exist yet: a complete building works on its own (ASSUMPTION until specialists, docs/06-economy.md §3).
 /// <see cref="Logistics"/> refills the input piles to <see cref="InputTarget"/> and carries output units away.
 /// </summary>
@@ -41,13 +43,21 @@ public static class Production
                 bool ready = true;
                 for (int k = 0; k < p.Inputs.Count; k++)
                     if (piles[k] < p.InputAmounts[k]) ready = false;
-                if (!ready || (p.Harvest != HarvestSource.None && FindHarvest(map, territory, b, p) < 0)) continue;
+                if (!ready || (p.Harvest != HarvestSource.None && FindHarvest(map, territory, b, p) < 0)
+                    || (p.Plant != MapObject.None && FindPlantSite(map, territory, buildings, b, p) < 0)) continue;
                 for (int k = 0; k < p.Inputs.Count; k++) piles[k] -= p.InputAmounts[k];
             }
             int cycle = b.Cycle + 1;
             if (cycle == p.CycleTicks)
             {
                 cycle = 0;
+                if (p.Plant != MapObject.None)
+                {
+                    int site = FindPlantSite(map, territory, buildings, b, p);
+                    if (site >= 0) changes.Plant(map, site, p.Plant);
+                    buildings.Update(i, b with { Cycle = cycle });
+                    continue;
+                }
                 int tile = p.Harvest == HarvestSource.None ? int.MaxValue : FindHarvest(map, territory, b, p);
                 if (tile >= 0)
                 {
@@ -77,5 +87,40 @@ public static class Production
                 bestD2 = d2;
             }
         return best;
+    }
+
+    /// <summary>
+    /// Free tile for the planter's object nearest to the building centre within the radius (squared distance ≤ r², ties:
+    /// lower tile index) on the owner's territory, or -1. A free tile is buildable land (plains or fertile, flat enough, no
+    /// object) without a resource, is no footprint tile and does not touch one (keeps <see cref="BuildingRegistry.Margin"/>
+    /// and doors clear), and has no tree among its 8 neighbours (planted trees never form solid forest; ASSUMPTION).
+    /// </summary>
+    public static int FindPlantSite(MapData map, Territory territory, BuildingRegistry buildings, in Building b, ProductionDefinition p)
+    {
+        int r = p.Radius, cx = b.CenterX, cy = b.CenterY, edge = map.Edge;
+        int best = -1, bestD2 = int.MaxValue;
+        for (int y = System.Math.Max(0, cy - r); y <= System.Math.Min(edge - 1, cy + r); y++)
+            for (int x = System.Math.Max(0, cx - r); x <= System.Math.Min(edge - 1, cx + r); x++)
+            {
+                int d2 = (x - cx) * (x - cx) + (y - cy) * (y - cy);
+                int t = y * edge + x;
+                if (d2 > r * r || d2 >= bestD2 || territory.OwnerAt(t) != b.Owner || !IsPlantable(map, buildings, x, y)) continue;
+                best = t;
+                bestD2 = d2;
+            }
+        return best;
+    }
+
+    private static bool IsPlantable(MapData map, BuildingRegistry buildings, int x, int y)
+    {
+        int edge = map.Edge, t = y * edge + x;
+        if (!map.IsBuildable(t) || map.Resource[t] != (byte)Resource.None) return false;
+        for (int ny = System.Math.Max(0, y - 1); ny <= System.Math.Min(edge - 1, y + 1); ny++)
+            for (int nx = System.Math.Max(0, x - 1); nx <= System.Math.Min(edge - 1, x + 1); nx++)
+            {
+                int n = ny * edge + nx;
+                if (buildings.AtTile(n) != 0 || map.Object[n] == (byte)MapObject.Tree) return false;
+            }
+        return true;
     }
 }

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Rebuild.Sim.Buildings;
@@ -255,7 +256,7 @@ public class ProductionTests
         var cases = new System.Action<byte[]>[]
         {
             b => System.BitConverter.GetBytes(plain).CopyTo(b, 4),          // tile that never held a tree or stone
-            b => b[8] = (byte)MapObject.Tree,                                   // tree still standing
+            b => { b[8] = (byte)MapObject.Tree; b[10] = 1; },                   // tree back with an amount
             b => b[8] = (byte)MapObject.Lair,                                   // tree turned into something else
             b => b[10] = 3,                                                     // removed object with an amount
             b => b[9] = (byte)Resource.Fish,                                    // resource appeared
@@ -627,5 +628,175 @@ public class ProductionTests
             corrupt(bad);
             Assert.Throws<InvalidDataException>(() => MapChanges.ReadFrom(new CanonicalReader(bad), Fresh()));
         }
+    }
+
+    /// <summary>Free tiles the forester could plant on from a footprint at (x, y) (<see cref="Production.FindPlantSite"/> rules).</summary>
+    private static int PlantSites(Simulation sim, int x, int y)
+    {
+        var p = BuildingCatalog.All[BuildingIds.Forester].Production!;
+        var b = new Building(1, BuildingIds.Forester, 0, x, y, 0, BuildingState.Complete, 0);
+        return Production.FindPlantSite(sim.Map, sim.Territory, sim.Buildings, b, p) < 0 ? 0 : 1;
+    }
+
+    private static int Forester(Simulation sim, ushort seq = 0)
+    {
+        int id = Place(sim, 0, BuildingIds.Forester, seq, (x, y) => PlantSites(sim, x, y) > 0);
+        ConstructionTests.RunUntilComplete(sim, id);
+        return id;
+    }
+
+    /// <summary>Planted trees: changed tiles that now hold a tree.</summary>
+    private static List<int> Planted(Simulation sim) =>
+        sim.MapChanges.Tiles.Where(t => sim.Map.Object[t] == (byte)MapObject.Tree).ToList();
+
+    [Fact]
+    public void The_forester_is_compiled_from_data()
+    {
+        var p = BuildingCatalog.All[BuildingIds.Forester].Production!;
+        Assert.Equal((MapObject.Tree, HarvestSource.None, 6, ProductionDefinition.NoOutput, 0),
+            (p.Plant, p.Harvest, p.Radius, p.Output, p.Inputs.Count));
+        Assert.All(BuildingCatalog.All.Where(d => d.Production != null && d.Id != "forester"),
+            d => Assert.Equal(MapObject.None, d.Production!.Plant));
+        Assert.Throws<System.ArgumentException>(() =>
+            new ProductionDefinition(System.Array.Empty<ushort[]>(), System.Array.Empty<int>(), GoodIds.Log, 10, HarvestSource.None, 6, MapObject.Tree));
+        Assert.Throws<System.ArgumentException>(() =>
+            new ProductionDefinition(System.Array.Empty<ushort[]>(), System.Array.Empty<int>(), ProductionDefinition.NoOutput, 10, HarvestSource.None, 0));
+    }
+
+    [Fact]
+    public void A_forester_plants_spaced_trees_in_reach()
+    {
+        var sim = Simulation.Create(TwoPlayers());
+        int id = Forester(sim);
+        var forester = ConstructionTests.Get(sim, id);
+        var p = forester.Definition.Production!;
+        Assert.Empty(sim.MapChanges.Tiles);
+        RunTicks(sim, 10 * p.CycleTicks);
+        var planted = Planted(sim);
+        Assert.InRange(planted.Count, 9, 10); // one tree per cycle while free tiles are left
+        Assert.Equal(planted.Count, sim.MapChanges.Tiles.Count);
+        int edge = sim.Map.Edge;
+        foreach (int t in planted)
+        {
+            int x = t % edge, y = t / edge, dx = x - forester.CenterX, dy = y - forester.CenterY;
+            Assert.True(dx * dx + dy * dy <= p.Radius * p.Radius);
+            Assert.Equal(0, sim.Territory.OwnerAt(t));
+            Assert.False(sim.Map.IsBuildable(t)); // a tree blocks building
+            Assert.True(sim.Map.IsWalkable(t));   // but not walking
+            for (int ny = y - 1; ny <= y + 1; ny++)
+                for (int nx = x - 1; nx <= x + 1; nx++)
+                {
+                    int n = ny * edge + nx;
+                    Assert.Equal(0, sim.Buildings.AtTile(n));
+                    if (n != t) Assert.NotEqual((byte)MapObject.Tree, sim.Map.Object[n]);
+                }
+        }
+        Assert.Equal(new[] { 0 }, sim.Buildings.PilesOf(id)); // no output pile to carry away
+        Assert.DoesNotContain(sim.Logistics.All, j => j.SourceId == id);
+        // Planted trees survive save and load and the runs stay identical.
+        var loaded = Simulation.Load(sim.Save());
+        Assert.Equal(sim.ComputeHash(), loaded.ComputeHash());
+        Assert.Equal(sim.Map.Object, loaded.Map.Object);
+        Assert.Equal(sim.Map.Flags, loaded.Map.Flags);
+        RunTicks(sim, 400);
+        RunTicks(loaded, 400);
+        Assert.Equal(sim.ComputeHash(), loaded.ComputeHash());
+    }
+
+    [Fact]
+    public void A_forester_idles_once_no_free_tile_is_left()
+    {
+        var sim = Simulation.Create(TwoPlayers(2));
+        int id = Forester(sim);
+        var forester = ConstructionTests.Get(sim, id);
+        int cycle = forester.Definition.Production!.CycleTicks;
+        for (int i = 0; i < 200 && PlantSites(sim, forester.X, forester.Y) > 0; i++) RunTicks(sim, cycle);
+        Assert.Equal(0, PlantSites(sim, forester.X, forester.Y));
+        RunTicks(sim, cycle); // a cycle that ran when the last site went yields nothing and none starts
+        int trees = Planted(sim).Count;
+        Assert.True(trees > 5);
+        RunTicks(sim, 4 * cycle);
+        Assert.Equal(trees, Planted(sim).Count);
+        Assert.Equal(0, ConstructionTests.Get(sim, id).Cycle);
+    }
+
+    [Fact]
+    public void A_woodcutter_fells_what_a_forester_plants()
+    {
+        var sim = Simulation.Create(TwoPlayers());
+        int forester = Forester(sim);
+        var f = ConstructionTests.Get(sim, forester);
+        int cycle = f.Definition.Production!.CycleTicks;
+        RunTicks(sim, 8 * cycle);
+        var planted = Planted(sim);
+        Assert.NotEmpty(planted);
+        // A woodcutter whose reach holds planted trees only.
+        int edge = sim.Map.Edge;
+        int cutter = Place(sim, 0, BuildingIds.Woodcutter, 1, (x, y) =>
+        {
+            int trees = ObjectsAround(sim, 0, BuildingIds.Woodcutter, x, y);
+            var b = new Building(1, BuildingIds.Woodcutter, 0, x, y, 0, BuildingState.Complete, 0);
+            int r = b.Definition.Production!.Radius;
+            int mine = planted.Count(t => (t % edge - b.CenterX) * (t % edge - b.CenterX) + (t / edge - b.CenterY) * (t / edge - b.CenterY) <= r * r);
+            return trees > 0 && trees == mine;
+        });
+        ConstructionTests.RunUntilComplete(sim, cutter);
+        int before = Units(sim, 0, GoodIds.Log);
+        RunTicks(sim, 6 * BuildingCatalog.All[BuildingIds.Woodcutter].Production!.CycleTicks);
+        Assert.True(Units(sim, 0, GoodIds.Log) > before);
+        Assert.Contains(sim.MapChanges.Tiles, t => sim.Map.Object[t] == (byte)MapObject.None); // a planted tree was felled
+        var loaded = Simulation.Load(sim.Save());
+        Assert.Equal(sim.ComputeHash(), loaded.ComputeHash());
+    }
+
+    [Fact]
+    public void Corrupt_planted_trees_are_rejected_on_load()
+    {
+        var sim = Simulation.Create(TwoPlayers());
+        Forester(sim);
+        while (sim.MapChanges.Tiles.Count == 0) Run(sim);
+        Assert.Single(sim.MapChanges.Tiles);
+        int tile = sim.MapChanges.Tiles[0];
+        var w = new CanonicalWriter(64);
+        sim.MapChanges.WriteTo(w, sim.Map);
+        var changes = w.ToArray();
+        MapData Fresh() => MapGenerator.Generate(sim.Setup.Map).Map!;
+        var map = Fresh();
+        Assert.Equal((byte)MapObject.None, map.Object[tile]);
+        MapChanges.ReadFrom(new CanonicalReader(changes), map);
+        Assert.Equal((byte)MapObject.Tree, map.Object[tile]);
+        Assert.False(map.IsBuildable(tile));
+        int Find(System.Func<MapData, int, bool> test) => Enumerable.Range(0, map.TileCount).First(t => test(map, t));
+        int water = Find((m, t) => m.Terrain[t] == (byte)Terrain.Water && m.Resource[t] == (byte)Resource.None);
+        int mountain = Find((m, t) => m.Terrain[t] == (byte)Terrain.Mountain && m.Object[t] == (byte)MapObject.None && m.Resource[t] == (byte)Resource.None);
+        int steep = Find((m, t) => m.Terrain[t] == (byte)Terrain.Plains && m.Object[t] == (byte)MapObject.None
+            && m.Resource[t] == (byte)Resource.None && !m.IsBuildable(t));
+        int deposit = Find((m, t) => m.Terrain[t] == (byte)Terrain.Mountain && m.Resource[t] != (byte)Resource.None);
+        var cases = new System.Action<byte[]>[]
+        {
+            b => b[10] = 1,                                                  // planted tree with an amount
+            b => b[9] = (byte)Resource.Fish,                                 // resource appeared with it
+            b => b[8] = (byte)MapObject.Game,                                // game appeared instead
+            b => System.BitConverter.GetBytes(water).CopyTo(b, 4),           // tree in the water
+            b => System.BitConverter.GetBytes(mountain).CopyTo(b, 4),        // tree on a mountain
+            b => System.BitConverter.GetBytes(deposit).CopyTo(b, 4),         // tree on an ore deposit
+            b => System.BitConverter.GetBytes(steep).CopyTo(b, 4),           // tree on a slope too steep to plant on
+        };
+        foreach (var corrupt in cases)
+        {
+            var bad = (byte[])changes.Clone();
+            corrupt(bad);
+            Assert.Throws<InvalidDataException>(() => MapChanges.ReadFrom(new CanonicalReader(bad), Fresh()));
+        }
+
+        // A forester's output pile holds nothing: the forester is the last building, its output pile the last byte.
+        var bw = new CanonicalWriter(1024);
+        sim.Buildings.WriteTo(bw);
+        var buildings = bw.ToArray();
+        Assert.Equal(BuildingIds.Forester, sim.Buildings.All[^1].Type);
+        BuildingRegistry.ReadFrom(new CanonicalReader(buildings), sim.Map.Edge, sim.Players.Count, sim.Territory);
+        buildings[^1] = 1;
+        Assert.Throws<InvalidDataException>(() =>
+            BuildingRegistry.ReadFrom(new CanonicalReader(buildings), sim.Map.Edge, sim.Players.Count, sim.Territory));
     }
 }

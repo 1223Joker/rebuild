@@ -140,12 +140,21 @@ public static class Harvest
 /// <see cref="InputAmounts"/>[k] units from input pile k, which holds any of the goods <see cref="Alternatives"/>[k]
 /// (one good, or alternatives such as a mine's fish/meat/bread written <c>"fish|meat|bread"</c>); after <see cref="CycleTicks"/> ticks
 /// it takes one unit of the <see cref="Harvest"/> source within <see cref="Radius"/> tiles (if any and consumed) and puts
-/// one <see cref="Output"/> unit into its output pile (World.Production).
+/// one <see cref="Output"/> unit into its output pile, or — for a planter such as the forester — puts a
+/// <see cref="Plant"/> object on a free tile within <see cref="Radius"/> instead (World.Production).
 /// </summary>
 public sealed class ProductionDefinition
 {
-    public ProductionDefinition(ushort[][] inputs, int[] inputAmounts, ushort output, int cycleTicks, HarvestSource harvest, int radius)
+    /// <summary><see cref="Output"/> of a planter, which produces no good (its output pile stays empty).</summary>
+    public const ushort NoOutput = ushort.MaxValue;
+
+    public ProductionDefinition(ushort[][] inputs, int[] inputAmounts, ushort output, int cycleTicks, HarvestSource harvest, int radius,
+        MapObject plant = MapObject.None)
     {
+        if (plant != MapObject.None && (output != NoOutput || harvest != HarvestSource.None || radius < 1))
+            throw new System.ArgumentException("A planter has a radius, no output and no harvest", nameof(plant));
+        if (plant == MapObject.None && output == NoOutput)
+            throw new System.ArgumentException("Only a planter has no output", nameof(output));
         if (inputs.Length != inputAmounts.Length) throw new System.ArgumentException("One amount per input", nameof(inputAmounts));
         foreach (var goods in inputs)
             if (goods.Length == 0) throw new System.ArgumentException("Every input pile takes a good", nameof(inputs));
@@ -158,6 +167,7 @@ public sealed class ProductionDefinition
         CycleTicks = cycleTicks;
         Harvest = harvest;
         Radius = radius;
+        Plant = plant;
     }
 
     /// <summary>First good of each input pile (at most two piles); the pile's only good unless it has alternatives.</summary>
@@ -166,13 +176,16 @@ public sealed class ProductionDefinition
     public IReadOnlyList<IReadOnlyList<ushort>> Alternatives { get; }
     /// <summary>Units of each input one cycle consumes.</summary>
     public IReadOnlyList<int> InputAmounts { get; }
+    /// <summary>Good a cycle piles, or <see cref="NoOutput"/> for a planter.</summary>
     public ushort Output { get; }
     /// <summary>Ticks of one work cycle.</summary>
     public int CycleTicks { get; }
     /// <summary>What a cycle needs in reach (tree, stone, game, fish, water, fertile land), or <see cref="HarvestSource.None"/>.</summary>
     public HarvestSource Harvest { get; }
-    /// <summary>Harvest radius in tiles around the building centre (0 without harvest).</summary>
+    /// <summary>Harvest or planting radius in tiles around the building centre (0 without either).</summary>
     public int Radius { get; }
+    /// <summary>Object a cycle plants (<see cref="MapObject.Tree"/> for the forester), or <see cref="MapObject.None"/>.</summary>
+    public MapObject Plant { get; }
 
     /// <summary>Input pile index of <paramref name="good"/>, or -1 if the building does not take it.</summary>
     public int InputIndexOf(int good)

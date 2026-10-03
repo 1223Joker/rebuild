@@ -61,6 +61,7 @@ namespace Rebuild.Analyzers
             public string Output = "";
             public long Ticks;
             public string Harvest = "None";
+            public string Plant = "None";
             public long Radius;
         }
 
@@ -260,6 +261,10 @@ namespace Rebuild.Analyzers
                             default: throw new FormatException("harvest must be tree, stone, game, fish, water, fertile, coal, iron_ore or gold_ore");
                         }
                         break;
+                    case "plant":
+                        if ((string)kv.Value! != "tree") throw new FormatException("plant must be tree");
+                        p.Plant = "Tree";
+                        break;
                     case "radius":
                         p.Radius = (long)kv.Value!;
                         if (p.Radius < 1 || p.Radius > MaxHarvestRadius) throw new FormatException("'radius' must be 1.." + MaxHarvestRadius.ToString(CultureInfo.InvariantCulture));
@@ -267,10 +272,18 @@ namespace Rebuild.Analyzers
                     default: throw new FormatException("unknown production field '" + kv.Key + "'");
                 }
             }
-            if (p.Output.Length == 0) throw new FormatException("production without 'output'");
+            if (p.Plant != "None")
+            {
+                if (p.Output.Length != 0 || p.Harvest != "None") throw new FormatException("'plant' excludes 'output' and 'harvest'");
+                if (p.Radius == 0) throw new FormatException("'plant' needs a 'radius'");
+            }
+            else
+            {
+                if (p.Output.Length == 0) throw new FormatException("production without 'output'");
+                if ((p.Harvest != "None") != (p.Radius > 0)) throw new FormatException("'harvest' and 'radius' go together");
+            }
             if (p.Ticks == 0) throw new FormatException("production without 'ticks'");
             if (p.Inputs.Count > MaxInputs) throw new FormatException("production has more than " + MaxInputs.ToString(CultureInfo.InvariantCulture) + " inputs");
-            if ((p.Harvest != "None") != (p.Radius > 0)) throw new FormatException("'harvest' and 'radius' go together");
             return p;
         }
 
@@ -299,9 +312,11 @@ namespace Rebuild.Analyzers
             sb.Append(" }, new int[] { ");
             for (int i = 0; i < p.Inputs.Count; i++)
                 sb.Append(i == 0 ? "" : ", ").Append(p.Inputs[i].Value.ToString(CultureInfo.InvariantCulture));
-            sb.Append(" }, (ushort)Rebuild.Sim.Goods.GoodIds.").Append(CultureDataGenerator.PascalCase(p.Output)).Append(", ")
+            sb.Append(" }, ").Append(p.Output.Length == 0
+                    ? "Rebuild.Sim.Buildings.ProductionDefinition.NoOutput"
+                    : "(ushort)Rebuild.Sim.Goods.GoodIds." + CultureDataGenerator.PascalCase(p.Output)).Append(", ")
               .Append(p.Ticks.ToString(CultureInfo.InvariantCulture)).Append(", Rebuild.Sim.Buildings.HarvestSource.").Append(p.Harvest).Append(", ")
-              .Append(p.Radius.ToString(CultureInfo.InvariantCulture)).Append(")");
+              .Append(p.Radius.ToString(CultureInfo.InvariantCulture)).Append(", Rebuild.Sim.MapGen.MapObject.").Append(p.Plant).Append(")");
             return sb.ToString();
         }
 
