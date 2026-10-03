@@ -302,7 +302,7 @@
 |---|---|
 | User: "Production Buildings should not need wood to heat it" → the step 22 code is reverted (`git revert` of 7a5667f, docs kept): no fuel pile, no heat counters, no cold slowdown at production buildings; homes keep heating (step 19) | done |
 | Save format 19, `GameVersion` 0.26.0 (forward bump; the code equals step 21); golden `m2-build` hash back to its step 21 value, `m0-meta` unchanged | done |
-| Tests / CI | 227 pass in Debug and Release locally; new assertion in `HouseholdTests` that a production building has no need counters; float-ban and golden-version checks pass locally; CI: see below | done |
+| Tests / CI | 227 pass in Debug and Release locally; new assertion in `HouseholdTests` that a production building has no need counters; float-ban and golden-version checks pass locally; **CI run 37144272545 green** on `main` (66f5232): 3 runners × Debug/Release, `cross-os-hashes` and `golden-version` pass | done |
 
 - Design round 2026-10-03 (user request): population needs (every settler needs a bed, food, water; winter heating with log/coal; culture differences) and seasons/weather events (blizzard/thunderstorm: shelter or die, lightning, fire, floods, …) → [12-needs-seasons-weather](../12-needs-seasons-weather.md), [ADR 0009](../decisions/0009-needs-seasons-weather.md) (proposed, H9), roadmap M2 +3 w and new M7b (+4 w, total ≈ 121 w). No code changed yet.
 
