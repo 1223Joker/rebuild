@@ -4,6 +4,7 @@ using Rebuild.Sim.Buildings;
 using Rebuild.Sim.Commands;
 using Rebuild.Sim.Core;
 using Rebuild.Sim.Cultures;
+using Rebuild.Sim.Goods;
 using Rebuild.Sim.MapGen;
 using Rebuild.Sim.Match;
 using Rebuild.Sim.Serialization;
@@ -26,7 +27,7 @@ public sealed class Simulation
     public const int TicksPerTurn = 2;
 
     private const uint SaveMagic = 0x56415342; // "BSAV" little-endian
-    private const ushort SaveFormatVersion = 3;
+    private const ushort SaveFormatVersion = 4;
 
     private readonly PlayerState[] _players;
     private readonly PlayerCultureTable?[] _cultureTables;
@@ -75,7 +76,8 @@ public sealed class Simulation
 
     /// <summary>
     /// Starts a new match: generates the map, resolves random cultures with the Setup RNG stream and places the
-    /// complete start castle (centred on the start, with its territory claim) of every Human/AI slot in slot order. Throws <see cref="System.ArgumentException"/>
+    /// complete start castle (centred on the start, with its territory claim and the start stock of every good) of every
+    /// Human/AI slot in slot order. Throws <see cref="System.ArgumentException"/>
     /// if the setup does not fit its map spec or no valid map exists for the spec.
     /// </summary>
     public static Simulation Create(MatchSetup setup)
@@ -121,7 +123,9 @@ public sealed class Simulation
             if (!buildings.IsFootprintFree(x, y, castle.Side))
                 throw new System.ArgumentException($"Start castle of slot {i} does not fit at ({start.X}, {start.Y})", nameof(setup));
             int claim = territory.AddClaim((byte)i, start.X, start.Y, castle.TerritoryRadius);
-            buildings.Add(BuildingIds.Castle, (byte)i, x, y, 0, BuildingState.Complete, claim);
+            int id = buildings.Add(BuildingIds.Castle, (byte)i, x, y, 0, BuildingState.Complete, claim);
+            var stock = buildings.StockAt(buildings.IndexOf(id))!;
+            foreach (var good in GoodCatalog.All) stock[good.Index] = good.StartStock;
         }
         return new Simulation(setup, map, 0, players,
             Pcg32.ForStream(setup.MatchSeed, RngStream.Economy),
@@ -161,7 +165,8 @@ public sealed class Simulation
 
     private void StepTick()
     {
-        // Systems run here in a fixed order (construction, production, logistics, combat, ...), from M2 on.
+        // Systems run here in a fixed order: construction, then (later M2 steps) production, logistics, combat, ...
+        Construction.Step(Tick, Buildings, Territory);
         Tick++;
     }
 
@@ -193,8 +198,12 @@ public sealed class Simulation
                 Buildings.Add(type, c.Slot, x, y, rotation, BuildingState.ConstructionSite, claimId: 0);
                 break;
             case CommandType.CancelConstruction:
-                BuildingCommands.TryReadCancel(c, out int id);
-                Buildings.Remove(id);
+                BuildingCommands.TryReadId(c, out int id);
+                Construction.Cancel(Buildings, id);
+                break;
+            case CommandType.Demolish:
+                BuildingCommands.TryReadId(c, out int demolished);
+                Construction.Demolish(Buildings, Territory, demolished);
                 break;
             // PlayerJoined, Pause, Resume and SetSpeed are handled by the lockstep scheduler; the sim only
             // sees them in the log. Other gameplay commands get their handlers with their systems (M2+).

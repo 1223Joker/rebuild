@@ -21,8 +21,12 @@ public static class CommandValidator
                     && rotation <= BuildingRegistry.MaxRotation
                     && BuildingPlacement.Check(sim.Map, sim.Territory, sim.Buildings, c.Slot, type, x, y) == PlacementResult.Ok;
             case CommandType.CancelConstruction:
-                return BuildingCommands.TryReadCancel(c, out int id) && sim.Buildings.TryGet(id, out var b)
+                return BuildingCommands.TryReadId(c, out int id) && sim.Buildings.TryGet(id, out var b)
                     && b.Owner == c.Slot && b.State == BuildingState.ConstructionSite;
+            case CommandType.Demolish:
+                // Complete own buildings only (sites are cancelled); the castle cannot be demolished.
+                return BuildingCommands.TryReadId(c, out int target) && sim.Buildings.TryGet(target, out var d)
+                    && d.Owner == c.Slot && d.State == BuildingState.Complete && d.Definition.PlayerPlaceable;
             default:
                 // Other gameplay commands are validated by their systems once they exist; until then they are no-ops.
                 return false;

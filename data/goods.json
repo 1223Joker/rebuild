@@ -1,0 +1,33 @@
+{
+  "$comment": "Shared core goods (docs/06-economy.md §2). Order = good index in saves and commands. start = stock of each start castle (Normal start resources, docs/06-economy.md §3). Tools are separate goods, one per tool kind. Start amounts are ASSUMPTIONS to be tuned in playtests.",
+  "goods": [
+    { "id": "log", "name": "Log", "start": 0 },
+    { "id": "plank", "name": "Plank", "start": 40 },
+    { "id": "stone", "name": "Stone", "start": 30 },
+    { "id": "fish", "name": "Fish", "start": 10 },
+    { "id": "meat", "name": "Meat", "start": 10 },
+    { "id": "grain", "name": "Grain", "start": 0 },
+    { "id": "flour", "name": "Flour", "start": 0 },
+    { "id": "water", "name": "Water", "start": 0 },
+    { "id": "bread", "name": "Bread", "start": 10 },
+    { "id": "pig", "name": "Pig", "start": 0 },
+    { "id": "coal", "name": "Coal", "start": 0 },
+    { "id": "iron_ore", "name": "Iron ore", "start": 0 },
+    { "id": "gold_ore", "name": "Gold ore", "start": 0 },
+    { "id": "iron", "name": "Iron", "start": 0 },
+    { "id": "gold", "name": "Gold", "start": 0 },
+    { "id": "sword", "name": "Sword", "start": 0 },
+    { "id": "spear", "name": "Spear", "start": 0 },
+    { "id": "bow", "name": "Bow", "start": 0 },
+    { "id": "axe", "name": "Axe", "start": 3 },
+    { "id": "saw", "name": "Saw", "start": 1 },
+    { "id": "pickaxe", "name": "Pickaxe", "start": 3 },
+    { "id": "shovel", "name": "Shovel", "start": 2 },
+    { "id": "hammer", "name": "Hammer", "start": 4 },
+    { "id": "scythe", "name": "Scythe", "start": 1 },
+    { "id": "fishing_rod", "name": "Fishing rod", "start": 1 },
+    { "id": "hunting_bow", "name": "Hunting bow", "start": 1 },
+    { "id": "cleaver", "name": "Cleaver", "start": 1 },
+    { "id": "bucket", "name": "Bucket", "start": 1 }
+  ]
+}

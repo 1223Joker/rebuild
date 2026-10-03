@@ -106,7 +106,8 @@ public class BuildingTests
         Run(sim, BuildingCommands.Place(0, 0, BuildingIds.Sawmill, x, y, rotation: 2));
         Assert.Equal(0, sim.RejectedCommands);
         var site = sim.Buildings.All[^1];
-        Assert.Equal(new Building(3, BuildingIds.Sawmill, 0, x, y, 2, BuildingState.ConstructionSite, 0), site);
+        // Turn 0 ran ticks 0 and 1: the first plank arrived at tick 0 and two build ticks are done.
+        Assert.Equal(new Building(3, BuildingIds.Sawmill, 0, x, y, 2, BuildingState.ConstructionSite, 0, 1, 0, 2), site);
         for (int dy = 0; dy < 3; dy++)
             for (int dx = 0; dx < 3; dx++)
                 Assert.Equal(site.Id, sim.Buildings.AtTile(sim.Map.Index(x + dx, y + dy)));
@@ -232,8 +233,10 @@ public class BuildingTests
         var good = Encode(sim.Buildings);
         Assert.Equal(sim.Buildings.All, Read(good).All);
 
-        // Layout: nextId(4) count(4) then per building id(4) type(2) owner(1) x(2) y(2) rot(1) state(1) claim(4) = 17 bytes.
+        // Layout: nextId(4) count(4) then per building id(4) type(2) owner(1) x(2) y(2) rot(1) state(1) claim(4)
+        // planks(1) stone(1) work(2) stock flag(1) [stock 4 × goods]; a castle takes 22 + 4 × goods bytes.
         const int first = 8;
+        int second = first + 22 + 4 * Rebuild.Sim.Goods.GoodCatalog.All.Count;
         var cases = new (int Offset, byte Value)[]
         {
             (0, 0),                 // next id 0
@@ -243,7 +246,7 @@ public class BuildingTests
             (first + 11, 9),        // rotation
             (first + 12, 5),        // state
             (first + 13, 99),       // claim that does not exist
-            (first + 17 + 13, 1),   // second castle points at the first castle's claim (other owner)
+            (second + 13, 1),       // second castle points at the first castle's claim (other owner)
         };
         foreach (var (offset, value) in cases)
         {
@@ -253,7 +256,7 @@ public class BuildingTests
         }
         // Second castle moved onto the first one.
         var overlap = (byte[])good.Clone();
-        System.Array.Copy(good, first + 7, overlap, first + 17 + 7, 4);
+        System.Array.Copy(good, first + 7, overlap, second + 7, 4);
         Assert.Throws<InvalidDataException>(() => Read(overlap));
     }
 
@@ -269,7 +272,6 @@ public class BuildingTests
         Assert.True(placed - live >= 5, $"cancelled {placed - live}");
         Assert.True(sim.RejectedCommands >= 200, $"rejected {sim.RejectedCommands}");
         Assert.Contains(sim.Buildings.All, b => b.Definition.Terrain == BuildingTerrain.Mountain);
-        Assert.All(sim.Buildings.All, b => Assert.Equal(b.Type == BuildingIds.Castle, b.State == BuildingState.Complete));
         Assert.Equal(Replay.Run(log)[^1], sim.ComputeHash());
         Assert.Equal(sim.ComputeHash(), Simulation.Load(sim.Save()).ComputeHash());
     }

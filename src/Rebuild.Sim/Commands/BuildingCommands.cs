@@ -5,12 +5,12 @@ namespace Rebuild.Sim.Commands;
 /// <summary>
 /// Builders and payload readers for building commands (docs/01-architecture.md §4).
 /// PlaceBuilding payload: u16 type, u16 x, u16 y, u8 rotation (footprint top-left tile).
-/// CancelConstruction payload: i32 building id.
+/// CancelConstruction and Demolish payload: i32 building id.
 /// </summary>
 public static class BuildingCommands
 {
     public const int PlacePayloadBytes = 7;
-    public const int CancelPayloadBytes = 4;
+    public const int IdPayloadBytes = 4;
 
     public static Command Place(byte slot, ushort seq, ushort type, int x, int y, byte rotation = 0)
     {
@@ -22,11 +22,15 @@ public static class BuildingCommands
         return new Command(CommandType.PlaceBuilding, slot, 0, seq, w.ToArray());
     }
 
-    public static Command Cancel(byte slot, ushort seq, int buildingId)
+    public static Command Cancel(byte slot, ushort seq, int buildingId) => WithId(CommandType.CancelConstruction, slot, seq, buildingId);
+
+    public static Command Demolish(byte slot, ushort seq, int buildingId) => WithId(CommandType.Demolish, slot, seq, buildingId);
+
+    private static Command WithId(CommandType type, byte slot, ushort seq, int buildingId)
     {
-        var w = new CanonicalWriter(CancelPayloadBytes);
+        var w = new CanonicalWriter(IdPayloadBytes);
         w.WriteInt32(buildingId);
-        return new Command(CommandType.CancelConstruction, slot, 0, seq, w.ToArray());
+        return new Command(type, slot, 0, seq, w.ToArray());
     }
 
     public static bool TryReadPlace(in Command c, out ushort type, out int x, out int y, out byte rotation)
@@ -41,10 +45,11 @@ public static class BuildingCommands
         return true;
     }
 
-    public static bool TryReadCancel(in Command c, out int buildingId)
+    /// <summary>Reads the building id of a CancelConstruction or Demolish command.</summary>
+    public static bool TryReadId(in Command c, out int buildingId)
     {
         buildingId = 0;
-        if (c.Payload.Length != CancelPayloadBytes) return false;
+        if (c.Payload.Length != IdPayloadBytes) return false;
         buildingId = new CanonicalReader(c.Payload).ReadInt32();
         return true;
     }

@@ -69,8 +69,10 @@ public static class SampleLogs
     /// <summary>
     /// M2 building script: both players place random building types around their castle, half at random
     /// tiles (mostly enemy/no-man's land, water or other buildings, so rejected) and half at the first valid
-    /// spot scanning from a random tile; they cancel random building ids and send malformed payloads; player 1
-    /// leaves at 3/4. A shadow simulation runs along to find valid spots and the next building id.
+    /// spot scanning from a random tile; they cancel random building ids, demolish own complete buildings or
+    /// random ids and send malformed payloads; valid placements pause while a slot has 4 open sites, so the
+    /// castle stock completes buildings (towers extend the territory) until it runs out;
+    /// player 1 leaves at 3/4. A shadow simulation runs along to find valid spots and building ids.
     /// </summary>
     public static CommandLog BuildScript(ulong seed, int turns)
     {
@@ -101,19 +103,27 @@ public static class SampleLogs
                         ushort type = (ushort)rng.NextInt(BuildingCatalog.All.Count + 1); // + 1: unknown type
                         int x = start.X - 20 + rng.NextInt(41);
                         int y = start.Y - 20 + rng.NextInt(41);
-                        if (kind >= 7) FindValidSpot(sim, slot, type, ref x, ref y); // half of them aim at a valid spot
+                        // Half aim at a valid spot, while the slot has few open sites (so the castle stock completes some).
+                        if (kind >= 7 && OpenSites(sim, slot) < MaxOpenSites) FindValidSpot(sim, slot, type, ref x, ref y);
                         byte rotation = (byte)rng.NextInt(5); // 4 is invalid
                         commands.Add(BuildingCommands.Place(slot, seq[slot]++, type, x, y, rotation));
                     }
-                    else if (kind < 18)
+                    else if (kind < 16)
                     {
                         commands.Add(BuildingCommands.Cancel(slot, seq[slot]++, rng.NextInt(sim.Buildings.NextId + 1)));
+                    }
+                    else if (kind < 18)
+                    {
+                        // Half aim at an own complete building (valid unless it is the castle), half at a random id.
+                        int id = rng.NextInt(sim.Buildings.NextId + 1);
+                        if (kind == 16) id = PickOwnComplete(sim, slot, id);
+                        commands.Add(BuildingCommands.Demolish(slot, seq[slot]++, id));
                     }
                     else
                     {
                         var payload = new byte[rng.NextInt(9)];
                         for (int b = 0; b < payload.Length; b++) payload[b] = (byte)rng.NextUInt();
-                        var type = kind == 18 ? CommandType.PlaceBuilding : CommandType.CancelConstruction;
+                        var type = kind == 18 ? CommandType.PlaceBuilding : payload.Length % 2 == 0 ? CommandType.CancelConstruction : CommandType.Demolish;
                         commands.Add(new Command(type, slot, turn, seq[slot]++, payload));
                     }
                 }
@@ -124,6 +134,25 @@ public static class SampleLogs
             sim.ExecuteTurn(bundle);
         }
         return log;
+    }
+
+    private const int MaxOpenSites = 4;
+
+    private static int OpenSites(Simulation sim, byte slot)
+    {
+        int n = 0;
+        foreach (var b in sim.Buildings.All)
+            if (b.Owner == slot && b.State == BuildingState.ConstructionSite) n++;
+        return n;
+    }
+
+    /// <summary>The <paramref name="pick"/>-th (mod count) complete building of the slot, or <paramref name="pick"/> if it has none.</summary>
+    private static int PickOwnComplete(Simulation sim, byte slot, int pick)
+    {
+        var own = new List<int>();
+        foreach (var b in sim.Buildings.All)
+            if (b.Owner == slot && b.State == BuildingState.Complete) own.Add(b.Id);
+        return own.Count == 0 ? pick : own[pick % own.Count];
     }
 
     /// <summary>Moves (x, y) to the first valid spot in row-major order from (x, y) within a 41² window around the slot's start.</summary>

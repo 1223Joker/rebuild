@@ -23,7 +23,7 @@ public enum BuildingTerrain : byte
 public sealed class BuildingDefinition
 {
     public BuildingDefinition(int index, string id, string name, BuildingSize size, BuildingTerrain terrain,
-        int territoryRadius, int costPlanks, int costStone, bool playerPlaceable)
+        int territoryRadius, int costPlanks, int costStone, bool playerPlaceable, bool isStorage)
     {
         Index = index;
         Id = id;
@@ -34,6 +34,7 @@ public sealed class BuildingDefinition
         CostPlanks = costPlanks;
         CostStone = costStone;
         PlayerPlaceable = playerPlaceable;
+        IsStorage = isStorage;
     }
 
     /// <summary>Type index = position in data/buildings.json (used in commands and saves).</summary>
@@ -48,6 +49,10 @@ public sealed class BuildingDefinition
     public int CostStone { get; }
     /// <summary>False for buildings only the sim creates (the start castle).</summary>
     public bool PlayerPlaceable { get; }
+    /// <summary>Holds a goods stock once complete (castle, storehouse).</summary>
+    public bool IsStorage { get; }
+    /// <summary>Plank + stone units a construction site needs.</summary>
+    public int CostTotal => CostPlanks + CostStone;
 
     /// <summary>Footprint edge in tiles: S 2, M 3, L 4 (ASSUMPTION, docs/06-economy.md §1).</summary>
     public int Side => Size switch

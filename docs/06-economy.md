@@ -58,6 +58,8 @@ flowchart LR
   WS -->|sword| BK[Barracks] -->|soldier| MIL[Towers / Castle]
   GS -->|gold| MIL
 ```
+As built (M2 step 3): [data/goods.json](../data/goods.json) lists 28 goods — the 18 below plus one good per tool kind (axe, saw, pickaxe, shovel, hammer, scythe, fishing rod, hunting bow, cleaver, bucket) instead of a tool family with sub-types — with each good's start-castle stock (ASSUMPTION: 40 planks, 30 stone, 10 each of fish/meat/bread, a few tools). It is compiled into `GoodCatalog`/`GoodIds` (error RB0102 on bad data); its hash is part of `GameVersion`.
+
 Goods (21 shared): log, plank, stone, fish, meat, grain, flour, water, bread, pig, coal, iron ore, gold ore, iron, gold, sword, spear, bow (arrows abstracted into bow), + culture goods ([10-cultures](10-cultures.md)), + tools (axe, saw, pickaxe, shovel, hammer, scythe, rod, bow, cleaver, bucket → tracked as one "tool" family with sub-type).
 
 ## 3. Settlers
@@ -94,6 +96,8 @@ stateDiagram-v2
 ```
 
 Construction: site placed → digger levels terrain → builder works while materials arrive (requests for planks/stone) → building finished → worker request.
+
+As built (M2 step 3, `src/Rebuild.Sim/World/Construction.cs`, runs first in every tick): castle and storehouse (`"storage": true` in buildings.json) hold a stock per good once complete; the start castle starts with the goods' start stock. Until carriers, builders and diggers exist, supply is a placeholder: every 10 ticks (1 s) each construction site takes one unit — all planks first, then stone — straight from its owner's lowest-id storage building that has it; sites are served in id order, so older sites win when stock is short. Each delivered unit allows 20 build ticks (2 s, ASSUMPTION); when the full cost is worked in, the building is complete, a military building adds its territory claim (r from data) and a storehouse gets an empty stock. `CancelConstruction` returns the delivered materials to the owner's lowest-id storage building. `Demolish(id)` (own complete building, not the castle) removes the building, its stock and its claim (tiles fall to older covering claims); nothing is refunded and buildings left outside the territory stay until capture rules exist (M4). All ASSUMPTIONS, to be replaced by logistics requests in the next steps.
 
 Production: building cycles `wait inputs → work (N ticks) → place output in pile`; pile cap 8 → building pauses when full. Mines consume one food per cycle; deposits deplete.
 

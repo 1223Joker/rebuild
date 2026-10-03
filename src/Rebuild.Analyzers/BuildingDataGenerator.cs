@@ -50,6 +50,7 @@ namespace Rebuild.Analyzers
             public long Planks;
             public long Stone;
             public bool PlayerPlaceable = true;
+            public bool Storage;
         }
 
         private static void Emit(SourceProductionContext ctx, ImmutableArray<FileData> files)
@@ -99,7 +100,8 @@ namespace Rebuild.Analyzers
                   .Append(b.Territory.ToString(CultureInfo.InvariantCulture)).Append(", ")
                   .Append(b.Planks.ToString(CultureInfo.InvariantCulture)).Append(", ")
                   .Append(b.Stone.ToString(CultureInfo.InvariantCulture)).Append(", ")
-                  .Append(b.PlayerPlaceable ? "true" : "false").AppendLine("),");
+                  .Append(b.PlayerPlaceable ? "true" : "false").Append(", ")
+                  .Append(b.Storage ? "true" : "false").AppendLine("),");
             }
             sb.AppendLine("    };");
             sb.AppendLine("}");
@@ -177,6 +179,7 @@ namespace Rebuild.Analyzers
                         }
                         break;
                     case "player_placeable": b.PlayerPlaceable = (bool)kv.Value!; break;
+                    case "storage": b.Storage = (bool)kv.Value!; break;
                     default: throw new FormatException("unknown field '" + kv.Key + "'");
                 }
             }

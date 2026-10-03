@@ -1,8 +1,8 @@
 {
-  "$comment": "Shared core buildings (docs/06-economy.md §1). Order = type index in PlaceBuilding commands. size S/M/L = 2x2/3x3/4x4 tile footprint; placement land = buildable tiles, mountain = mountain tiles (mines); territory = claim radius once complete; cost = construction materials. Costs are ASSUMPTIONS to be tuned in playtests.",
+  "$comment": "Shared core buildings (docs/06-economy.md §1). Order = type index in PlaceBuilding commands. size S/M/L = 2x2/3x3/4x4 tile footprint; placement land = buildable tiles, mountain = mountain tiles (mines); territory = claim radius once complete; storage = holds a goods stock once complete; cost = construction materials. Costs are ASSUMPTIONS to be tuned in playtests.",
   "buildings": [
-    { "id": "castle", "name": "Castle", "size": "L", "placement": "land", "territory": 16, "cost": { "plank": 0, "stone": 0 }, "player_placeable": false },
-    { "id": "storehouse", "name": "Storehouse", "size": "M", "placement": "land", "cost": { "plank": 4, "stone": 3 } },
+    { "id": "castle", "name": "Castle", "size": "L", "placement": "land", "territory": 16, "storage": true, "cost": { "plank": 0, "stone": 0 }, "player_placeable": false },
+    { "id": "storehouse", "name": "Storehouse", "size": "M", "placement": "land", "storage": true, "cost": { "plank": 4, "stone": 3 } },
     { "id": "residence", "name": "Residence", "size": "S", "placement": "land", "cost": { "plank": 2, "stone": 2 } },
     { "id": "woodcutter", "name": "Woodcutter", "size": "S", "placement": "land", "cost": { "plank": 2, "stone": 0 } },
     { "id": "forester", "name": "Forester", "size": "S", "placement": "land", "cost": { "plank": 2, "stone": 0 } },

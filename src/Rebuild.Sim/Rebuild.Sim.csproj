@@ -13,6 +13,7 @@
   <ItemGroup>
     <AdditionalFiles Include="../../data/cultures/*/culture.json" />
     <AdditionalFiles Include="../../data/buildings.json" />
+    <AdditionalFiles Include="../../data/goods.json" />
     <InternalsVisibleTo Include="Rebuild.Sim.Tests" />
   </ItemGroup>
 </Project>
